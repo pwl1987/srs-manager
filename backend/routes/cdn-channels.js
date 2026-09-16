@@ -8,7 +8,7 @@ router.use(jwtAuth);
 router.get('/', async (req, res) => {
   try {
     const channels = await cdnService.listChannels();
-    res.json({ channels });
+    res.json(channels);
   } catch (err) {
     res.status(500).json({ error: `Failed to fetch channels: ${err.message}` });
   }

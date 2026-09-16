@@ -8,7 +8,7 @@ router.use(jwtAuth);
 router.get('/', async (req, res) => {
   try {
     const streams = await streamService.listStreams();
-    res.json({ streams });
+    res.json(streams);
   } catch (err) {
     res.status(500).json({ error: `Failed to fetch streams: ${err.message}` });
   }
