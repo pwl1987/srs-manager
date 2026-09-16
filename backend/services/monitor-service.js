@@ -29,15 +29,15 @@ async function getStreamMonitor(streamId) {
 }
 
 async function getDashboardStats() {
-  const onlineStreams = db.prepare('SELECT COUNT(*) as count FROM streams WHERE status = "online"').get().count;
-  const totalViewers = db.prepare('SELECT COALESCE(SUM(viewers), 0) as total FROM streams WHERE status = "online"').get().total;
-  const totalBitrate = db.prepare('SELECT COALESCE(SUM(bitrate), 0) as total FROM streams WHERE status = "online"').get().total;
+  const onlineStreams = db.prepare('SELECT COUNT(*) as count FROM streams WHERE status = \'online\'').get().count;
+  const totalViewers = db.prepare('SELECT COALESCE(SUM(viewers), 0) as total FROM streams WHERE status = \'online\'').get().total;
+  const totalBitrate = db.prepare('SELECT COALESCE(SUM(bitrate), 0) as total FROM streams WHERE status = \'online\'').get().total;
 
-  const activeChannels = db.prepare('SELECT COUNT(*) as count FROM cdn_channels WHERE status = "active"').get().count;
+  const activeChannels = db.prepare('SELECT COUNT(*) as count FROM cdn_channels WHERE status = \'active\'').get().count;
   const totalChannels = db.prepare('SELECT COUNT(*) as count FROM cdn_channels').get().count;
 
-  const activeRequests = db.prepare('SELECT COUNT(*) as count FROM distribution_requests WHERE status = "active"').get().count;
-  const activeForwards = db.prepare('SELECT COUNT(*) as count FROM forward_tasks WHERE enabled = 1 AND status != "error"').get().count;
+  const activeRequests = db.prepare('SELECT COUNT(*) as count FROM distribution_requests WHERE status = \'active\'').get().count;
+  const activeForwards = db.prepare('SELECT COUNT(*) as count FROM forward_tasks WHERE enabled = 1 AND status != \'error\'').get().count;
 
   return {
     online_streams: onlineStreams,

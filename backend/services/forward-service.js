@@ -64,7 +64,7 @@ function deleteTask(id) {
 
 // SRS Forward backend: returns forward targets for a stream
 function getForwardTargets(streamName) {
-  const tasks = db.prepare('SELECT * FROM forward_tasks WHERE enabled = 1 AND status != "error"').all();
+  const tasks = db.prepare('SELECT * FROM forward_tasks WHERE enabled = 1 AND status != \'error\'').all();
   const stream = db.prepare('SELECT id FROM streams WHERE name = ?').get(streamName);
 
   return tasks

@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS streams (
   pull_url TEXT,
   status TEXT DEFAULT 'offline',
   last_online_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   bitrate INTEGER DEFAULT 0,
   viewers INTEGER DEFAULT 0
 );
