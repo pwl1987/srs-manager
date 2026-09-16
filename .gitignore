@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+frontend/dist/
+
+# Environment variables
+.env
+
+# SQLite database (runtime data)
+data/
+
+# Mimosa security tool state
+.mimosa/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
