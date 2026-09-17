@@ -1,6 +1,7 @@
 {
   "brand": {
-    "subtitle": "流媒体管理"
+    "subtitle": "直播运维控制台",
+    "console": "Operations Console"
   },
   "actions": {
     "save": "保存",
@@ -60,14 +61,14 @@
     "VALIDATION_TEMPLATE_INVALID": "转码模板配置无效，请检查后保存",
     "VALIDATION_ACCESSKEY_MISSING": "请填写 AccessKey ID 和 AccessKey Secret",
     "VALIDATION_WANGSU_CREDENTIALS_MISSING": "请填写网宿 AccessKey ID 和 AccessKey Secret",
-    "VALIDATION_WANGSU_AUTH_MISSING": "尚未配置网宿 CDN 凭据，请先在「网宿认证」页面配置后再创建频道",
+    "VALIDATION_WANGSU_AUTH_MISSING": "尚未配置网宿 CDN 凭据，请先在「网宿集成」页面配置后再创建频道",
     "CONFLICT_STREAM_EXISTS": "同名流已存在，请使用不同的名称",
     "CONFLICT_STREAM_NAME_IN_USE": "该流名称已被使用，请更换",
     "CONFLICT_DNS_RECORD_EXISTS": "DNS 记录 {{name}} 已存在",
     "NOT_FOUND_STREAM": "流 {{id}} 不存在",
     "NOT_FOUND_CHANNEL": "频道 {{id}} 不存在",
     "NOT_FOUND_TEMPLATE": "转码模板 {{id}} 不存在",
-    "NOT_FOUND_KEY": "鉴权密钥 {{id}} 不存在",
+    "NOT_FOUND_KEY": "访问凭证 {{id}} 不存在",
     "NOT_FOUND_DISTRIBUTION": "分发申请 {{id}} 不存在",
     "NOT_FOUND_FORWARD_TASK": "转发任务 {{id}} 不存在",
     "NOT_FOUND_FORWARD_REQUEST": "转发请求 {{id}} 不存在",
@@ -77,10 +78,10 @@
     "EXTERNAL_WANGSU_AUTH_FAILED": "网宿认证失败，请检查 AccessKey 是否正确",
     "EXTERNAL_WANGSU_CHANNEL_NOT_FOUND": "网宿频道不存在，请检查频道配置",
     "EXTERNAL_ALIYUN_AUTH_FAILED": "阿里云 DNS 认证失败，请检查 AccessKey",
-    "EXTERNAL_ALIYUN_AUTH_MISSING": "未配置阿里云 DNS 凭据，请先在设置中添加",
+    "EXTERNAL_ALIYUN_AUTH_MISSING": "未配置阿里云 DNS 凭据，请先在系统设置中添加",
     "EXTERNAL_ALIYUN_DOMAIN_EXISTS": "域名 {{domain}} 已在阿里云存在",
     "EXTERNAL_ALIYUN_DOMAIN_NOT_OWNED": "域名 {{domain}} 不在当前阿里云账户下",
-    "EXTERNAL_DNS_DOMAIN_NOT_CONFIGURED": "未配置 DNS 基础域名，请先在设置中添加",
+    "EXTERNAL_DNS_DOMAIN_NOT_CONFIGURED": "未配置 DNS 基础域名，请先在系统设置中添加",
     "EXTERNAL_CREDENTIAL_VERIFICATION_FAILED": "凭据验证失败，请检查 AccessKey 是否正确",
     "INTERNAL_FETCH_STREAMS_FAILED": "获取流列表失败，请重试",
     "INTERNAL_CREATE_STREAM_FAILED": "创建流失败，请重试",
@@ -107,10 +108,23 @@
     "stopped": "已停止推流"
   },
   "dashboard": {
+    "eyebrow": "LIVE OPERATIONS",
+    "title": "运营中心",
+    "subtitle": "先看正在发生什么，再决定需要做什么。",
     "online": "在线",
     "activeTotal": "活跃/总计",
     "active": "活跃",
-    "recentActivity": "最近动态",
+    "systemStatus": "系统状态",
+    "connected": "运行正常",
+    "degraded": "连接异常",
+    "liveNow": "正在直播",
+    "noLive": "当前没有正在直播的流",
+    "distributionStatus": "分发与路由",
+    "cdnActive": "CDN 活跃",
+    "distributions": "分发申请",
+    "routes": "转发任务",
+    "configuredOffline": "{{count}} 路已配置但当前离线",
+    "recentActivity": "事件时间线",
     "activity": {
       "on_publish": "开始推流",
       "on_unpublish": "停止推流",
@@ -118,19 +132,25 @@
       "on_stop": "结束观看"
     }
   },
+  "navigationGroups": {
+    "operations": "运营",
+    "streaming": "直播",
+    "resources": "资源",
+    "system": "系统"
+  },
   "navigation": {
-    "dashboard": "仪表盘",
-    "streams": "流管理",
-    "cdnChannels": "CDN 频道",
-    "authKeys": "鉴权密钥",
+    "dashboard": "运营中心",
+    "streams": "直播流",
+    "cdnChannels": "CDN 分发",
+    "authKeys": "访问凭证",
     "distribution": "分发申请",
-    "forwarding": "拉流转发",
-    "monitor": "监控",
+    "forwarding": "转发路由",
+    "monitor": "实时监看",
     "transcode": "转码模板",
-    "wangsuAuth": "网宿认证",
-    "aliyunDnsAuth": "阿里云 DNS 认证",
-    "dnsRecords": "DNS 记录",
-    "settings": "设置"
+    "wangsuAuth": "网宿集成",
+    "aliyunDnsAuth": "阿里云 DNS",
+    "dnsRecords": "域名与 DNS",
+    "settings": "系统设置"
   },
   "labels": {
     "name": "名称",
@@ -146,12 +166,14 @@
     "searchPlaceholder": "搜索…"
   },
   "header": {
-    "server": "SRS 服务器"
+    "server": "SRS 节点",
+    "connected": "已连接",
+    "console": "运营控制台"
   },
   "notFound": {
     "title": "页面不存在",
     "description": "地址有误或页面已移动。",
-    "back": "返回首页"
+    "back": "返回运营中心"
   },
   "language": {
     "switch": "切换语言",
