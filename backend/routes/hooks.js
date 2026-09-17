@@ -3,25 +3,27 @@ const hooksHandler = require('../services/hooks-handler');
 
 const router = express.Router();
 
-// These endpoints are called by SRS, no JWT required
+// These endpoints are called by SRS, no JWT required.
+// SRS http_hooks protocol: HTTP 200 with JSON body {"code": 0} means "allow".
+// Any other code (or HTTP error) makes SRS reject/deny the event.
 router.post('/on_publish', (req, res) => {
   hooksHandler.handleOnPublish(req.body);
-  res.status(200).json({ ok: true });
+  res.status(200).json({ code: 0 });
 });
 
 router.post('/on_unpublish', (req, res) => {
   hooksHandler.handleOnUnpublish(req.body);
-  res.status(200).json({ ok: true });
+  res.status(200).json({ code: 0 });
 });
 
 router.post('/on_play', (req, res) => {
   hooksHandler.handleOnPlay(req.body);
-  res.status(200).json({ ok: true });
+  res.status(200).json({ code: 0 });
 });
 
 router.post('/on_stop', (req, res) => {
   hooksHandler.handleOnStop(req.body);
-  res.status(200).json({ ok: true });
+  res.status(200).json({ code: 0 });
 });
 
 module.exports = router;

@@ -1,0 +1,62 @@
+{
+  "title": "Transcode Templates",
+  "subtitle": "Manage SRS transcoding template configurations",
+  "columns": {
+    "name": "Name",
+    "vcodec": "Video Codec",
+    "acodec": "Audio Codec",
+    "videoConfig": "Video Params",
+    "audioConfig": "Audio Params",
+    "outputFormat": "Output Format",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "modal": {
+    "create": "Create Template",
+    "edit": "Edit Template",
+    "name": "Name",
+    "vcodec": "Video Codec",
+    "acodec": "Audio Codec",
+    "width": "Width",
+    "height": "Height",
+    "fps": "FPS",
+    "bitrate": "Bitrate (kbps)",
+    "audioBitrate": "Audio Bitrate (kbps)",
+    "outputFormat": "Output Format",
+    "enabled": "Enabled",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "actions": {
+    "create": "Create Template",
+    "srsConfig": "SRS Config",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "srsConfig": {
+    "title": "SRS Transcode Configuration",
+    "description": "Add this configuration snippet to SRS's nginx configuration, then reload SRS."
+  },
+  "vcodecOptions": {
+    "h264": "H.264",
+    "h265": "H.265",
+    "vp9": "VP9",
+    "none": "None (Audio Only)"
+  },
+  "acodecOptions": {
+    "aac": "AAC",
+    "mp3": "MP3",
+    "opus": "Opus",
+    "none": "None (Video Only)"
+  },
+  "outputFormatOptions": {
+    "rtmp": "RTMP",
+    "hls": "HLS",
+    "mp4": "MP4"
+  },
+  "empty": "No transcode templates"
+}

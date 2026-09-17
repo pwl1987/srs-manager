@@ -1,0 +1,46 @@
+{
+  "title": "Settings",
+  "subtitle": "System configuration",
+  "sections": {
+    "general": "General",
+    "srs": "SRS Configuration",
+    "dns": "DNS Settings"
+  },
+  "general": {
+    "timezone": "Timezone",
+    "language": "Language"
+  },
+  "dns": {
+    "baseDomain": "DNS Base Domain",
+    "baseDomainHelper": "Base domain for auto-creating CNAME records, e.g. live.example.com",
+    "cdnDomain": "CDN pull domain",
+    "cdnDomainHelper": "Used to build HLS/RTMP pull URLs, e.g. cdn.example.com"
+  },
+  "srs": {
+    "config": "SRS Configuration",
+    "configHelper": "SRS config file content (JSON format)",
+    "apiUrl": "API URL",
+    "apiToken": "API Token",
+    "rtmpPort": "RTMP Port",
+    "hooks": "Hooks",
+    "apiTokenSet": "Configured",
+    "apiTokenPlaceholder": "Leave blank to keep current",
+    "testConnection": "Test Connection",
+    "testing": "Testing...",
+    "testSuccess": "Connected: SRS {{version}}"
+  },
+  "ntp": {
+    "title": "NTP Time Sync",
+    "status": "Status",
+    "synced": "Synced",
+    "notSynced": "Not Synced",
+    "time": "Server Time",
+    "note": "Wangsu CDN API requires timestamp within 5 minutes of server time.",
+    "unsupported": "Not supported on this system",
+    "service": "NTP service",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "save": "Save Settings",
+  "saved": "Settings saved"
+}

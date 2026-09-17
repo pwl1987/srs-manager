@@ -71,6 +71,34 @@ async function revokeRequest(id) {
   return db.prepare('SELECT * FROM distribution_requests WHERE id = ?').get(id);
 }
 
+function updateRequest(id, updates) {
+  const request = db.prepare('SELECT * FROM distribution_requests WHERE id = ?').get(id);
+  if (!request) return null;
+
+  const allowed = ['applicant', 'region', 'purpose', 'pull_url', 'expires_at', 'notes'];
+  const fields = {};
+  for (const key of allowed) {
+    if (updates[key] !== undefined) fields[key] = updates[key];
+  }
+  if (Object.keys(fields).length > 0) {
+    const setClauses = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+    db.prepare(`UPDATE distribution_requests SET ${setClauses}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+      .run(...Object.values(fields), id);
+  }
+
+  db.prepare('INSERT INTO request_logs (request_id, action, detail) VALUES (?, ?, ?)')
+    .run(id, 'updated', 'Distribution request updated');
+
+  return db.prepare('SELECT * FROM distribution_requests WHERE id = ?').get(id);
+}
+
+function deleteRequest(id) {
+  const request = db.prepare('SELECT * FROM distribution_requests WHERE id = ?').get(id);
+  if (!request) return null;
+  db.prepare('DELETE FROM distribution_requests WHERE id = ?').run(id);
+  return { applicant: request.applicant };
+}
+
 // Check for expired requests and update status
 function checkExpiredRequests() {
   const now = new Date().toISOString();
@@ -80,5 +108,5 @@ function checkExpiredRequests() {
 
 module.exports = {
   listRequests, getRequest, getRequestLogs, getRequestsByApplicant,
-  createRequest, extendRequest, revokeRequest, checkExpiredRequests
+  createRequest, updateRequest, deleteRequest, extendRequest, revokeRequest, checkExpiredRequests
 };

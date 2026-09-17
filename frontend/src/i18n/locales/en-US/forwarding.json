@@ -1,0 +1,85 @@
+{
+  "title": "Stream Forwarding",
+  "subtitle": "Manage external pull sources and forwarding tasks",
+  "sources": {
+    "title": "External Pull Sources",
+    "columns": {
+      "name": "Name",
+      "url": "URL",
+      "protocol": "Protocol",
+      "mode": "Mode",
+      "actions": "Actions"
+    },
+    "modal": {
+      "create": "Create Source",
+      "edit": "Edit Source",
+      "name": "Name",
+      "url": "URL",
+      "protocol": "Protocol",
+      "mode": "Mode",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "actions": {
+      "create": "Create",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No pull sources"
+  },
+  "tasks": {
+    "title": "Forwarding Tasks",
+    "columns": {
+      "runtimeStatus": "Runtime status",
+      "error": "Error",
+      "stream": "Stream",
+      "source": "Source",
+      "targetType": "Target Type",
+      "targetUrl": "Target URL",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "modal": {
+      "create": "Create Task",
+      "edit": "Edit Task",
+      "stream": "Stream",
+      "source": "Source",
+      "targetType": "Target Type",
+      "targetUrl": "Target URL",
+      "enabled": "Enabled",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "actions": {
+      "create": "Create",
+      "toggle": "Toggle",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": "No forwarding tasks",
+    "note": "Tasks are configuration records: this version does not start a real forwarding process."
+  },
+  "protocol": {
+    "rtmp": "RTMP",
+    "srt": "SRT",
+    "hls": "HLS"
+  },
+  "mode": {
+    "pull": "Pull",
+    "push": "Push"
+  },
+  "targetType": {
+    "cdnChannel": "CDN Channel",
+    "srsEdge": "SRS Edge Node",
+    "customRtmp": "Custom RTMP"
+  },
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "taskStatus": {
+    "idle": "Idle",
+    "running": "Running",
+    "error": "Error"
+  }
+}

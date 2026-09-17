@@ -1,0 +1,45 @@
+{
+  "title": "DNS Records",
+  "subtitle": "Manage Aliyun DNS records",
+  "columns": {
+    "name": "Record Name",
+    "type": "Type",
+    "value": "Value",
+    "ttl": "TTL",
+    "status": "Status",
+    "createdAt": "Created",
+    "actions": "Actions"
+  },
+  "type": {
+    "A": "A",
+    "AAAA": "AAAA",
+    "CNAME": "CNAME",
+    "TXT": "TXT",
+    "MX": "MX"
+  },
+  "status": {
+    "active": "Active",
+    "pending": "Pending",
+    "error": "Error"
+  },
+  "actions": {
+    "edit": "Edit",
+    "delete": "Delete",
+    "copy": "Copy Value",
+    "more": "More"
+  },
+  "modal": {
+    "create": "Create DNS Record",
+    "edit": "Edit DNS Record",
+    "name": "Record Name",
+    "namePlaceholder": "e.g. cdn",
+    "type": "Record Type",
+    "value": "Record Value",
+    "valuePlaceholder": "e.g. 1.2.3.4 or target.example.com",
+    "ttl": "TTL (seconds)"
+  },
+  "empty": {
+    "title": "No DNS Records",
+    "description": "No DNS records created yet."
+  }
+}

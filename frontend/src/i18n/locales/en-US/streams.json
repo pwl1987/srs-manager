@@ -1,0 +1,65 @@
+{
+  "title": "Streams",
+  "subtitle": "Manage and monitor all live streams",
+  "columns": {
+    "name": "Stream Name",
+    "status": "Status",
+    "viewers": "Viewers",
+    "bitrate": "Bitrate",
+    "latency": "Latency",
+    "uptime": "Uptime",
+    "createdAt": "Created",
+    "actions": "Actions"
+  },
+  "status": {
+    "online": "Live",
+    "offline": "Stopped",
+    "streaming": "Streaming"
+  },
+  "actions": {
+    "copyPushUrl": "Copy Push URL",
+    "copyPullUrl": "Copy Pull URL",
+    "showKey": "Show Full Key",
+    "hideKey": "Hide Key",
+    "edit": "Edit",
+    "delete": "Delete",
+    "stopStream": "Stop Stream",
+    "preview": "Preview",
+    "obsGuide": "OBS Setup Guide ↗",
+    "qrcode": "QR Code",
+    "more": "More",
+    "expand": "View URLs"
+  },
+  "info": {
+    "pushAddress": "Push Address",
+    "pullAddress": "Pull Address",
+    "rtmp": "RTMP",
+    "hls": "HLS",
+    "webrtc": "WebRTC",
+    "key": "Key",
+    "keyMasked": "sk_live_****{{last4}}",
+    "keyShown": "sk_live_{{key}}"
+  },
+  "modal": {
+    "create": "Create Stream",
+    "edit": "Edit Stream",
+    "name": "Stream Name",
+    "namePlaceholder": "e.g. live1",
+    "protocol": "Protocol",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional description",
+    "pushUrl": "Push URL",
+    "pullUrlHls": "HLS Pull URL",
+    "pullUrlWebrtc": "WebRTC Pull URL"
+  },
+  "empty": {
+    "title": "No Streams",
+    "description": "No live streams created yet.",
+    "createButton": "Create Stream"
+  },
+  "preview": {
+    "error": "Playback failed: make sure the stream is publishing and the pull URL is reachable.",
+    "placeholder": "Pull domain not configured (placeholder address). Set the CDN domain in Settings first.",
+    "notSupported": "This browser does not support HLS playback."
+  }
+}

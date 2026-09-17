@@ -54,15 +54,4 @@ function rotateKey(id) {
   return db.prepare('SELECT * FROM auth_keys WHERE id = ?').get(id);
 }
 
-// Generate signed URL for pull streaming (Type A MD5 auth)
-function generateSignedUrl(baseUrl, key, expiresAt) {
-  const timestamp = new Date(expiresAt).getTime();
-  const stringToSign = `${baseUrl}&expires=${timestamp}&key=${key}`;
-  const md5 = crypto.createHash('md5').update(stringToSign).digest('hex');
-  const url = new URL(baseUrl);
-  url.searchParams.set('expires', timestamp.toString());
-  url.searchParams.set('md5', md5);
-  return url.toString();
-}
-
-module.exports = { listKeys, getKey, createKey, updateKey, deleteKey, rotateKey, generateSignedUrl, generateKey };
+module.exports = { listKeys, getKey, createKey, updateKey, deleteKey, rotateKey, generateKey };

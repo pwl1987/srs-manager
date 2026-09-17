@@ -1,4 +1,5 @@
 const wangsuService = require('./wangsu');
+const dnsService = require('./dns-service');
 const db = require('../database');
 
 async function listChannels() {
@@ -9,7 +10,7 @@ async function getChannel(id) {
   return db.prepare('SELECT * FROM cdn_channels WHERE id = ?').get(id) || null;
 }
 
-async function createChannel({ channel_name, stream_id, push_domain, pull_domain, region }) {
+async function createChannel({ channel_name, stream_id, push_domain, pull_domain, region, auto_dns }) {
   if (!channel_name || !push_domain) throw new Error('Channel name and push domain are required');
 
   const result = await wangsuService.createChannel({
@@ -31,21 +32,36 @@ async function createChannel({ channel_name, stream_id, push_domain, pull_domain
     region || null
   );
 
-  return db.prepare('SELECT * FROM cdn_channels WHERE channel_name = ?').get(channel_name);
+  const channel = db.prepare('SELECT * FROM cdn_channels WHERE channel_name = ?').get(channel_name);
+
+  let dnsRecord = null;
+  if (auto_dns) {
+    try {
+      dnsRecord = await dnsService.createCnameRecord(channel);
+    } catch (e) {
+      dnsRecord = { error: e.message };
+    }
+  }
+
+  return { channel, dnsRecord };
 }
 
-async function updateChannel(id, { region, stream_id }) {
+async function updateChannel(id, updates) {
   const channel = db.prepare('SELECT * FROM cdn_channels WHERE id = ?').get(id);
   if (!channel) return null;
 
-  const updates = {};
-  if (region !== undefined) updates.region = region;
-  if (stream_id !== undefined) updates.stream_id = stream_id;
+  // Whitelist of locally editable metadata. push/pull domains and the remote
+  // Wangsu channel are managed at creation time and are read-only afterwards.
+  const allowed = ['channel_name', 'region', 'stream_id'];
+  const fields = {};
+  for (const key of allowed) {
+    if (updates[key] !== undefined) fields[key] = updates[key];
+  }
 
-  if (Object.keys(updates).length > 0) {
-    const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+  if (Object.keys(fields).length > 0) {
+    const setClauses = Object.keys(fields).map(k => `${k} = ?`).join(', ');
     db.prepare(`UPDATE cdn_channels SET ${setClauses}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .run(...Object.values(updates), id);
+      .run(...Object.values(fields), id);
   }
 
   return db.prepare('SELECT * FROM cdn_channels WHERE id = ?').get(id);

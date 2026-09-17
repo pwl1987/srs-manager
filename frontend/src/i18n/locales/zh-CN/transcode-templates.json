@@ -1,0 +1,62 @@
+{
+  "title": "转码模板",
+  "subtitle": "管理 SRS 转码模板配置",
+  "columns": {
+    "name": "名称",
+    "vcodec": "视频编码",
+    "acodec": "音频编码",
+    "videoConfig": "视频参数",
+    "audioConfig": "音频参数",
+    "outputFormat": "输出格式",
+    "status": "状态",
+    "actions": "操作"
+  },
+  "modal": {
+    "create": "新建模板",
+    "edit": "编辑模板",
+    "name": "名称",
+    "vcodec": "视频编码",
+    "acodec": "音频编码",
+    "width": "宽度",
+    "height": "高度",
+    "fps": "FPS",
+    "bitrate": "码率 (kbps)",
+    "audioBitrate": "音频码率 (kbps)",
+    "outputFormat": "输出格式",
+    "enabled": "启用",
+    "save": "保存",
+    "cancel": "取消"
+  },
+  "actions": {
+    "create": "新建模板",
+    "srsConfig": "SRS 配置",
+    "edit": "编辑",
+    "delete": "删除"
+  },
+  "status": {
+    "enabled": "启用",
+    "disabled": "禁用"
+  },
+  "srsConfig": {
+    "title": "SRS 转码配置",
+    "description": "将此配置片段添加到 SRS 的 nginx 配置中，然后重新加载 SRS。"
+  },
+  "vcodecOptions": {
+    "h264": "H.264",
+    "h265": "H.265",
+    "vp9": "VP9",
+    "none": "无 (纯音频)"
+  },
+  "acodecOptions": {
+    "aac": "AAC",
+    "mp3": "MP3",
+    "opus": "Opus",
+    "none": "无 (纯视频)"
+  },
+  "outputFormatOptions": {
+    "rtmp": "RTMP",
+    "hls": "HLS",
+    "mp4": "MP4"
+  },
+  "empty": "暂无转码模板"
+}

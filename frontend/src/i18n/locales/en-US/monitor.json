@@ -1,0 +1,28 @@
+{
+  "title": "Monitor",
+  "subtitle": "Real-time SRS stream monitoring",
+  "labels": {
+    "selectStream": "Select Stream",
+    "selectStreamPlaceholder": "Select a stream...",
+    "videoPreview": "Video Preview",
+    "realTimeStatus": "Real-time Status",
+    "viewersTrend": "Viewers Trend",
+    "status": "Status",
+    "viewers": "Viewers",
+    "bitrate": "Bitrate",
+    "lastOnline": "Last Online",
+    "videoCodec": "Video Codec",
+    "audioCodec": "Audio Codec",
+    "fps": "FPS",
+    "duration": "Duration",
+    "clickToPlay": "Click to play"
+  },
+  "actions": {
+    "play": "Play",
+    "pause": "Pause"
+  },
+  "charts": {
+    "viewers24h": "Viewers (24h)"
+  },
+  "empty": "Please select a stream to start monitoring"
+}

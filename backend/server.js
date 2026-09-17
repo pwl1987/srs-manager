@@ -10,6 +10,8 @@ const app = express();
 app.use(cors({ origin: config.corsAllowedOrigins }));
 app.use(express.json());
 app.use(cookieParser());
+// Exposes req.refreshToken from the httpOnly cookie for /api/auth/refresh and /logout.
+app.use(require('./middleware/refresh-token'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -26,6 +28,8 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/streams', require('./routes/streams'));
 app.use('/api/cdn/channels', require('./routes/cdn-channels'));
 app.use('/api/cdn/auth-config', require('./routes/cdn-auth'));
+app.use('/api/dns/auth', require('./routes/dns-auth'));
+app.use('/api/dns/records', require('./routes/dns-records'));
 app.use('/api/keys', require('./routes/keys'));
 app.use('/api/distribution', require('./routes/distribution'));
 app.use('/api/external-sources', require('./routes/external-sources'));
@@ -39,8 +43,17 @@ app.use('/api/hooks', require('./routes/hooks'));
 // Static files (frontend build)
 const publicPath = path.join(__dirname, 'public');
 if (require('fs').existsSync(publicPath)) {
+  // No-cache for index.html so browsers fetch the fresh entry after deploys.
+  // Hashed JS/CSS assets remain cacheable via express.static.
+  app.use((req, res, next) => {
+    if (req.path === '/' || req.path === '/index.html') {
+      res.set('Cache-Control', 'no-cache');
+    }
+    next();
+  });
   app.use(express.static(publicPath));
   app.get('*', (req, res) => {
+    res.set('Cache-Control', 'no-cache');
     res.sendFile(path.join(publicPath, 'index.html'));
   });
 }

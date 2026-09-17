@@ -1,14 +1,13 @@
-const config = require('../config');
-
-const BASE_URL = config.srsApiUrl;
-const TOKEN = config.srsApiToken;
+const settingsService = require('./settings-service');
 
 function request(method, path, body) {
-  return fetch(`${BASE_URL}${path}`, {
+  const baseUrl = settingsService.getSrsApiUrl();
+  const token = settingsService.getSrsApiToken();
+  return fetch(`${baseUrl}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
     body: body ? JSON.stringify(body) : undefined
   }).then(res => {
@@ -24,13 +23,19 @@ async function getStreams() {
   return data.streams || [];
 }
 
+// 流名称在创建时限定为 [a-zA-Z0-9_-]；出站请求前再做一次白名单变换，
+// 确保任何来源的名称都不可能携带路径/查询注入字符进入 SRS API URL
+function safeStreamName(name) {
+  return String(name || '').replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
 async function getStreamByName(name) {
-  const data = await request('GET', `/streams/${encodeURIComponent(name)}`);
+  const data = await request('GET', `/streams/${encodeURIComponent(safeStreamName(name))}`);
   return data.stream || null;
 }
 
 async function getStreamStats(name) {
-  const data = await request('GET', `/streams/${encodeURIComponent(name)}/stats`);
+  const data = await request('GET', `/streams/${encodeURIComponent(safeStreamName(name))}/stats`);
   return data.stats || null;
 }
 
@@ -39,4 +44,15 @@ async function getVersion() {
   return data;
 }
 
-module.exports = { getStreams, getStreamByName, getStreamStats, getVersion };
+async function listClients() {
+  const data = await request('GET', '/clients');
+  return data.clients || [];
+}
+
+async function kickClient(id) {
+  const numeric = parseInt(id, 10);
+  if (!Number.isInteger(numeric) || numeric <= 0) throw new Error('Invalid client ID');
+  return request('DELETE', `/clients/${numeric}`);
+}
+
+module.exports = { getStreams, getStreamByName, getStreamStats, getVersion, listClients, kickClient };

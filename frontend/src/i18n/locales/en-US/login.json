@@ -1,0 +1,9 @@
+{
+  "username": "Username",
+  "password": "Password",
+  "login": "Sign In",
+  "loginFailed": "Login failed",
+  "usernameRequired": "Username is required",
+  "passwordRequired": "Password is required",
+  "welcome": "Welcome back"
+}

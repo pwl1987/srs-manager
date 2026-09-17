@@ -41,6 +41,11 @@ function getCredentials() {
   return { accessKeyId: row.access_key_id, accessKeySecret: row.access_key_secret };
 }
 
+function isConfigured() {
+  const row = db.prepare('SELECT 1 FROM wangsu_auth WHERE verified = 1 ORDER BY id DESC LIMIT 1').get();
+  return Boolean(row);
+}
+
 function signRequest({ accessKeyId, accessKeySecret, method, path, headers = {} }) {
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const contentType = headers['content-type'] || 'application/json';
@@ -177,5 +182,5 @@ async function verifyCredentials(accessKeyId, accessKeySecret) {
 module.exports = {
   createChannel, getChannelList, getChannelDetail, deleteChannel,
   batchChannelLiveState, setPullTsatc, setPushTsatc,
-  channelForbidden, channelReBroadcast, verifyCredentials
+  channelForbidden, channelReBroadcast, verifyCredentials, isConfigured
 };

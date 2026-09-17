@@ -1,83 +1,103 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
-import { formatBytes, formatTime, statusColor } from '../lib/utils';
+import { cn, formatTime, statusColor } from '../lib/utils';
+import { formatCodec, formatBitrateKbps } from '../i18n/format';
+import { getErrorCode } from '../lib/error-mapper';
+import { usePolling } from '../lib/use-polling';
+import ErrorBanner from '../components/ui/ErrorBanner';
+import PageHeader from '../components/ui/PageHeader';
+import { inputClass, labelClass, btnPrimary } from '../components/ui/styles';
 import Hls from 'hls.js';
 import * as echarts from 'echarts';
-import { Monitor as MonitorIcon, Play, Pause, X } from 'lucide-react';
+import { Monitor as MonitorIcon, Play, Pause, Loader2 } from 'lucide-react';
+
+function formatHms(seconds) {
+  if (seconds == null || isNaN(seconds)) return '-';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
 
 export default function Monitor() {
+  const { t } = useTranslation(['monitor', 'streams', 'common']);
   const [streams, setStreams] = useState([]);
+  const [streamsError, setStreamsError] = useState(null);
   const [selectedStream, setSelectedStream] = useState(null);
   const [monitorData, setMonitorData] = useState(null);
   const [historyData, setHistoryData] = useState(null);
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
+  const chartElRef = useRef(null);
   const chartRef = useRef(null);
-  const timerRef = useRef(null);
 
   useEffect(() => {
-    api.get('/streams').then(setStreams).catch(console.error);
+    api.get('/streams')
+      .then(setStreams)
+      .catch(err => setStreamsError({ code: getErrorCode(err) }));
   }, []);
 
-  useEffect(() => {
-    if (selectedStream) {
-      loadMonitor(selectedStream.id);
-      loadHistory(selectedStream.id);
-      startPolling(selectedStream.id);
-      return () => stopPolling();
-    }
-  }, [selectedStream]);
-
-  useEffect(() => {
-    if (historyData && chartRef.current) {
-      renderChart();
-    }
-  }, [historyData]);
-
-  useEffect(() => {
-    return () => {
-      stopPolling();
-      if (hlsRef.current) hlsRef.current.destroy();
-    };
-  }, []);
-
-  function startPolling(streamId) {
-    stopPolling();
-    timerRef.current = setInterval(() => loadMonitor(streamId), 10000);
-  }
-
-  function stopPolling() {
-    if (timerRef.current) clearInterval(timerRef.current);
+  // Select the stream object (needs pull_url_hls from the list response).
+  function selectStream(id) {
+    setSelectedStream(streams.find(s => String(s.id) === String(id)) || null);
   }
 
   async function loadMonitor(streamId) {
     try {
       setMonitorData(await api.get(`/monitor/streams/${streamId}`));
-    } catch (err) { console.error(err); }
+    } catch { /* keep last snapshot */ }
   }
 
   async function loadHistory(streamId) {
     try {
       setHistoryData(await api.get(`/monitor/streams/${streamId}/history?hours=24`));
-    } catch (err) { console.error(err); }
+    } catch { /* keep last snapshot */ }
   }
 
-  function renderChart() {
+  useEffect(() => {
+    if (selectedStream) {
+      setMonitorData(null);
+      setHistoryData(null);
+      loadMonitor(selectedStream.id);
+      loadHistory(selectedStream.id);
+    }
+  }, [selectedStream]);
+
+  usePolling(
+    () => { if (selectedStream) loadMonitor(selectedStream.id); },
+    10000,
+    Boolean(selectedStream)
+  );
+
+  // Chart lifecycle: init once, update option on data change, dispose on unmount.
+  useEffect(() => {
+    if (!chartElRef.current) return undefined;
+    chartRef.current = echarts.init(chartElRef.current, 'dark');
+    const onResize = () => chartRef.current?.resize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      chartRef.current?.dispose();
+      chartRef.current = null;
+    };
+  }, [selectedStream]);
+
+  useEffect(() => {
     if (!chartRef.current || !historyData) return;
-    const chart = echarts.init(chartRef.current, 'dark');
-    chart.setOption({
+    chartRef.current.setOption({
       backgroundColor: 'transparent',
-      title: { text: '观众数 (24h)', textStyle: { color: '#94a3b8', fontSize: 12 } },
+      title: { text: t('monitor:charts.viewers24h'), textStyle: { color: '#94a3b8', fontSize: 12 } },
       tooltip: { trigger: 'axis' },
       xAxis: {
         type: 'time',
         data: historyData.timeline.map(p => p.time),
         axisLabel: { color: '#94a3b8' }
       },
-      yAxis: { type: 'value', name: '观众数', axisLabel: { color: '#94a3b8' } },
+      yAxis: { type: 'value', name: t('monitor:labels.viewers'), axisLabel: { color: '#94a3b8' } },
       series: [{
-        name: '观众数',
+        name: t('monitor:labels.viewers'),
         type: 'line',
         data: historyData.timeline.map(p => p.viewers),
         smooth: true,
@@ -85,25 +105,34 @@ export default function Monitor() {
         areaStyle: { color: 'rgba(59, 130, 246, 0.1)' }
       }]
     });
-    chart.resize();
-  }
+  }, [historyData, t]);
+
+  useEffect(() => {
+    return () => {
+      if (hlsRef.current) hlsRef.current.destroy();
+    };
+  }, []);
 
   function togglePlay() {
     if (!selectedStream?.pull_url_hls) return;
     if (playing) {
       if (hlsRef.current) hlsRef.current.destroy();
       hlsRef.current = null;
+      videoRef.current?.pause();
       setPlaying(false);
     } else {
       const video = videoRef.current;
+      if (!video) return;
       if (Hls.isSupported()) {
         const hls = new Hls();
         hlsRef.current = hls;
         hls.loadSource(selectedStream.pull_url_hls);
         hls.attachMedia(video);
+        video.play().catch(() => {});
         setPlaying(true);
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = selectedStream.pull_url_hls;
+        video.play().catch(() => {});
         setPlaying(true);
       }
     }
@@ -111,78 +140,86 @@ export default function Monitor() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">监控</h2>
+      <PageHeader title={t('monitor:title')} subtitle={t('monitor:subtitle')} />
 
-      <div className="mb-4">
-        <label className="block text-sm mb-1">选择流</label>
+      <div className="mb-6 max-w-md">
+        <label className={labelClass}>{t('monitor:labels.selectStream')}</label>
         <select
           value={selectedStream?.id || ''}
-          onChange={e => setSelectedStream(streams.find(s => s.id === e.target.value))}
-          className="w-64 px-3 py-2 rounded bg-[var(--input)] border text-sm focus:outline-none focus:border-[var(--ring)]"
+          onChange={e => selectStream(e.target.value)}
+          className={inputClass}
         >
-          <option value="">选择流...</option>
+          <option value="">{t('monitor:labels.selectStreamPlaceholder')}</option>
           {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+        {streamsError && <ErrorBanner className="" message={t(`common:errors.${streamsError.code}`)} />}
       </div>
 
-      {selectedStream && (
-        <div className="grid grid-cols-2 gap-6">
+      {!selectedStream ? (
+        <div className="bg-[var(--card)] rounded-lg border">
+          <div className="flex flex-col items-center justify-center py-16">
+            <MonitorIcon size={40} className="text-[var(--muted-foreground)] mb-4 opacity-50" />
+            <p className="text-[var(--muted-foreground)]">{t('monitor:empty')}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Video Preview */}
           <div className="bg-[var(--card)] rounded-lg border p-4">
-            <h3 className="text-sm font-bold mb-3">视频预览</h3>
-            <div className="aspect-video bg-black rounded relative">
-              <video ref={videoRef} className="w-full h-full" />
+            <h3 className="text-sm font-bold mb-3">{t('monitor:labels.videoPreview')}</h3>
+            <div className="aspect-video bg-black rounded relative overflow-hidden">
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <video ref={videoRef} className="w-full h-full" controls />
               {!playing && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-[var(--muted-foreground)] text-sm">点击播放</p>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <p className="text-[var(--muted-foreground)] text-sm">{t('monitor:labels.clickToPlay')}</p>
                 </div>
               )}
             </div>
-            <button onClick={togglePlay} className="mt-3 flex items-center gap-2 px-3 py-2 rounded bg-[var(--primary)] text-white text-sm hover:bg-[var(--accent)]">
+            <button onClick={togglePlay} className={cn(btnPrimary, 'mt-3')}>
               {playing ? <Pause size={14} /> : <Play size={14} />}
-              {playing ? '暂停' : '播放'}
+              {playing ? t('monitor:actions.pause') : t('monitor:actions.play')}
             </button>
           </div>
 
           {/* Stats */}
           <div>
             <div className="bg-[var(--card)] rounded-lg border p-4 mb-4">
-              <h3 className="text-sm font-bold mb-3">实时状态</h3>
+              <h3 className="text-sm font-bold mb-3">{t('monitor:labels.realTimeStatus')}</h3>
               {monitorData ? (
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-[var(--muted-foreground)]">状态：</span> <span className={statusColor(monitorData.status)}>{monitorData.status}</span></div>
-                  <div><span className="text-[var(--muted-foreground)]">观众：</span> {monitorData.viewers || 0}</div>
-                  <div><span className="text-[var(--muted-foreground)]">码率：</span> {monitorData.bitrate ? `${(monitorData.bitrate / 1000).toFixed(1)} kbps` : '-'}</div>
-                  <div><span className="text-[var(--muted-foreground)]">最后在线：</span> {monitorData.last_online_at ? formatTime(monitorData.last_online_at) : '-'}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-[var(--muted-foreground)]">{t('monitor:labels.status')}: </span>
+                    <span className={statusColor(monitorData.status)}>{t(`streams:status.${monitorData.status}`, monitorData.status)}</span>
+                  </div>
+                  <div><span className="text-[var(--muted-foreground)]">{t('monitor:labels.viewers')}: </span>{monitorData.viewers || 0}</div>
+                  <div><span className="text-[var(--muted-foreground)]">{t('monitor:labels.bitrate')}: </span>{formatBitrateKbps(monitorData.bitrate)}</div>
+                  <div><span className="text-[var(--muted-foreground)]">{t('monitor:labels.lastOnline')}: </span>{monitorData.last_online_at ? formatTime(monitorData.last_online_at) : '-'}</div>
                   {monitorData.srs && (
                     <>
-                      <div><span className="text-[var(--muted-foreground)]">视频编码：</span> {monitorData.srs.vcodec}</div>
-                      <div><span className="text-[var(--muted-foreground)]">音频编码：</span> {monitorData.srs.acodec}</div>
-                      <div><span className="text-[var(--muted-foreground)]">FPS：</span> {monitorData.srs.video_fps.toFixed(1)}</div>
-                      <div><span className="text-[var(--muted-foreground)]">时长：</span> {formatDuration(monitorData.srs.duration)}</div>
+                      <div><span className="text-[var(--muted-foreground)]">{t('monitor:labels.videoCodec')}: </span>{formatCodec(monitorData.srs.vcodec)}</div>
+                      <div><span className="text-[var(--muted-foreground)]">{t('monitor:labels.audioCodec')}: </span>{formatCodec(monitorData.srs.acodec)}</div>
+                      <div><span className="text-[var(--muted-foreground)]">{t('monitor:labels.fps')}: </span>
+                        {monitorData.srs.video_fps != null ? Number(monitorData.srs.video_fps).toFixed(1) : '-'}
+                      </div>
+                      <div><span className="text-[var(--muted-foreground)]">{t('monitor:labels.duration')}: </span>{formatHms(monitorData.srs.duration)}</div>
                     </>
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-[var(--muted-foreground)]">加载中...</p>
+                <div className="flex items-center gap-2 text-[var(--muted-foreground)] py-4">
+                  <Loader2 size={14} className="animate-spin" />
+                  {t('common:status.loading')}
+                </div>
               )}
             </div>
 
             <div className="bg-[var(--card)] rounded-lg border p-4">
-              <h3 className="text-sm font-bold mb-3">观众趋势</h3>
-              <div ref={chartRef} style={{ width: '100%', height: 200 }} />
+              <h3 className="text-sm font-bold mb-3">{t('monitor:labels.viewersTrend')}</h3>
+              <div ref={chartElRef} style={{ width: '100%', height: 200 }} />
             </div>
           </div>
         </div>
       )}
     </div>
   );
-}
-
-function formatDuration(seconds) {
-  if (!seconds) return '-';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }

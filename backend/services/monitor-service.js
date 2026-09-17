@@ -2,7 +2,10 @@ const srsService = require('./srs');
 const db = require('../database');
 
 async function getStreamMonitor(streamId) {
-  const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(streamId);
+  // :id 是数据库自增主键；转为整数并拒绝非数字输入，避免原始路由参数进入任何下游拼接
+  const id = parseInt(streamId, 10);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(id);
   if (!stream) return null;
 
   const srsStats = await srsService.getStreamStats(stream.name).catch(() => null);
@@ -51,7 +54,9 @@ async function getDashboardStats() {
 }
 
 async function getStreamHistory(streamId, hours = 24) {
-  const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(streamId);
+  const id = parseInt(streamId, 10);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(id);
   if (!stream) return null;
 
   const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();

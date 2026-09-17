@@ -1,0 +1,168 @@
+{
+  "brand": {
+    "subtitle": "Streaming Management"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "refresh": "Refresh",
+    "search": "Search",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
+    "copy": "Copy",
+    "copied": "Copied",
+    "show": "Show",
+    "hide": "Hide",
+    "more": "More",
+    "logout": "Logout"
+  },
+  "status": {
+    "loading": "Loading...",
+    "error": "Failed to load",
+    "retry": "Retry",
+    "success": "Operation successful",
+    "saving": "Saving..."
+  },
+  "confirm": {
+    "delete": {
+      "title": "Are you sure you want to delete?",
+      "description": "{{detail}}",
+      "cancel": "Cancel",
+      "confirm": "Confirm Delete"
+    },
+    "stopStream": {
+      "title": "Stop publishing \"{{name}}\"?",
+      "description": "{{viewers}} viewer(s) are currently watching.",
+      "cancel": "Cancel",
+      "confirm": "Stop"
+    },
+    "rotate": {
+      "title": "Rotate this key?",
+      "description": "The old key stops working immediately; streams using it will be disconnected.",
+      "cancel": "Cancel",
+      "confirm": "Rotate"
+    }
+  },
+  "errors": {
+    "AUTH_INVALID_CREDENTIALS": "Incorrect username or password. Please check and try again.",
+    "AUTH_REQUIRED_FIELD_MISSING": "Please enter your username and password",
+    "AUTH_NO_REFRESH_TOKEN": "Session expired. Please log in again",
+    "AUTH_INVALID_REFRESH_TOKEN": "Session token is invalid or expired. Please log in again",
+    "AUTH_UNAUTHORIZED": "Unauthorized. Please log in first",
+    "AUTH_FORBIDDEN": "You do not have permission to perform this action",
+    "VALIDATION_STREAM_NAME_REQUIRED": "Stream name is required",
+    "VALIDATION_STREAM_NAME_INVALID": "Stream name can only contain letters, digits, underscores and hyphens (1-128 characters)",
+    "VALIDATION_CHANNEL_PARAMS_MISSING": "Please provide all required channel parameters",
+    "VALIDATION_TEMPLATE_INVALID": "Invalid transcode template configuration. Please check and save again",
+    "VALIDATION_ACCESSKEY_MISSING": "AccessKey ID and Secret are required",
+    "VALIDATION_WANGSU_CREDENTIALS_MISSING": "Wangsu AccessKey ID and Secret are required",
+    "VALIDATION_WANGSU_AUTH_MISSING": "Wangsu CDN credentials are not configured. Set them up on the Wangsu Auth page before creating channels",
+    "CONFLICT_STREAM_EXISTS": "A stream with this name already exists. Please use a different name",
+    "CONFLICT_STREAM_NAME_IN_USE": "This stream name is already in use. Please choose another",
+    "CONFLICT_DNS_RECORD_EXISTS": "DNS record {{name}} already exists",
+    "NOT_FOUND_STREAM": "Stream {{id}} not found",
+    "NOT_FOUND_CHANNEL": "Channel {{id}} not found",
+    "NOT_FOUND_TEMPLATE": "Transcode template {{id}} not found",
+    "NOT_FOUND_KEY": "Auth key {{id}} not found",
+    "NOT_FOUND_DISTRIBUTION": "Distribution request {{id}} not found",
+    "NOT_FOUND_FORWARD_TASK": "Forward task {{id}} not found",
+    "NOT_FOUND_FORWARD_REQUEST": "Forward request {{id}} not found",
+    "NOT_FOUND_FORWARD_SOURCE": "External source {{id}} not found",
+    "NOT_FOUND_DNS_RECORD": "DNS record {{id}} not found",
+    "NOT_FOUND_GENERAL": "The requested resource does not exist",
+    "EXTERNAL_WANGSU_AUTH_FAILED": "Wangsu authentication failed. Please check your AccessKey",
+    "EXTERNAL_WANGSU_CHANNEL_NOT_FOUND": "Wangsu channel not found. Please check your channel configuration",
+    "EXTERNAL_ALIYUN_AUTH_FAILED": "Aliyun DNS authentication failed. Please check your AccessKey",
+    "EXTERNAL_ALIYUN_AUTH_MISSING": "Aliyun DNS credentials not configured. Please add them in Settings first",
+    "EXTERNAL_ALIYUN_DOMAIN_EXISTS": "Domain {{domain}} already exists in Aliyun",
+    "EXTERNAL_ALIYUN_DOMAIN_NOT_OWNED": "Domain {{domain}} is not in the current Aliyun account",
+    "EXTERNAL_DNS_DOMAIN_NOT_CONFIGURED": "DNS base domain not configured. Please add it in Settings first",
+    "EXTERNAL_CREDENTIAL_VERIFICATION_FAILED": "Credential verification failed. Please check your AccessKey",
+    "INTERNAL_FETCH_STREAMS_FAILED": "Failed to fetch stream list. Please retry",
+    "INTERNAL_CREATE_STREAM_FAILED": "Failed to create stream. Please retry",
+    "INTERNAL_FETCH_STREAM_FAILED": "Failed to fetch stream info. Please retry",
+    "INTERNAL_UPDATE_STREAM_FAILED": "Failed to update stream. Please retry",
+    "INTERNAL_DELETE_STREAM_FAILED": "Failed to delete stream. Please retry",
+    "INTERNAL_FETCH_CHANNELS_FAILED": "Failed to fetch channel list. Please retry",
+    "INTERNAL_CREATE_CHANNEL_FAILED": "Failed to create channel. Please retry",
+    "INTERNAL_FETCH_CHANNEL_FAILED": "Failed to fetch channel info. Please retry",
+    "INTERNAL_UPDATE_CHANNEL_FAILED": "Failed to update channel. Please retry",
+    "INTERNAL_DELETE_CHANNEL_FAILED": "Failed to delete channel. Please retry",
+    "INTERNAL_FETCH_CHANNEL_STATES_FAILED": "Failed to fetch channel states. Please retry",
+    "INTERNAL_SAVE_CREDENTIALS_FAILED": "Failed to save credentials. Please retry",
+    "INTERNAL_VERIFICATION_FAILED": "Failed to verify credentials. Please retry",
+    "INTERNAL_GENERAL": "Internal server error. Please try again later"
+  },
+  "toasts": {
+    "created": "Created successfully",
+    "updated": "Updated successfully",
+    "deleted": "Deleted successfully",
+    "saved": "Saved successfully",
+    "copied": "Copied to clipboard",
+    "synced": "Sync complete",
+    "stopped": "Stream stopped"
+  },
+  "dashboard": {
+    "online": "Online",
+    "activeTotal": "Active/Total",
+    "active": "Active",
+    "recentActivity": "Recent Activity",
+    "activity": {
+      "on_publish": "Started publishing",
+      "on_unpublish": "Stopped publishing",
+      "on_play": "Started watching",
+      "on_stop": "Stopped watching"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "streams": "Streams",
+    "cdnChannels": "CDN Channels",
+    "authKeys": "Auth Keys",
+    "distribution": "Distribution",
+    "forwarding": "Forwarding",
+    "monitor": "Monitor",
+    "transcode": "Transcode",
+    "wangsuAuth": "Wangsu Auth",
+    "aliyunDnsAuth": "Aliyun DNS Auth",
+    "dnsRecords": "DNS Records",
+    "settings": "Settings"
+  },
+  "labels": {
+    "name": "Name",
+    "description": "Description",
+    "status": "Status",
+    "actions": "Actions",
+    "createdAt": "Created",
+    "modifiedAt": "Modified",
+    "none": "None",
+    "yes": "Yes",
+    "no": "No",
+    "selectPlaceholder": "Select…",
+    "searchPlaceholder": "Search…"
+  },
+  "header": {
+    "server": "SRS Server"
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "description": "The address is incorrect or the page has moved.",
+    "back": "Back to Dashboard"
+  },
+  "language": {
+    "switch": "Switch Language",
+    "zhCN": "简体中文",
+    "enUS": "English",
+    "current": "English"
+  },
+  "page": {
+    "emptyTitle": "No Data",
+    "emptyDescription": "No records yet. Click the button above to create the first one.",
+    "loading": "Loading data...",
+    "error": "Failed to load data. Please retry."
+  }
+}

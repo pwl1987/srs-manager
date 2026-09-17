@@ -155,6 +155,30 @@ CREATE TABLE IF NOT EXISTS hook_events (
   UNIQUE(event_type, stream_name)
 );
 
+CREATE TABLE IF NOT EXISTS aliyun_dns_auth (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  access_key_id TEXT NOT NULL,
+  access_key_secret TEXT NOT NULL,
+  verified INTEGER DEFAULT 0,
+  verified_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS dns_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  domain_id TEXT,
+  record_id TEXT,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  value TEXT NOT NULL,
+  ttl INTEGER DEFAULT 600,
+  status TEXT DEFAULT 'active',
+  source TEXT DEFAULT 'manual',
+  channel_id INTEGER,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (channel_id) REFERENCES cdn_channels(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -165,6 +189,15 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   'default_change_me',
   'admin'
 );`);
+  // Lightweight migrations for tables created by older versions.
+  const ensureColumn = (table, column, ddl) => {
+    const cols = conn.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+    if (!cols.includes(column)) conn.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  };
+  ensureColumn('streams', 'updated_at', 'updated_at TEXT');
+  ensureColumn('cdn_channels', 'updated_at', 'updated_at TEXT');
+  ensureColumn('distribution_requests', 'notes', 'notes TEXT');
+  ensureColumn('distribution_requests', 'updated_at', 'updated_at TEXT');
   const adminHash = process.env.ADMIN_PASSWORD_HASH || 'default_change_me';
   conn.prepare('UPDATE users SET password_hash = ? WHERE username = ? AND password_hash = ?')
     .run(adminHash, process.env.ADMIN_USER || 'admin', 'default_change_me');

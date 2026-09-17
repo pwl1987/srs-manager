@@ -1,0 +1,85 @@
+{
+  "title": "拉流转发",
+  "subtitle": "管理外部拉流源和转发任务",
+  "sources": {
+    "title": "外部拉流源",
+    "columns": {
+      "name": "名称",
+      "url": "地址",
+      "protocol": "协议",
+      "mode": "模式",
+      "actions": "操作"
+    },
+    "modal": {
+      "create": "新建拉流源",
+      "edit": "编辑拉流源",
+      "name": "名称",
+      "url": "地址",
+      "protocol": "协议",
+      "mode": "模式",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "actions": {
+      "create": "新建",
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "empty": "暂无拉流源"
+  },
+  "tasks": {
+    "title": "转发任务",
+    "columns": {
+      "runtimeStatus": "运行状态",
+      "error": "错误信息",
+      "stream": "流",
+      "source": "外部源",
+      "targetType": "目标类型",
+      "targetUrl": "目标地址",
+      "status": "状态",
+      "actions": "操作"
+    },
+    "modal": {
+      "create": "新建转发任务",
+      "edit": "编辑转发任务",
+      "stream": "流",
+      "source": "拉流源",
+      "targetType": "目标类型",
+      "targetUrl": "目标地址",
+      "enabled": "启用",
+      "save": "保存",
+      "cancel": "取消"
+    },
+    "actions": {
+      "create": "新建",
+      "toggle": "启停",
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "empty": "暂无转发任务",
+    "note": "任务为配置记录：当前版本不会启动真实转发进程，仅用于登记与规划。"
+  },
+  "protocol": {
+    "rtmp": "RTMP",
+    "srt": "SRT",
+    "hls": "HLS"
+  },
+  "mode": {
+    "pull": "拉流 (Pull)",
+    "push": "推流 (Push)"
+  },
+  "targetType": {
+    "cdnChannel": "CDN 频道",
+    "srsEdge": "SRS 边缘节点",
+    "customRtmp": "自定义 RTMP"
+  },
+  "status": {
+    "enabled": "启用",
+    "disabled": "禁用"
+  },
+  "taskStatus": {
+    "idle": "空闲",
+    "running": "运行中",
+    "error": "错误"
+  }
+}

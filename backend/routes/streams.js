@@ -10,30 +10,30 @@ router.get('/', async (req, res) => {
     const streams = await streamService.listStreams();
     res.json(streams);
   } catch (err) {
-    res.status(500).json({ error: `Failed to fetch streams: ${err.message}` });
+    res.status(500).json({ code: 'INTERNAL_FETCH_STREAMS_FAILED', error: `Failed to fetch streams: ${err.message}` });
   }
 });
 
 router.post('/', async (req, res) => {
   try {
     const { name, protocol } = req.body;
-    if (!name) return res.status(400).json({ error: 'Stream name is required' });
+    if (!name) return res.status(400).json({ code: 'VALIDATION_STREAM_NAME_REQUIRED', error: 'Stream name is required' });
     const stream = await streamService.createStream(name, protocol);
     res.status(201).json({ stream });
   } catch (err) {
-    if (err.message.includes('Invalid stream name')) return res.status(400).json({ error: err.message });
-    if (err.message.includes('UNIQUE constraint failed')) return res.status(409).json({ error: 'Stream already exists' });
-    res.status(500).json({ error: `Failed to create stream: ${err.message}` });
+    if (err.message.includes('Invalid stream name')) return res.status(400).json({ code: 'VALIDATION_STREAM_NAME_INVALID', error: err.message });
+    if (err.message.includes('UNIQUE constraint failed')) return res.status(409).json({ code: 'CONFLICT_STREAM_EXISTS', error: 'Stream already exists' });
+    res.status(500).json({ code: 'INTERNAL_CREATE_STREAM_FAILED', error: `Failed to create stream: ${err.message}` });
   }
 });
 
 router.get('/:id', async (req, res) => {
   try {
     const stream = await streamService.getStream(req.params.id);
-    if (!stream) return res.status(404).json({ error: 'Stream not found' });
+    if (!stream) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
     res.json({ stream });
   } catch (err) {
-    res.status(500).json({ error: `Failed to fetch stream: ${err.message}` });
+    res.status(500).json({ code: 'INTERNAL_FETCH_STREAM_FAILED', error: `Failed to fetch stream: ${err.message}`, detail: `Stream ID: ${req.params.id}` });
   }
 });
 
@@ -41,22 +41,32 @@ router.put('/:id', async (req, res) => {
   try {
     const { name, protocol } = req.body;
     const stream = await streamService.updateStream(req.params.id, { name, protocol });
-    if (!stream) return res.status(404).json({ error: 'Stream not found' });
+    if (!stream) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
     res.json({ stream });
   } catch (err) {
-    if (err.message.includes('Invalid stream name')) return res.status(400).json({ error: err.message });
-    if (err.message.includes('UNIQUE constraint failed')) return res.status(409).json({ error: 'Stream name already in use' });
-    res.status(500).json({ error: `Failed to update stream: ${err.message}` });
+    if (err.message.includes('Invalid stream name')) return res.status(400).json({ code: 'VALIDATION_STREAM_NAME_INVALID', error: err.message });
+    if (err.message.includes('UNIQUE constraint failed')) return res.status(409).json({ code: 'CONFLICT_STREAM_NAME_IN_USE', error: 'Stream name already in use' });
+    res.status(500).json({ code: 'INTERNAL_UPDATE_STREAM_FAILED', error: `Failed to update stream: ${err.message}`, detail: `Stream ID: ${req.params.id}` });
+  }
+});
+
+router.post('/:id/stop', async (req, res) => {
+  try {
+    const result = await streamService.stopStream(req.params.id);
+    if (!result) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ code: 'INTERNAL_GENERAL', error: `Failed to stop stream: ${err.message}`, detail: `Stream ID: ${req.params.id}` });
   }
 });
 
 router.delete('/:id', async (req, res) => {
   try {
     const result = await streamService.deleteStream(req.params.id);
-    if (!result) return res.status(404).json({ error: 'Stream not found' });
+    if (!result) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
     res.json({ message: `Stream "${result.name}" deleted` });
   } catch (err) {
-    res.status(500).json({ error: `Failed to delete stream: ${err.message}` });
+    res.status(500).json({ code: 'INTERNAL_DELETE_STREAM_FAILED', error: `Failed to delete stream: ${err.message}`, detail: `Stream ID: ${req.params.id}` });
   }
 });
 

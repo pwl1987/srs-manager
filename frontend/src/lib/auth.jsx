@@ -12,8 +12,8 @@ export function AuthProvider({ children }) {
     if (token) {
       setToken(token);
       api.get('/auth/me')
-        .then(setUser)
-        .catch(() => localStorage.removeItem('access_token'))
+        .then((data) => setUser(data.user || data))
+        .catch(() => setToken(null))
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -23,14 +23,12 @@ export function AuthProvider({ children }) {
   async function login(username, password) {
     const data = await api.login({ username, password });
     setToken(data.access_token);
-    localStorage.setItem('access_token', data.access_token);
     setUser(data.user);
   }
 
   async function logout() {
     try { await api.logout(); } catch {}
     setToken(null);
-    localStorage.removeItem('access_token');
     setUser(null);
     window.location.href = '/login';
   }

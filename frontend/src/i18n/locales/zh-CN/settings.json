@@ -1,0 +1,46 @@
+{
+  "title": "设置",
+  "subtitle": "系统配置",
+  "sections": {
+    "general": "通用设置",
+    "srs": "SRS 配置",
+    "dns": "DNS 设置"
+  },
+  "general": {
+    "timezone": "时区",
+    "language": "语言"
+  },
+  "dns": {
+    "baseDomain": "DNS 基础域名",
+    "baseDomainHelper": "用于自动创建 CNAME 记录的基础域名，例如：live.example.com",
+    "cdnDomain": "CDN 拉流域名",
+    "cdnDomainHelper": "用于生成 HLS/RTMP 拉流地址，例如：cdn.example.com"
+  },
+  "srs": {
+    "config": "SRS 配置",
+    "configHelper": "SRS 配置文件内容（JSON 格式）",
+    "apiUrl": "API 地址",
+    "apiToken": "API 令牌",
+    "rtmpPort": "RTMP 端口",
+    "hooks": "钩子",
+    "apiTokenSet": "已配置",
+    "apiTokenPlaceholder": "留空表示不修改",
+    "testConnection": "测试连接",
+    "testing": "测试中...",
+    "testSuccess": "连接成功：SRS {{version}}"
+  },
+  "ntp": {
+    "title": "NTP 时间同步",
+    "status": "状态",
+    "synced": "已同步",
+    "notSynced": "未同步",
+    "time": "服务器时间",
+    "note": "网宿 CDN API 要求请求时间戳与服务器时间相差不超过 5 分钟。",
+    "unsupported": "当前系统不支持查询",
+    "service": "NTP 服务",
+    "active": "运行中",
+    "inactive": "未运行"
+  },
+  "save": "保存设置",
+  "saved": "设置已保存"
+}

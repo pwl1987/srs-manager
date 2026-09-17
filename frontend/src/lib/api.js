@@ -1,11 +1,40 @@
 let accessToken = null;
+let refreshPromise = null;
+
+// 一次性 refresh token：并发 401 必须共享同一次刷新，否则第二个请求重放已作废的 cookie 会误登出
+const AUTH_PATHS = ['/auth/login', '/auth/refresh'];
 
 export function setToken(token) {
   accessToken = token;
+  if (token) localStorage.setItem('access_token', token);
+  else localStorage.removeItem('access_token');
 }
 
 export function getToken() {
   return accessToken;
+}
+
+function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include'
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = new Error('Refresh failed');
+          err.status = res.status;
+          throw err;
+        }
+        const data = await res.json();
+        setToken(data.access_token);
+        return data.access_token;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
 }
 
 async function request(path, options = {}) {
@@ -15,31 +44,30 @@ async function request(path, options = {}) {
   };
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
-  const res = await fetch(`/api${path}`, { ...options, headers });
+  let res = await fetch(`/api${path}`, { ...options, headers });
 
-  if (res.status === 401) {
+  if (res.status === 401 && !AUTH_PATHS.includes(path)) {
     try {
-      const refreshRes = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (refreshRes.ok) {
-        const data = await refreshRes.json();
-        setToken(data.access_token);
-        headers['Authorization'] = `Bearer ${accessToken}`;
-        return await (await fetch(`/api${path}`, { ...options, headers })).json();
-      }
+      const token = await refreshAccessToken();
+      headers['Authorization'] = `Bearer ${token}`;
+      res = await fetch(`/api${path}`, { ...options, headers });
     } catch {
-      // refresh failed
+      setToken(null);
+      window.location.href = '/login';
+      const authError = new Error('Unauthorized');
+      authError.code = 'AUTH_UNAUTHORIZED';
+      authError.status = 401;
+      throw authError;
     }
-    accessToken = null;
-    window.location.href = '/login';
-    throw new Error('Unauthorized');
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || res.statusText);
+    const data = await res.json().catch(() => ({ error: res.statusText }));
+    const error = new Error(data.error || res.statusText);
+    error.code = data.code;
+    error.detail = data.detail;
+    error.status = res.status;
+    throw error;
   }
 
   return res.json();

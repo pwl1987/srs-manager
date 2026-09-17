@@ -2,17 +2,21 @@ const db = require('../database');
 
 function recordEvent(eventType, streamName) {
   try {
-    db.prepare('INSERT INTO hook_events (event_type, stream_name) VALUES (?, ?)')
-      .run(eventType, streamName);
+    // Upsert: UNIQUE(event_type, stream_name) keeps only the latest event of
+    // each type per stream, with a fresh processed_at on every occurrence.
+    db.prepare(`
+      INSERT INTO hook_events (event_type, stream_name, processed_at)
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(event_type, stream_name) DO UPDATE SET processed_at = CURRENT_TIMESTAMP
+    `).run(eventType, streamName);
   } catch (e) {
-    // Idempotency: ignore duplicate events
-    if (e.message.includes('UNIQUE constraint failed')) return;
     console.error(`[Hooks] Failed to record event: ${e.message}`);
   }
 }
 
 function handleOnPublish(data) {
-  const streamName = data.stream_name || data.params?.stream;
+  // SRS sends the stream name as "stream"; "stream_name" is kept for older callers.
+  const streamName = data.stream || data.stream_name || data.params?.stream;
   if (!streamName) return;
 
   recordEvent('on_publish', streamName);
@@ -26,7 +30,8 @@ function handleOnPublish(data) {
 }
 
 function handleOnUnpublish(data) {
-  const streamName = data.stream_name || data.params?.stream;
+  // SRS sends the stream name as "stream"; "stream_name" is kept for older callers.
+  const streamName = data.stream || data.stream_name || data.params?.stream;
   if (!streamName) return;
 
   recordEvent('on_unpublish', streamName);
@@ -40,7 +45,8 @@ function handleOnUnpublish(data) {
 }
 
 function handleOnPlay(data) {
-  const streamName = data.stream_name || data.params?.stream;
+  // SRS sends the stream name as "stream"; "stream_name" is kept for older callers.
+  const streamName = data.stream || data.stream_name || data.params?.stream;
   if (!streamName) return;
 
   recordEvent('on_play', streamName);
@@ -55,7 +61,8 @@ function handleOnPlay(data) {
 }
 
 function handleOnStop(data) {
-  const streamName = data.stream_name || data.params?.stream;
+  // SRS sends the stream name as "stream"; "stream_name" is kept for older callers.
+  const streamName = data.stream || data.stream_name || data.params?.stream;
   if (!streamName) return;
 
   recordEvent('on_stop', streamName);

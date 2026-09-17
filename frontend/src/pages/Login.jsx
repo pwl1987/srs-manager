@@ -1,67 +1,92 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../lib/auth.jsx';
-import { Radio } from 'lucide-react';
+import { getErrorCode } from '../lib/error-mapper';
+import { setLanguage, getLanguage } from '../i18n';
+import { inputClass, labelClass, btnPrimary } from '../components/ui/styles';
+import { Radio, Globe, Loader2 } from 'lucide-react';
 
 export default function Login() {
+  const { t, i18n } = useTranslation(['login', 'common']);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  function toggleLanguage() {
+    setLanguage(getLanguage().startsWith('zh') ? 'en-US' : 'zh-CN');
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
+    setError(null);
     setLoading(true);
     try {
       await login(username, password);
       navigate('/');
     } catch (err) {
-      setError(err.message);
+      setError({ code: getErrorCode(err), message: err.message });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex items-center justify-center h-screen">
-      <div className="w-96 bg-[var(--card)] rounded-xl p-8 border">
-        <div className="flex items-center gap-3 mb-6">
-          <Radio size={28} className="text-[var(--primary)]" />
-          <h1 className="text-xl font-bold">SRS Manager</h1>
+    <div className="flex items-center justify-center h-screen p-4">
+      <div className="w-full max-w-sm bg-[var(--card)] rounded-xl p-8 border">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Radio size={28} className="text-[var(--primary)]" />
+            <div>
+              <h1 className="text-xl font-bold">SRS Manager</h1>
+              <p className="text-xs text-[var(--muted-foreground)]">{t('common:brand.subtitle')}</p>
+            </div>
+          </div>
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-1 p-1.5 rounded hover:bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            title={t('common:language.switch')}
+          >
+            <Globe size={16} />
+            <span className="text-xs">{i18n.language.startsWith('zh') ? 'EN' : '中文'}</span>
+          </button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm mb-1">用户名</label>
+            <label className={labelClass}>{t('login:username')}</label>
             <input
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-[var(--input)] border text-sm focus:outline-none focus:border-[var(--ring)]"
+              className={inputClass}
               placeholder="admin"
+              autoComplete="username"
               required
             />
           </div>
           <div className="mb-4">
-            <label className="block text-sm mb-1">密码</label>
+            <label className={labelClass}>{t('login:password')}</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-[var(--input)] border text-sm focus:outline-none focus:border-[var(--ring)]"
+              className={inputClass}
               placeholder="••••••••"
+              autoComplete="current-password"
               required
             />
           </div>
-          {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 rounded bg-[var(--primary)] text-white font-medium hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            {loading ? '登录中...' : '登录'}
+          {error && (
+            <p className="text-[var(--destructive)] text-sm mb-4">
+              {t(`common:errors.${error.code}`, { default: error.message })}
+            </p>
+          )}
+          <button type="submit" disabled={loading} className={`${btnPrimary} w-full`}>
+            {loading && <Loader2 size={14} className="animate-spin" />}
+            {loading ? t('common:status.loading') : t('login:login')}
           </button>
         </form>
       </div>

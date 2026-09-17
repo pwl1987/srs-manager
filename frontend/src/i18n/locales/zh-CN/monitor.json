@@ -1,0 +1,28 @@
+{
+  "title": "监控",
+  "subtitle": "SRS 流实时监控",
+  "labels": {
+    "selectStream": "选择流",
+    "selectStreamPlaceholder": "选择流...",
+    "videoPreview": "视频预览",
+    "realTimeStatus": "实时状态",
+    "viewersTrend": "观众趋势",
+    "status": "状态",
+    "viewers": "观众",
+    "bitrate": "码率",
+    "lastOnline": "最后在线",
+    "videoCodec": "视频编码",
+    "audioCodec": "音频编码",
+    "fps": "FPS",
+    "duration": "时长",
+    "clickToPlay": "点击播放"
+  },
+  "actions": {
+    "play": "播放",
+    "pause": "暂停"
+  },
+  "charts": {
+    "viewers24h": "观众数 (24h)"
+  },
+  "empty": "请选择一个流开始监控"
+}

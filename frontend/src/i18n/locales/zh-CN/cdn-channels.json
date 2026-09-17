@@ -1,0 +1,62 @@
+{
+  "title": "CDN 频道",
+  "subtitle": "管理网宿 CDN 频道配置",
+  "columns": {
+    "name": "频道名称",
+    "stream": "关联流",
+    "pushDomain": "推流域名",
+    "pullDomain": "拉流域名",
+    "region": "区域",
+    "status": "状态",
+    "createdAt": "创建时间",
+    "actions": "操作",
+    "bitrate": "码率",
+    "viewers": "观众"
+  },
+  "status": {
+    "online": "在线",
+    "offline": "离线",
+    "error": "异常",
+    "live": "推流中",
+    "idle": "空闲"
+  },
+  "actions": {
+    "edit": "编辑",
+    "delete": "删除",
+    "copyPushUrl": "复制推流地址",
+    "copyPullUrl": "复制拉流地址",
+    "more": "更多"
+  },
+  "modal": {
+    "create": "创建 CDN 频道",
+    "edit": "编辑 CDN 频道",
+    "name": "频道名称",
+    "namePlaceholder": "例如：channel1",
+    "stream": "关联流",
+    "pushDomain": "推流域名",
+    "pushDomainPlaceholder": "例如：push.example.com",
+    "pullDomain": "拉流域名",
+    "pullDomainPlaceholder": "例如：pull.example.com",
+    "region": "区域",
+    "autoDns": "自动创建 DNS 记录",
+    "autoDnsDescription": "创建频道时自动在阿里云 DNS 创建 CNAME 记录",
+    "previewTitle": "DNS 记录预览",
+    "previewCname": "CNAME",
+    "previewTarget": "{{domain}}.wscdn.com",
+    "domainsReadOnly": "推/拉域名由网宿在创建时生成，创建后不可修改。",
+    "pushDomainCurrent": "当前推流域名"
+  },
+  "progress": {
+    "step1": "创建 CDN 频道",
+    "step2": "创建 DNS 记录",
+    "step3": "完成",
+    "success": "频道创建成功",
+    "dnsSuccess": "DNS 记录创建成功",
+    "dnsSkipped": "未启用自动 DNS",
+    "dnsFailed": "DNS 记录创建失败"
+  },
+  "credentials": {
+    "missing": "尚未配置网宿 CDN 凭据，无法创建频道（频道需要在网宿侧真实开通）。",
+    "configure": "前往「网宿认证」配置"
+  }
+}

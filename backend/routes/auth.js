@@ -12,13 +12,13 @@ router.get('/me', jwtAuth, (req, res) => {
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required' });
+    return res.status(400).json({ code: 'AUTH_REQUIRED_FIELD_MISSING', error: 'Username and password are required' });
   }
 
   const ip = req.ip;
   const result = await userService.login(username, password, ip);
   if (result.error) {
-    return res.status(401).json({ error: result.error });
+    return res.status(401).json({ code: 'AUTH_INVALID_CREDENTIALS', error: result.error });
   }
 
   setHttpOnlyCookie(res, 'refresh_token', result.refreshToken, 7 * 24 * 60 * 60);
@@ -31,12 +31,12 @@ router.post('/login', async (req, res) => {
 router.post('/refresh', (req, res) => {
   const refreshToken = req.refreshToken;
   if (!refreshToken) {
-    return res.status(401).json({ error: 'No refresh token provided' });
+    return res.status(401).json({ code: 'AUTH_NO_REFRESH_TOKEN', error: 'No refresh token provided' });
   }
 
   const result = userService.refresh(refreshToken);
   if (!result) {
-    return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    return res.status(401).json({ code: 'AUTH_INVALID_REFRESH_TOKEN', error: 'Invalid or expired refresh token' });
   }
 
   setHttpOnlyCookie(res, 'refresh_token', result.refreshToken, 7 * 24 * 60 * 60);

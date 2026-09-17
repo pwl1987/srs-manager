@@ -15,13 +15,13 @@ router.post('/', async (req, res) => {
   try {
     const { access_key_id, access_key_secret, auth_method } = req.body;
     if (!access_key_id || !access_key_secret) {
-      return res.status(400).json({ error: 'AccessKey ID and Secret are required' });
+      return res.status(400).json({ code: 'VALIDATION_WANGSU_CREDENTIALS_MISSING', error: 'Wangsu AccessKey ID and Secret are required' });
     }
 
     // Verify credentials before saving
     const verification = await wangsuService.verifyCredentials(access_key_id, access_key_secret);
     if (!verification.valid) {
-      return res.status(400).json({ error: `Credential verification failed: ${verification.error}` });
+      return res.status(400).json({ code: 'EXTERNAL_CREDENTIAL_VERIFICATION_FAILED', error: 'Credential verification failed', detail: verification.error });
     }
 
     db.prepare(`
@@ -34,7 +34,7 @@ router.post('/', async (req, res) => {
       totalChannels: verification.totalChannels
     });
   } catch (err) {
-    res.status(500).json({ error: `Failed to save credentials: ${err.message}` });
+    res.status(500).json({ code: 'INTERNAL_SAVE_CREDENTIALS_FAILED', error: 'Failed to save credentials', detail: err.message });
   }
 });
 
@@ -42,13 +42,13 @@ router.post('/verify', async (req, res) => {
   try {
     const { access_key_id, access_key_secret } = req.body;
     if (!access_key_id || !access_key_secret) {
-      return res.status(400).json({ error: 'AccessKey ID and Secret are required' });
+      return res.status(400).json({ code: 'VALIDATION_WANGSU_CREDENTIALS_MISSING', error: 'Wangsu AccessKey ID and Secret are required' });
     }
 
     const verification = await wangsuService.verifyCredentials(access_key_id, access_key_secret);
     res.json(verification);
   } catch (err) {
-    res.status(500).json({ error: `Verification failed: ${err.message}` });
+    res.status(500).json({ code: 'INTERNAL_VERIFICATION_FAILED', error: 'Credential verification failed', detail: err.message });
   }
 });
 
