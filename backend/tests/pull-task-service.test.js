@@ -19,7 +19,7 @@ function seed() {
   return { streamId: Number(stream.lastInsertRowid), sourceId: Number(source.lastInsertRowid) };
 }
 
-test('PullTask separates desired/runtime state and never exposes source secret by default', (t) => {
+test('PullTask separates desired/runtime state, masks secrets, and reports worker health', (t) => {
   const { streamId, sourceId } = seed();
 
   t.after(() => {
@@ -37,6 +37,18 @@ test('PullTask separates desired/runtime state and never exposes source secret b
 
   const internal = pullTaskService.getTask(task.id, { includeSecret: true });
   assert.ok(internal.source_url.includes('super-secret'));
+
+  assert.equal(pullTaskService.getWorkerHealth().available, false);
+  pullTaskService.writeWorkerHeartbeat('worker-a');
+  const healthy = pullTaskService.getWorkerHealth(10000);
+  assert.equal(healthy.available, true);
+  assert.equal(healthy.instance_id, 'worker-a');
+  assert.ok(healthy.last_seen_at);
+
+  pullTaskService.clearWorkerHeartbeat('worker-b');
+  assert.equal(pullTaskService.getWorkerHealth().available, true, 'another worker must not clear the active heartbeat');
+  pullTaskService.clearWorkerHeartbeat('worker-a');
+  assert.equal(pullTaskService.getWorkerHealth().available, false);
 
   const requested = pullTaskService.setDesiredState(task.id, 'RUNNING');
   assert.equal(requested.desired_state, 'RUNNING');
