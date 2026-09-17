@@ -1,115 +1,113 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import Hls from 'hls.js';
-import QRCode from 'qrcode';
+import {
+  Activity, AlertTriangle, ArrowUpRight, Clock3, Copy, Edit3,
+  Film, Plus, QrCode, Radio, Trash2, Users
+} from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from '../lib/utils';
 import { copyText } from '../lib/clipboard';
 import { formatBitrateKbps, formatDuration, formatDateTime } from '../i18n/format';
 import { getErrorCode } from '../lib/error-mapper';
 import { usePolling } from '../lib/use-polling';
-import { displayUrl, resolvePullHls, resolvePullFlv } from '../lib/stream-url-display';
-import DistributionSection from './StreamsDistribution';
+import { displayUrl } from '../lib/stream-url-display';
 import PageHeader from '../components/ui/PageHeader';
-import TableShell from '../components/ui/TableShell';
 import EmptyState from '../components/ui/EmptyState';
 import ErrorBanner from '../components/ui/ErrorBanner';
-import { TableSkeleton } from '../components/ui/Skeleton';
+import { CardSkeleton } from '../components/ui/Skeleton';
 import SearchInput from '../components/ui/SearchInput';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import { inputClass, labelClass, btnPrimary, btnSecondary, btnGhost, thClass, tdClass } from '../components/ui/styles';
-import { Radio, Plus, Edit, Trash2, Copy, X, StopCircle, Play, QrCode, ChevronDown, ChevronRight, AlertTriangle, FlaskConical, Film } from 'lucide-react';
+import StreamPreviewModal from '../components/streams/StreamPreviewModal';
+import StreamQrModal from '../components/streams/StreamQrModal';
+import {
+  inputClass, labelClass, btnPrimary, btnSecondary, btnGhost, btnDangerGhost
+} from '../components/ui/styles';
 
-function PreviewModal({ stream, onClose, t }) {
-  const videoRef = useRef(null);
-  const [error, setError] = useState('');
-  const source = resolvePullHls(stream);
-  const isPlaceholder = !source;
-
-  useEffect(() => {
-    if (!stream || isPlaceholder) return undefined;
-    const video = videoRef.current;
-    if (!video) return undefined;
-
-    let hls = null;
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = source;
-      video.play().catch(() => {});
-    } else if (Hls.isSupported()) {
-      hls = new Hls();
-      hls.loadSource(source);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) setError(t('streams:preview.error'));
-      });
-      video.play().catch(() => {});
-    } else {
-      setError(t('streams:preview.notSupported'));
-    }
-    return () => {
-      if (hls) hls.destroy();
-    };
-  }, [stream, source, isPlaceholder, t]);
-
+function Metric({ icon: Icon, label, value }) {
   return (
-    <Modal open={Boolean(stream)} onClose={onClose} title={t('streams:actions.preview')} size="lg">
-      {isPlaceholder ? (
-        <p className="text-sm text-[var(--muted-foreground)]">{t('streams:preview.placeholder')}</p>
-      ) : (
-        <>
-          {error && <p className="text-sm text-[var(--destructive)] mb-3">{error}</p>}
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video ref={videoRef} controls autoPlay muted className="w-full rounded bg-black aspect-video" />
-          <p className="text-xs text-[var(--muted-foreground)] mt-2 break-all font-mono">{source}</p>
-        </>
-      )}
-    </Modal>
-  );
-}
-
-function QrModal({ stream, onClose, t, onCopy }) {
-  const [dataUrl, setDataUrl] = useState('');
-  const qrSource = resolvePullHls(stream);
-
-  useEffect(() => {
-    if (!qrSource) return;
-    QRCode.toDataURL(qrSource, { width: 256, margin: 2 })
-      .then(setDataUrl)
-      .catch(() => setDataUrl(''));
-  }, [qrSource]);
-
-  return (
-    <Modal
-      open={Boolean(stream)}
-      onClose={onClose}
-      title={t('streams:actions.qrcode')}
-      size="sm"
-      footer={<button className={btnSecondary} onClick={() => onCopy(qrSource)}><Copy size={14} />{t('common:actions.copy')}</button>}
-    >
-      <div className="flex flex-col items-center gap-3">
-        {dataUrl ? (
-          <img src={dataUrl} alt="QR" className="rounded bg-white p-2" width={256} height={256} />
-        ) : (
-          <div className="w-64 h-64 animate-pulse bg-[var(--secondary)] rounded" />
-        )}
-        <p className="text-xs text-[var(--muted-foreground)] break-all font-mono text-center">{qrSource}</p>
-      </div>
-    </Modal>
-  );
-}
-
-function UrlRow({ label, url, t, onCopy }) {
-  if (!url) return null;
-  return (
-    <div className="flex items-center gap-3 min-w-0">
-      <span className="text-xs text-[var(--muted-foreground)] shrink-0 w-24">{label}</span>
-      <code className="text-xs bg-[var(--muted)] px-2 py-1.5 rounded flex-1 min-w-0 break-all font-mono">{url}</code>
-      <button onClick={() => onCopy(url)} className={cn(btnGhost, 'shrink-0')} title={t('common:actions.copy')}>
-        <Copy size={14} />
-      </button>
+    <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] whitespace-nowrap">
+      <Icon size={13} className="text-[var(--text-faint)]" />
+      <span>{label}</span>
+      <span className="font-medium text-[var(--foreground)] tabular-nums">{value}</span>
     </div>
+  );
+}
+
+function StreamCard({ stream, t, onPreview, onQr, onCopy, onEdit, onDelete }) {
+  const live = stream.status === 'online';
+  return (
+    <article className="group rounded-xl border border-[var(--border-soft)] bg-[var(--card)] shadow-[var(--shadow-panel)] transition-colors hover:border-[var(--border)]">
+      <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className={cn(
+              'h-2.5 w-2.5 shrink-0 rounded-full',
+              live ? 'bg-[var(--success)] shadow-[0_0_0_4px_var(--success-soft)]' : 'bg-[var(--text-faint)]'
+            )} />
+            <Link
+              to={`/streams/${stream.id}`}
+              className="truncate text-[15px] font-semibold tracking-[-0.01em] hover:text-[var(--primary)]"
+            >
+              {stream.name}
+            </Link>
+            <span className={cn(
+              'rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]',
+              live ? 'bg-[var(--success-soft)] text-[var(--success)]' : 'bg-[var(--secondary)] text-[var(--muted-foreground)]'
+            )}>
+              {t(`streams:status.${stream.status}`, stream.status)}
+            </span>
+            <span className="rounded-md border border-[var(--border-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
+              {stream.protocol || 'rtmp'}
+            </span>
+            {stream.transcode_template_name && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-[var(--secondary)] px-2 py-0.5 text-[10px] text-[var(--muted-foreground)]">
+                <Film size={10} />
+                {stream.transcode_template_name}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Metric icon={Users} label={t('streams:columns.viewers')} value={stream.viewers || 0} />
+            <Metric icon={Activity} label={t('streams:columns.bitrate')} value={live ? formatBitrateKbps(stream.bitrate) : '-'} />
+            <Metric icon={Clock3} label={t('streams:columns.uptime')} value={stream.uptime_seconds ? formatDuration(stream.uptime_seconds) : '-'} />
+            <span className="text-xs text-[var(--text-faint)]">
+              {t('streams:list.created')} {formatDateTime(stream.created_at)}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 lg:justify-end">
+          <button className={btnGhost} onClick={() => onPreview(stream)} title={t('streams:actions.preview')}>
+            <Radio size={14} />
+            <span className="hidden xl:inline">{t('streams:actions.preview')}</span>
+          </button>
+          <button className={btnGhost} onClick={() => onQr(stream)} title={t('streams:actions.qrcode')}>
+            <QrCode size={14} />
+          </button>
+          <button
+            className={btnGhost}
+            onClick={() => onCopy(displayUrl(stream.push_url))}
+            title={t('streams:actions.copyPushUrl')}
+          >
+            <Copy size={14} />
+          </button>
+          <Link to={`/streams/${stream.id}`} className={cn(btnSecondary, 'ml-1')}>
+            {t('streams:actions.workspace')}
+            <ArrowUpRight size={14} />
+          </Link>
+          <button className={btnGhost} onClick={() => onEdit(stream)} title={t('streams:actions.edit')}>
+            <Edit3 size={14} />
+          </button>
+          <button className={btnDangerGhost} onClick={() => onDelete(stream)} title={t('streams:actions.delete')}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -119,7 +117,6 @@ export default function Streams() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
-  const [expandedId, setExpandedId] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', protocol: 'rtmp', transcode_template_id: '' });
@@ -127,7 +124,6 @@ export default function Streams() {
   const [previewStream, setPreviewStream] = useState(null);
   const [qrStream, setQrStream] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [stopTarget, setStopTarget] = useState(null);
   const [working, setWorking] = useState(false);
   const [externalLive, setExternalLive] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -144,7 +140,7 @@ export default function Streams() {
         api.get('/streams'),
         api.get('/streams/external-live').catch(() => [])
       ]);
-      setStreams(list);
+      setStreams(Array.isArray(list) ? list : []);
       setExternalLive(Array.isArray(external) ? external : []);
     } catch (err) {
       setError({ code: getErrorCode(err) });
@@ -155,9 +151,11 @@ export default function Streams() {
 
   usePolling(() => loadStreams(true), 10000);
 
-  const filtered = search
-    ? streams.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? streams.filter(stream => stream.name.toLowerCase().includes(q))
     : streams;
+  const liveCount = streams.filter(stream => stream.status === 'online').length;
 
   function openCreate() {
     setEditing(null);
@@ -168,20 +166,21 @@ export default function Streams() {
 
   function openEdit(stream) {
     setEditing(stream);
-    setForm({ name: stream.name, protocol: stream.protocol, transcode_template_id: stream.transcode_template_id || '' });
+    setForm({
+      name: stream.name,
+      protocol: stream.protocol || 'rtmp',
+      transcode_template_id: stream.transcode_template_id || ''
+    });
     setFormError('');
     setShowModal(true);
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
     setFormError('');
     try {
-      if (editing) {
-        await api.put(`/streams/${editing.id}`, form);
-      } else {
-        await api.post('/streams', form);
-      }
+      if (editing) await api.put(`/streams/${editing.id}`, form);
+      else await api.post('/streams', form);
       setShowModal(false);
       toast.success(t(editing ? 'common:toasts.updated' : 'common:toasts.created'));
       loadStreams(true);
@@ -190,9 +189,10 @@ export default function Streams() {
     }
   }
 
-  async function handleCopy(url) {
+  async function handleCopy(value) {
+    if (!value) return;
     try {
-      await copyText(url);
+      await copyText(value);
       toast.success(t('common:toasts.copied'));
     } catch {
       toast.error(t('common:errors.INTERNAL_GENERAL'));
@@ -206,21 +206,6 @@ export default function Streams() {
       await api.delete(`/streams/${deleteTarget.id}`);
       toast.success(t('common:toasts.deleted'));
       setDeleteTarget(null);
-      loadStreams(true);
-    } catch (err) {
-      toast.error(t(`common:errors.${getErrorCode(err)}`));
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  async function confirmStop() {
-    if (!stopTarget) return;
-    setWorking(true);
-    try {
-      const result = await api.post(`/streams/${stopTarget.id}/stop`);
-      toast.success(t('common:toasts.stopped') + (result?.kicked ? ` (${result.kicked})` : ''));
-      setStopTarget(null);
       loadStreams(true);
     } catch (err) {
       toast.error(t(`common:errors.${getErrorCode(err)}`));
@@ -245,54 +230,68 @@ export default function Streams() {
   return (
     <div>
       <PageHeader
+        eyebrow={t('streams:list.eyebrow')}
         title={t('streams:title')}
         subtitle={t('streams:subtitle')}
         actions={
           <>
             <SearchInput value={search} onChange={setSearch} placeholder={t('common:labels.searchPlaceholder')} />
             <button className={btnPrimary} onClick={openCreate}>
-              <Plus size={16} /> {t('common:actions.create')}
+              <Plus size={16} />
+              {t('common:actions.create')}
             </button>
           </>
         }
       />
 
+      <div className="mb-5 grid grid-cols-3 gap-2 sm:max-w-xl">
+        {[
+          [t('streams:list.liveNow'), liveCount, 'text-[var(--success)]'],
+          [t('streams:list.total'), streams.length, 'text-[var(--foreground)]'],
+          [t('streams:list.unregistered'), externalLive.length, externalLive.length ? 'text-[var(--warning)]' : 'text-[var(--foreground)]']
+        ].map(([label, value, color]) => (
+          <div key={label} className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-3 py-2.5">
+            <div className={cn('text-xl font-semibold tabular-nums', color)}>{value}</div>
+            <div className="mt-0.5 text-[10px] uppercase tracking-[0.08em] text-[var(--text-faint)]">{label}</div>
+          </div>
+        ))}
+      </div>
+
       {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => loadStreams()} />}
 
       {externalLive.length > 0 && (
-        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-2">
-            <AlertTriangle size={16} className="shrink-0" />
-            {t('streams:external.title')}
+        <section className="mb-5 rounded-xl border border-[var(--warning)]/25 bg-[var(--warning)]/7 p-4">
+          <div className="mb-3 flex items-start gap-3">
+            <AlertTriangle size={17} className="mt-0.5 shrink-0 text-[var(--warning)]" />
+            <div>
+              <h3 className="text-sm font-semibold">{t('streams:external.title')}</h3>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">{t('streams:external.hint')}</p>
+            </div>
           </div>
-          <p className="text-xs text-[var(--muted-foreground)] mb-2">{t('streams:external.hint')}</p>
-          <div className="space-y-1.5">
-            {externalLive.map(x => (
-              <div key={x.name} className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-[var(--success)] animate-pulse shrink-0" />
-                  <span className="font-mono font-medium truncate">{x.name}</span>
-                  <span className="text-xs text-[var(--muted-foreground)] shrink-0">
-                    {x.publish_ip || '-'} · {formatBitrateKbps(x.kbps)}
-                  </span>
+          <div className="grid gap-2 lg:grid-cols-2">
+            {externalLive.map(item => (
+              <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/45 px-3 py-2.5">
+                <div className="min-w-0">
+                  <div className="truncate font-mono text-sm font-medium">{item.name}</div>
+                  <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    {item.publish_ip || '-'} · {formatBitrateKbps(item.kbps)}
+                  </div>
                 </div>
-                <button
-                  className={cn(btnSecondary, 'shrink-0 text-xs')}
-                  disabled={working}
-                  onClick={() => registerExternal(x.name)}
-                >
+                <button className={cn(btnSecondary, 'shrink-0')} disabled={working} onClick={() => registerExternal(item.name)}>
                   {t('streams:external.register')}
                 </button>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {loading ? (
-        <TableSkeleton rows={4} />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map(item => <CardSkeleton key={item} className="h-24" />)}
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-[var(--card)] rounded-lg border">
+        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)]">
           <EmptyState
             title={search ? t('common:page.emptyTitle') : t('streams:empty.title')}
             description={search ? undefined : t('streams:empty.description')}
@@ -302,125 +301,30 @@ export default function Streams() {
           />
         </div>
       ) : (
-        <TableShell>
-          <thead>
-            <tr className="border-b">
-              <th className={thClass}></th>
-              <th className={thClass}>{t('streams:columns.name')}</th>
-              <th className={thClass}>{t('streams:columns.status')}</th>
-              <th className={thClass}>{t('streams:columns.viewers')}</th>
-              <th className={thClass}>{t('streams:columns.bitrate')}</th>
-              <th className={thClass}>{t('streams:columns.uptime')}</th>
-              <th className={thClass}>{t('streams:columns.createdAt')}</th>
-              <th className={`${thClass} text-right`}>{t('streams:columns.actions')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border)]">
-            {filtered.map(s => (
-              <React.Fragment key={s.id}>
-                <tr className="hover:bg-[var(--surface-hover)] transition-colors">
-                  <td className={tdClass}>
-                    <button
-                      onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                      className="p-1 rounded text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                      title={t('streams:actions.expand')}
-                    >
-                      {expandedId === s.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    </button>
-                  </td>
-                  <td className={tdClass}>
-                    <span className="flex items-center gap-2">
-                      <span className={cn('w-2 h-2 rounded-full shrink-0', s.status === 'online' ? 'bg-[var(--success)]' : 'bg-[var(--border)]')} />
-                      <span className="font-medium">{s.name}</span>
-                      {s.transcode_template_name && (
-                        <span
-                          className="hidden md:inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--muted-foreground)] whitespace-nowrap"
-                          title={t('streams:transcode.badge', { name: s.transcode_template_name })}
-                        >
-                          <Film size={10} />
-                          {s.transcode_template_name}
-                        </span>
-                      )}
-                    </span>
-                  </td>
-                  <td className={tdClass}>
-                    <span className={cn('text-xs px-2 py-1 rounded whitespace-nowrap',
-                      s.status === 'online' ? 'bg-[var(--success)]/10 text-[var(--success)]' : 'bg-[var(--secondary)] text-[var(--muted-foreground)]')}>
-                      {t(`streams:status.${s.status}`, s.status)}
-                    </span>
-                  </td>
-                  <td className={tdClass}>{s.viewers || 0}</td>
-                  <td className={tdClass}>{s.status === 'online' ? formatBitrateKbps(s.bitrate) : '-'}</td>
-                  <td className={tdClass}>{s.uptime_seconds ? formatDuration(s.uptime_seconds) : '-'}</td>
-                  <td className={`${tdClass} whitespace-nowrap text-[var(--muted-foreground)]`}>{formatDateTime(s.created_at)}</td>
-                  <td className={tdClass}>
-                    <div className="flex items-center justify-end gap-0.5">
-                      <button className={btnGhost} onClick={() => setPreviewStream(s)} title={t('streams:actions.preview')}><Play size={14} /></button>
-                      <button className={btnGhost} onClick={() => setQrStream(s)} title={t('streams:actions.qrcode')}><QrCode size={14} /></button>
-                      {s.status === 'online' && (
-                        <button
-                          className={cn(btnGhost, 'text-[var(--destructive)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/15')}
-                          onClick={() => setStopTarget(s)}
-                          title={t('streams:actions.stopStream')}
-                        >
-                          <StopCircle size={14} />
-                        </button>
-                      )}
-                      <button className={btnGhost} onClick={() => openEdit(s)} title={t('streams:actions.edit')}><Edit size={14} /></button>
-                      <button
-                        className={cn(btnGhost, 'text-[var(--destructive)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/15')}
-                        onClick={() => setDeleteTarget(s)}
-                        title={t('streams:actions.delete')}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {expandedId === s.id && (
-                  <tr className="bg-[var(--muted)]/30">
-                    <td></td>
-                    <td colSpan={7} className="px-4 py-3">
-                      <div className="space-y-2">
-                        <UrlRow label={`${t('streams:info.pushAddress')} (RTMP)`} url={displayUrl(s.push_url)} t={t} onCopy={handleCopy} />
-                        {s.cdn_configured === false ? (
-                          <>
-                            <UrlRow label={`${t('streams:info.pullAddress')} (HLS)`} url={resolvePullHls(s)} t={t} onCopy={handleCopy} />
-                            <UrlRow label={`${t('streams:info.pullAddress')} (${t('streams:info.flv')})`} url={resolvePullFlv(s)} t={t} onCopy={handleCopy} />
-                            <UrlRow label={`${t('streams:info.pullAddress')} (RTMP)`} url={displayUrl(s.push_url)} t={t} onCopy={handleCopy} />
-                            <p className="text-xs text-amber-500 flex items-center gap-1.5 pt-1">
-                              <FlaskConical size={12} />
-                              {t('streams:info.testModeNote')}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <UrlRow label={`${t('streams:info.pullAddress')} (HLS)`} url={s.pull_url_hls} t={t} onCopy={handleCopy} />
-                            <UrlRow label={`${t('streams:info.pullAddress')} (${t('streams:info.flv')})`} url={resolvePullFlv(s)} t={t} onCopy={handleCopy} />
-                            <UrlRow label={`${t('streams:info.pullAddress')} (RTMP)`} url={s.pull_url_rtmp} t={t} onCopy={handleCopy} />
-                          </>
-                        )}
-                        <DistributionSection stream={s} />
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </TableShell>
+        <div className="space-y-3">
+          {filtered.map(stream => (
+            <StreamCard
+              key={stream.id}
+              stream={stream}
+              t={t}
+              onPreview={setPreviewStream}
+              onQr={setQrStream}
+              onCopy={handleCopy}
+              onEdit={openEdit}
+              onDelete={setDeleteTarget}
+            />
+          ))}
+        </div>
       )}
 
       <Modal
         open={showModal}
         onClose={() => setShowModal(false)}
-        title={editing ? t('streams:modal.edit') : t('streams:modal.create')}
+        title={t(editing ? 'streams:modal.edit' : 'streams:modal.create')}
         footer={
           <>
             <button className={btnSecondary} onClick={() => setShowModal(false)}>{t('common:actions.cancel')}</button>
-            <button className={btnPrimary} form="stream-form" type="submit">
-              {editing ? t('common:actions.save') : t('common:actions.create')}
-            </button>
+            <button className={btnPrimary} form="stream-form" type="submit">{t('common:actions.save')}</button>
           </>
         }
       >
@@ -428,46 +332,35 @@ export default function Streams() {
           <div>
             <label className={labelClass}>{t('streams:modal.name')}</label>
             <input
-              type="text"
               value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
+              onChange={event => setForm({ ...form, name: event.target.value })}
+              className={`${inputClass} font-mono`}
               placeholder={t('streams:modal.namePlaceholder')}
-              className={inputClass}
               required
             />
           </div>
           <div>
             <label className={labelClass}>{t('streams:modal.protocol')}</label>
-            <select
-              value={form.protocol}
-              onChange={e => setForm({ ...form, protocol: e.target.value })}
-              className={inputClass}
-            >
+            <select value={form.protocol} onChange={event => setForm({ ...form, protocol: event.target.value })} className={inputClass}>
               <option value="rtmp">RTMP</option>
-              <option value="rtsp">RTSP</option>
-              <option value="hls">HLS</option>
+              <option value="srt">SRT</option>
             </select>
           </div>
           <div>
             <label className={labelClass}>{t('streams:transcode.label')}</label>
             <select
               value={form.transcode_template_id}
-              onChange={e => setForm({ ...form, transcode_template_id: e.target.value })}
+              onChange={event => setForm({ ...form, transcode_template_id: event.target.value })}
               className={inputClass}
             >
               <option value="">{t('streams:transcode.none')}</option>
-              {templates.map(tpl => (
-                <option key={tpl.id} value={tpl.id}>{tpl.name}（{tpl.vcodec}/{tpl.acodec}）</option>
-              ))}
+              {templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}
             </select>
-            <p className="text-xs text-[var(--muted-foreground)] mt-1">{t('streams:transcode.note')}</p>
+            <p className="mt-1.5 text-xs text-[var(--muted-foreground)]">{t('streams:transcode.note')}</p>
           </div>
-          {formError && <p className="text-[var(--destructive)] text-sm">{formError}</p>}
+          {formError && <p className="text-sm text-[var(--destructive)]">{formError}</p>}
         </form>
       </Modal>
-
-      <PreviewModal stream={previewStream} onClose={() => setPreviewStream(null)} t={t} />
-      <QrModal stream={qrStream} onClose={() => setQrStream(null)} t={t} onCopy={handleCopy} />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -478,15 +371,9 @@ export default function Streams() {
         description={t('common:confirm.delete.description', { detail: deleteTarget?.name || '' })}
         confirmLabel={t('common:confirm.delete.confirm')}
       />
-      <ConfirmDialog
-        open={Boolean(stopTarget)}
-        onClose={() => setStopTarget(null)}
-        onConfirm={confirmStop}
-        confirming={working}
-        title={t('common:confirm.stopStream.title', { name: stopTarget?.name || '' })}
-        description={t('common:confirm.stopStream.description', { viewers: stopTarget?.viewers || 0 })}
-        confirmLabel={t('common:confirm.stopStream.confirm')}
-      />
+
+      <StreamPreviewModal stream={previewStream} onClose={() => setPreviewStream(null)} t={t} />
+      <StreamQrModal stream={qrStream} onClose={() => setQrStream(null)} t={t} onCopy={handleCopy} />
     </div>
   );
 }
