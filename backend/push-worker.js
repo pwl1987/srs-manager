@@ -33,7 +33,7 @@ function redactText(value) {
 }
 
 function sourceUrl(task) {
-  const base = `${SRS_PULL_BASE}/${encodeURIComponent(task.stream_name)}`;
+  const base = `${SRS_PULL_BASE}/${encodeURIComponent(task.source_stream_name || task.stream_name)}`;
   const token = internalMediaService.getInternalMediaToken();
   return `${base}?internal_media_token=${encodeURIComponent(token)}&push_task=${encodeURIComponent(task.id)}`;
 }
@@ -134,7 +134,7 @@ function spawnTask(task) {
   const state = {
     child,
     taskId: task.id,
-    streamName: task.stream_name,
+    streamName: task.source_stream_name || task.stream_name,
     startedAt: Date.now(),
     lastStderr: '',
     stopping: false,
@@ -203,7 +203,7 @@ function spawnTask(task) {
     const failure = state.lastStderr || `ffmpeg exited code=${code} signal=${signal || 'none'}`;
     scheduleRetry(fresh, failure);
   });
-  log(`starting task ${task.id} stream=${task.stream_name} target=${task.target_url_masked}`);
+  log(`starting task ${task.id} stream=${task.source_stream_name || task.stream_name} target=${task.target_url_masked}`);
   return state;
 }
 
@@ -238,7 +238,7 @@ async function reconcile() {
   }
   for (const task of pushTaskService.listWorkerTasks()) {
     const state = processes.get(task.id);
-    const inputOnline = liveStreams.has(task.stream_name);
+    const inputOnline = liveStreams.has(task.source_stream_name || task.stream_name);
 
     if (task.desired_state === 'STOPPED') {
       if (state) stopProcess(task.id, 'desired STOPPED');

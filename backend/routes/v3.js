@@ -8,6 +8,7 @@ const ingestCredentialService = require('../services/ingest-credential-service')
 const db = require('../database');
 const previewAccessService = require('../services/preview-access-service');
 const sourcePreviewService = require('../services/source-preview-service');
+const outputService = require('../services/v3-output-service');
 
 const router = express.Router();
 router.use(jwtAuth);
@@ -89,6 +90,46 @@ router.post('/rooms/:roomId/program/switch', async (req, res) => {
   }
 });
 
+
+router.get('/output/scenes', (req, res) => {
+  res.json({ scenes: outputService.listScenes() });
+});
+
+router.post('/rooms/:roomId/outputs', (req, res) => {
+  const stream = requireRoomStream(req, res); if (!stream) return;
+  try {
+    const mode = String(req.body?.mode || '').toUpperCase();
+    if (mode === 'PUSH') {
+      return res.status(201).json({ output: outputService.createPushOutput(stream.id, req.body) });
+    }
+    if (mode === 'SERVE') {
+      return res.status(201).json({ output: outputService.configureServeOutput(stream.id, req.body) });
+    }
+    return res.status(422).json({ code: 'V3_OUTPUT_MODE_UNSUPPORTED', message: 'Only PUSH and SERVE are implemented in Phase 04.', detail: mode || null, retryable: false, correlation_id: null });
+  } catch (error) {
+    return res.status(422).json({ code: 'V3_OUTPUT_CREATE_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null });
+  }
+});
+
+for (const [action, desired] of [['start', 'RUNNING'], ['stop', 'STOPPED']]) {
+  router.post(`/rooms/:roomId/outputs/:outputId/${action}`, (req, res) => {
+    const stream = requireRoomStream(req, res); if (!stream) return;
+    const idempotencyKey = String(req.get('Idempotency-Key') || '').trim();
+    if (!idempotencyKey) return res.status(400).json({ code: 'V3_IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key is required', detail: null, retryable: false, correlation_id: null });
+    const taskId = outputService.parsePushOutputId(req.params.outputId);
+    if (!taskId) return res.status(422).json({ code: 'V3_OUTPUT_OPERATION_UNSUPPORTED', message: 'This Output does not use managed PUSH operations.', detail: req.params.outputId, retryable: false, correlation_id: null });
+    try {
+      const task = require('../services/push-task-service').getTask(taskId);
+      if (!task || Number(task.stream_id) !== Number(stream.id)) return res.status(404).json({ code: 'V3_OUTPUT_NOT_FOUND', message: 'Output not found in this Room.', detail: req.params.outputId, retryable: false, correlation_id: null });
+      const result = outputService.startOrStopPush(taskId, desired, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
+      if (result.conflict) return res.status(409).json({ code: 'V3_OUTPUT_OPERATION_CONFLICT', message: 'Another Output operation is already active.', detail: result.operation, retryable: true, correlation_id: null });
+      return res.status(result.reused ? 200 : 202).json(result.operation);
+    } catch (error) {
+      return res.status(422).json({ code: 'V3_OUTPUT_OPERATION_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null });
+    }
+  });
+}
+
 router.get('/capabilities', async (req, res) => {
   try {
     let workspace = null;
@@ -121,8 +162,9 @@ router.get('/operations/:operationId', (req, res) => {
     const raw = String(req.params.operationId || '').replace(/^operation:/, '');
     const legacy = legacyOperationService.getOperation(raw);
     if (legacy?.type === legacyOperationService.PULL_SWITCH_TYPE) return res.json(workspaceV3.projectOperation(legacy));
-    const operation = operationCore.getOperation(req.params.operationId);
+    let operation = operationCore.getOperation(req.params.operationId);
     if (!operation) return res.status(404).json({ code: 'V3_OPERATION_NOT_FOUND', message: 'Operation not found', detail: req.params.operationId, retryable: false, correlation_id: null });
+    if (operation.subject_type === 'forward_task') operation = outputService.reconcilePushOperation(operation);
     return res.json(operation);
   } catch (error) {
     internalError(res, error, 'V3_OPERATION_READ_FAILED');

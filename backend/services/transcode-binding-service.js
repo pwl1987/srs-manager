@@ -227,6 +227,8 @@ function updateRuntimeMany(ids, updates = {}) {
 function deleteBinding(id) {
   const binding = getBinding(id);
   if (!binding) return null;
+  const consumer = db.prepare('SELECT id FROM forward_tasks WHERE source_binding_id = ? LIMIT 1').get(Number(id));
+  if (consumer) throw new Error('Rendition is still referenced by an output');
   if (binding.desired_state !== 'STOPPED' || binding.runtime_state !== 'STOPPED') throw new Error('Stop transcode output before deleting it');
   db.prepare('DELETE FROM stream_transcode_bindings WHERE id = ?').run(Number(id));
   return { id: binding.id, output_stream_name: binding.output_stream_name };

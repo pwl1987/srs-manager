@@ -28,10 +28,27 @@ function targetProtocol(value) {
   catch { return null; }
 }
 
+function parseMetadata(value) {
+  if (!value) return null;
+  try { return JSON.parse(value); } catch { return null; }
+}
+
+function sanitizeMetadata(value) {
+  if (!value || typeof value !== 'object') return null;
+  const allowed = ['name', 'scene', 'protection', 'destination_kind', 'destination_label'];
+  const result = {};
+  for (const key of allowed) {
+    if (value[key] !== undefined && value[key] !== null) result[key] = String(value[key]).slice(0, 160);
+  }
+  return Object.keys(result).length ? result : null;
+}
+
 const SELECT_TASK = `
-  SELECT ft.*, s.name AS stream_name
+  SELECT ft.*, s.name AS stream_name,
+         sb.output_suffix AS source_binding_suffix, sb.stream_id AS source_binding_stream_id
   FROM forward_tasks ft
   JOIN streams s ON s.id = ft.stream_id
+  LEFT JOIN stream_transcode_bindings sb ON sb.id = ft.source_binding_id
 `;
 
 function hydrate(row, includeSecret = false) {
@@ -41,6 +58,11 @@ function hydrate(row, includeSecret = false) {
     stream_id: row.stream_id,
     stream_name: row.stream_name,
     external_source_id: row.external_source_id,
+    source_binding_id: row.source_binding_id == null ? null : Number(row.source_binding_id),
+    v3_metadata: parseMetadata(row.v3_metadata_json),
+    source_stream_name: row.source_binding_id && Number(row.source_binding_stream_id) === Number(row.stream_id)
+      ? `${row.stream_name}__${row.source_binding_suffix}`
+      : row.stream_name,
     target_type: row.target_type,
     target_url_masked: maskTargetUrl(row.target_url),
     target_protocol: targetProtocol(row.target_url),
@@ -86,31 +108,51 @@ function requireStream(streamId) {
   return id;
 }
 
-function createTask({ stream_id, target_type, target_url, enabled = 0 }) {
+
+function requireSourceBinding(streamId, bindingId) {
+  if (bindingId === undefined || bindingId === null || bindingId === '') return null;
+  const id = Number(bindingId);
+  if (!Number.isInteger(id) || id <= 0) throw new Error('Invalid source rendition binding');
+  const binding = db.prepare('SELECT id, stream_id FROM stream_transcode_bindings WHERE id = ?').get(id);
+  if (!binding) throw new Error('Source rendition binding not found');
+  if (Number(binding.stream_id) !== Number(streamId)) throw new Error('Source rendition binding belongs to another stream');
+  return id;
+}
+
+function createTask({ stream_id, source_binding_id = null, v3_metadata = null, target_type, target_url, enabled = 0 }) {
   const streamId = requireStream(stream_id);
+  const sourceBindingId = requireSourceBinding(streamId, source_binding_id);
   if (!target_type || !target_url) throw new Error('Target type and URL are required');
   validateTarget(target_url);
   const desired = enabled === true || Number(enabled) === 1 ? 'RUNNING' : 'STOPPED';
   const runtime = desired === 'RUNNING' ? 'WAITING_INPUT' : 'STOPPED';
+  const metadata = sanitizeMetadata(v3_metadata);
   const result = db.prepare(`
     INSERT INTO forward_tasks (
-      stream_id, external_source_id, target_type, target_url, enabled,
+      stream_id, external_source_id, source_binding_id, v3_metadata_json, target_type, target_url, enabled,
       execution_mode, desired_state, runtime_state, status, updated_at
-    ) VALUES (?, NULL, ?, ?, ?, 'managed_worker', ?, ?, ?, CURRENT_TIMESTAMP)
-  `).run(streamId, target_type, target_url, desired === 'RUNNING' ? 1 : 0, desired, runtime, runtime.toLowerCase());
+    ) VALUES (?, NULL, ?, ?, ?, ?, ?, 'managed_worker', ?, ?, ?, CURRENT_TIMESTAMP)
+  `).run(streamId, sourceBindingId, metadata ? JSON.stringify(metadata) : null, target_type, target_url, desired === 'RUNNING' ? 1 : 0, desired, runtime, runtime.toLowerCase());
   return getTask(Number(result.lastInsertRowid));
 }
 
 function updateTask(id, updates = {}) {
   const task = getTask(id);
   if (!task) return null;
-  const changingRuntimeConfig = ['stream_id', 'target_type', 'target_url'].some(key => updates[key] !== undefined);
+  const changingRuntimeConfig = ['stream_id', 'source_binding_id', 'target_type', 'target_url'].some(key => updates[key] !== undefined);
   if (changingRuntimeConfig && task.desired_state === 'RUNNING') {
     throw new Error('Stop OUT-PUSH before changing stream or target');
   }
 
   const fields = {};
-  if (updates.stream_id !== undefined) fields.stream_id = requireStream(updates.stream_id);
+  const effectiveStreamId = updates.stream_id !== undefined ? requireStream(updates.stream_id) : task.stream_id;
+  const effectiveBindingId = updates.source_binding_id !== undefined ? updates.source_binding_id : task.source_binding_id;
+  if (updates.stream_id !== undefined) fields.stream_id = effectiveStreamId;
+  if (updates.stream_id !== undefined || updates.source_binding_id !== undefined) fields.source_binding_id = requireSourceBinding(effectiveStreamId, effectiveBindingId);
+  if (updates.v3_metadata !== undefined) {
+    const metadata = sanitizeMetadata(updates.v3_metadata);
+    fields.v3_metadata_json = metadata ? JSON.stringify(metadata) : null;
+  }
   if (updates.target_type !== undefined) fields.target_type = String(updates.target_type || '').trim();
   if (updates.target_url !== undefined && updates.target_url !== '') {
     validateTarget(updates.target_url);

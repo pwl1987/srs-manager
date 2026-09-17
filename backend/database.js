@@ -165,6 +165,8 @@ CREATE TABLE IF NOT EXISTS forward_tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   stream_id INTEGER NOT NULL,
   external_source_id INTEGER,
+  source_binding_id INTEGER,
+  v3_metadata_json TEXT,
   target_type TEXT NOT NULL,
   target_url TEXT NOT NULL,
   enabled INTEGER DEFAULT 0,
@@ -377,6 +379,8 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   ensureColumn('pull_tasks', 'last_source_switch_at', 'last_source_switch_at TEXT');
   ensureColumn('pull_tasks', 'last_source_switch_reason', 'last_source_switch_reason TEXT');
   ensureColumn('forward_tasks', 'execution_mode', "execution_mode TEXT NOT NULL DEFAULT 'managed_worker'");
+  ensureColumn('forward_tasks', 'source_binding_id', 'source_binding_id INTEGER');
+  ensureColumn('forward_tasks', 'v3_metadata_json', 'v3_metadata_json TEXT');
   ensureColumn('forward_tasks', 'desired_state', "desired_state TEXT NOT NULL DEFAULT 'STOPPED'");
   ensureColumn('forward_tasks', 'runtime_state', "runtime_state TEXT NOT NULL DEFAULT 'STOPPED'");
   ensureColumn('forward_tasks', 'attempt', 'attempt INTEGER NOT NULL DEFAULT 0');
@@ -387,6 +391,7 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   ensureColumn('forward_tasks', 'updated_at', 'updated_at TEXT');
   ensureColumn('operations', 'idempotency_key', 'idempotency_key TEXT');
   conn.exec('CREATE INDEX IF NOT EXISTS idx_forward_tasks_desired_runtime ON forward_tasks(desired_state, runtime_state)');
+  conn.exec('CREATE INDEX IF NOT EXISTS idx_forward_tasks_source_binding ON forward_tasks(source_binding_id, desired_state)');
   conn.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_operations_idempotency
     ON operations(type, subject_type, subject_id, idempotency_key)
     WHERE idempotency_key IS NOT NULL`);

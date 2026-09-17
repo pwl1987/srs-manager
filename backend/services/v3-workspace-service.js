@@ -210,20 +210,33 @@ function projectOutputs(workspace) {
     const legacy = task.execution_mode === 'srs_dynamic';
     outputs.push({
       id: `output:push:${task.id}`,
-      name: task.target_type || `PUSH ${task.id}`,
+      name: task.v3_metadata?.name || task.target_type || `PUSH ${task.id}`,
       mode: 'PUSH',
-      media_ref: originalRef,
+      scene: task.v3_metadata?.scene || null,
+      media_ref: task.source_binding_id
+        ? `rendition:${roomId(streamId)}:binding-${task.source_binding_id}`
+        : originalRef,
       transport: task.target_protocol || null,
+      protection: task.v3_metadata?.protection || null,
       control_mode: legacy ? 'LEGACY_UNMANAGED' : 'MANAGED',
       desired_state: task.desired_state,
       runtime_state: legacy ? 'UNKNOWN' : task.runtime_state,
-      destination: { kind: 'CUSTOM', label: task.target_type || null, target_url_masked: task.target_url_masked || null },
+      destination: {
+        kind: task.v3_metadata?.destination_kind || 'CUSTOM',
+        label: task.v3_metadata?.destination_label || task.target_type || null,
+        target_url_masked: task.target_url_masked || null
+      },
       evidence: {
         local: legacy ? { level: 'DESIRED', state: 'UNKNOWN', source: 'legacy SRS dynamic forward config', observed_at: null, freshness: 'UNKNOWN' }
           : workerEvidence(task, workspace.outputs?.push_worker, 'Push Worker heartbeat'),
         remote: { state: 'UNKNOWN', source: null, observed_at: null, freshness: 'UNKNOWN' }
       },
-      compatibility: { forward_task_id: task.id, execution_mode: task.execution_mode }
+      compatibility: {
+        forward_task_id: task.id,
+        execution_mode: task.execution_mode,
+        source_binding_id: task.source_binding_id || null,
+        source_stream_name: task.source_stream_name || task.stream_name
+      }
     });
   }
 
