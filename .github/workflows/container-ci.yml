@@ -1,0 +1,47 @@
+name: Container CI
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/container-ci.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/container-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate compose model
+        env:
+          SRS_API_TOKEN: ci-token
+          ADMIN_PASSWORD_HASH: ci-hash
+          JWT_SECRET: ci-secret
+        run: docker compose config --quiet
+
+      - name: Build web image
+        run: docker build --target web -t srs-manager:web-ci .
+
+      - name: Build pull-worker image
+        run: docker build --target pull-worker -t srs-manager:pull-worker-ci .
+
+      - name: Verify pull-worker FFmpeg
+        run: docker run --rm --entrypoint ffmpeg srs-manager:pull-worker-ci -version
