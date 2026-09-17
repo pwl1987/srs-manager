@@ -19,9 +19,11 @@ import { CardSkeleton } from '../components/ui/Skeleton';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StreamQrModal from '../components/streams/StreamQrModal';
 import ManagedPullPanel from '../components/streams/ManagedPullPanel';
+import IngestCredentialPanel from '../components/streams/IngestCredentialPanel';
 import ManagedPushPanel from '../components/streams/ManagedPushPanel';
 import OutPullAccessPanel from '../components/streams/OutPullAccessPanel';
 import WorkspacePreviewPanel from '../components/streams/WorkspacePreviewPanel';
+import SourcePreviewPane from '../components/streams/SourcePreviewPane';
 import WorkspaceSignalPath from '../components/streams/WorkspaceSignalPath';
 import TranscodePipelinePanel from '../components/streams/TranscodePipelinePanel';
 import DistributionSection from './StreamsDistribution';
@@ -87,11 +89,21 @@ export default function StreamWorkspace() {
   const [confirmPublisher, setConfirmPublisher] = useState(false);
   const [confirmViewers, setConfirmViewers] = useState(false);
   const [working, setWorking] = useState(false);
+  const [sourcePreview, setSourcePreview] = useState(null);
+  const [sourcePreviewLoading, setSourcePreviewLoading] = useState(false);
+  const [ingestCredentials, setIngestCredentials] = useState([]);
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
     if (!silent) setError(null);
-    try { setWorkspace(await api.get(`/streams/${id}/workspace`)); }
+    try {
+      const [nextWorkspace, ingest] = await Promise.all([
+        api.get(`/streams/${id}/workspace`),
+        api.get(`/v3/rooms/room:${id}/ingest-credentials`).catch(() => ({ credentials: [] }))
+      ]);
+      setWorkspace(nextWorkspace);
+      setIngestCredentials(ingest?.credentials || []);
+    }
     catch (err) { if (!silent) setError({ code: getErrorCode(err) }); }
     finally { setLoading(false); }
   }
@@ -102,6 +114,19 @@ export default function StreamWorkspace() {
     if (!value) return;
     try { await copyText(value); toast.success(t('common:toasts.copied')); }
     catch { toast.error(t('common:errors.INTERNAL_GENERAL')); }
+  }
+
+  async function previewSource(source) {
+    if (!source?.v3_source_id || sourcePreviewLoading) return;
+    setSourcePreviewLoading(true);
+    try {
+      const access = await api.post(`/v3/rooms/room:${stream.id}/sources/${encodeURIComponent(source.v3_source_id)}/preview-access`);
+      setSourcePreview({ ...access, source_name: source.source_name, source_id: source.v3_source_id });
+    } catch (err) {
+      toast.error(err?.message || t('common:errors.INTERNAL_GENERAL'));
+    } finally {
+      setSourcePreviewLoading(false);
+    }
   }
 
   async function disconnectPublisher() {
@@ -157,14 +182,17 @@ export default function StreamWorkspace() {
         actions={<>
           <StateBadge state={observed.online} t={t} />
           <button className={btnSecondary} onClick={() => setQr(true)}><QrCode size={14} />{t('streams:actions.qrcode')}</button>
-          <button className={btnSecondary} onClick={() => handleCopy(publishUrl)}><Copy size={14} />{t('streams:actions.copyPushUrl')}</button>
+          {!ingestCredentials.length && <button className={btnSecondary} onClick={() => handleCopy(publishUrl)}><Copy size={14} />{t('streams:actions.copyPushUrl')}</button>}
           {canDisconnectPublisher && <button className={btnDangerGhost} onClick={() => setConfirmPublisher(true)}><Square size={13} />{t('streams:workspace.controls.disconnectPublisher')}</button>}
         </>}
       />
       {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => load()} />}
 
       <section className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-        <WorkspacePreviewPanel stream={stream} observed={observed} t={t} />
+        <div className={sourcePreview ? 'grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,2fr)_minmax(250px,1fr)]' : 'min-w-0'}>
+          <WorkspacePreviewPanel stream={stream} observed={observed} t={t} />
+          {sourcePreview && <SourcePreviewPane preview={sourcePreview} onClose={() => setSourcePreview(null)} />}
+        </div>
         <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)] md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -188,7 +216,8 @@ export default function StreamWorkspace() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
         <div className="space-y-6">
-          <ManagedPullPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
+          <IngestCredentialPanel stream={stream} credentials={ingestCredentials} onChanged={() => load(true)} />
+          <ManagedPullPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onPreviewSource={previewSource} previewingSourceId={sourcePreview?.source_id} />
           <TranscodePipelinePanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
           <ManagedPushPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
           <OutPullAccessPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onDisconnectViewers={() => setConfirmViewers(true)} />
@@ -199,7 +228,8 @@ export default function StreamWorkspace() {
           <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
             <div className="mb-2 flex items-center gap-2"><Cable size={15} className="text-[var(--info)]" /><h2 className="text-sm font-semibold">{t('streams:workspace.endpoints.title')}</h2></div>
             <p className="mb-3 text-xs text-[var(--muted-foreground)]">{t('streams:workspace.endpoints.subtitle')}</p>
-            <EndpointRow label={t('streams:workspace.endpoints.publish')} value={publishUrl} onCopy={handleCopy} />
+            {!ingestCredentials.length && <EndpointRow label={t('streams:workspace.endpoints.publish')} value={publishUrl} onCopy={handleCopy} />}
+            {!!ingestCredentials.length && <p className="mb-2 rounded-lg border border-[var(--primary)]/15 bg-[var(--primary)]/5 px-3 py-2 text-[10px] leading-4 text-[var(--muted-foreground)]">IN-PUSH 已启用独立凭证，请从左侧“编码器推流来源”复制对应 Server / Stream Key；不再显示无凭证裸推流地址。</p>}
             <EndpointRow label="HLS" value={hlsUrl} onCopy={handleCopy} />
             <EndpointRow label="FLV" value={flvUrl} onCopy={handleCopy} />
             <EndpointRow label="RTMP" value={rtmpUrl} onCopy={handleCopy} />

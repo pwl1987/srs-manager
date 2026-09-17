@@ -6,6 +6,7 @@ const legacyWorkspaceService = require('./stream-workspace-service');
 const evidenceService = require('./v3-evidence-service');
 const capabilityService = require('./v3-capability-service');
 const healthService = require('./v3-health-service');
+const ingestCredentialService = require('./ingest-credential-service');
 
 const CONTRACT_VERSION = 'workspace-v3-phase00.1';
 const ACTIVE_PULL_STATES = new Set(['STARTING', 'RUNNING', 'RETRYING']);
@@ -87,6 +88,8 @@ function projectSources(workspace) {
   const publisherCount = Number(workspace.observed?.publishers_count || 0);
   const managedPullObserved = Boolean(workspace.inputs?.managed_pull?.observed_publisher);
   const pullMayOwn = Boolean(task && task.desired_state === 'RUNNING' && ACTIVE_PULL_STATES.has(task.runtime_state));
+  const credentials = ingestCredentialService.listCredentials(streamId);
+  const ingestSession = publisher ? ingestCredentialService.activeSessionForPublisher(streamId, publisher.id) : null;
 
   let programSourceId = null;
   let attribution = 'NONE';
@@ -98,56 +101,67 @@ function projectSources(workspace) {
       programSourceId = `source:in_pull:ptsrc-${active.id}`;
       attribution = 'MANAGED_PULL_VERIFIED';
     }
+  } else if (workspace.observed?.online && ingestSession?.credential_id) {
+    programSourceId = `source:in_push:credential-${ingestSession.credential_id}`;
+    attribution = 'INGEST_CREDENTIAL_VERIFIED';
   } else if (workspace.observed?.online && pullMayOwn) {
     attribution = 'UNKNOWN_PULL_OWNERSHIP';
-  } else if (workspace.observed?.online && publisher) {
+  } else if (workspace.observed?.online && publisher && credentials.length === 0) {
     programSourceId = `source:in_push:legacy-${streamId}`;
     attribution = 'EXTERNAL_PUSH_OBSERVED';
+  } else if (workspace.observed?.online && publisher) {
+    programSourceId = `source:in_push:unattributed-${streamId}`;
+    attribution = 'UNATTRIBUTED_EXTERNAL_PUSH';
   }
 
-  const sources = [{
-    id: `source:in_push:legacy-${streamId}`,
-    kind: 'IN_PUSH',
-    name: 'Legacy Push Ingest',
-    role: programSourceId === `source:in_push:legacy-${streamId}` ? 'PROGRAM' : 'CANDIDATE',
-    availability: programSourceId === `source:in_push:legacy-${streamId}` ? 'ONLINE' : 'UNKNOWN',
-    configured: true,
-    evidence: publisher && programSourceId === `source:in_push:legacy-${streamId}` ? {
-      level: 'OBSERVED', source: 'SRS API', observed_at: nowIso(), freshness: 'FRESH',
-      publisher: { id: publisher.id, ip: publisher.ip || null, protocol: publisher.protocol || null }
-    } : { level: 'CONFIGURED', source: 'legacy stream ingest', observed_at: null, freshness: 'UNKNOWN' },
-    compatibility: { kind: 'legacy_stream_ingest', stream_id: streamId }
-  }];
+  const sources = [];
+  if (credentials.length === 0) {
+    sources.push({
+      id: `source:in_push:legacy-${streamId}`,
+      kind: 'IN_PUSH', name: 'Legacy Push Ingest',
+      role: programSourceId === `source:in_push:legacy-${streamId}` ? 'PROGRAM' : 'CANDIDATE',
+      availability: programSourceId === `source:in_push:legacy-${streamId}` ? 'ONLINE' : 'UNKNOWN', configured: true,
+      evidence: publisher && programSourceId === `source:in_push:legacy-${streamId}`
+        ? { level: 'OBSERVED', source: 'SRS API', observed_at: nowIso(), freshness: 'FRESH', publisher: { id: publisher.id, ip: publisher.ip || null, protocol: publisher.protocol || null } }
+        : { level: 'CONFIGURED', source: 'legacy stream ingest', observed_at: null, freshness: 'UNKNOWN' },
+      compatibility: { kind: 'legacy_stream_ingest', stream_id: streamId }
+    });
+  } else {
+    for (const credential of credentials) {
+      const id = `source:in_push:credential-${credential.id}`;
+      const isProgram = id === programSourceId;
+      sources.push({
+        id, kind: 'IN_PUSH', name: credential.label,
+        role: isProgram ? 'PROGRAM' : (credential.status === 'ACTIVE' ? 'STANDBY' : 'CANDIDATE'),
+        availability: isProgram ? 'ONLINE' : (credential.status === 'ACTIVE' ? 'UNKNOWN' : 'OFFLINE'),
+        configured: true,
+        evidence: isProgram
+          ? { level: 'OBSERVED', source: 'SRS API + ingest session', observed_at: nowIso(), freshness: 'FRESH', publisher: { id: publisher?.id || null, ip: publisher?.ip || null, protocol: publisher?.protocol || null } }
+          : { level: 'CONFIGURED', source: 'ingest credential', observed_at: null, freshness: 'UNKNOWN' },
+        compatibility: { kind: 'ingest_credential', ingest_credential_id: credential.id, status: credential.status, token_hint: credential.token_hint, last_used_at: credential.last_used_at }
+      });
+    }
+  }
+  if (programSourceId === `source:in_push:unattributed-${streamId}`) {
+    sources.unshift({
+      id: programSourceId, kind: 'IN_PUSH', name: 'Unattributed Publisher', role: 'PROGRAM', availability: 'ONLINE', configured: false,
+      evidence: { level: 'OBSERVED', source: 'SRS API', observed_at: nowIso(), freshness: 'FRESH', publisher: { id: publisher?.id || null, ip: publisher?.ip || null, protocol: publisher?.protocol || null } },
+      compatibility: { kind: 'unattributed_publisher', stream_id: streamId }
+    });
+  }
 
   for (const source of task?.sources || []) {
     const id = `source:in_pull:ptsrc-${source.id}`;
     const isProgram = id === programSourceId;
     sources.push({
-      id,
-      kind: 'IN_PULL',
-      name: source.source_name,
+      id, kind: 'IN_PULL', name: source.source_name,
       role: isProgram ? 'PROGRAM' : (source.enabled ? 'STANDBY' : 'CANDIDATE'),
-      availability: sourceAvailability(task, source, isProgram),
-      configured: true,
-      protocol: source.source_protocol || null,
-      source_url_masked: source.source_url_masked || null,
-      evidence: isProgram ? {
-        level: 'OBSERVED', source: 'Pull Worker + SRS API', observed_at: nowIso(), freshness: 'FRESH'
-      } : {
-        level: task && Number(task.active_source_id) === Number(source.external_source_id) ? 'RUNTIME' : 'CONFIGURED',
-        source: task && Number(task.active_source_id) === Number(source.external_source_id) ? 'PullTask' : 'configuration',
-        observed_at: null,
-        freshness: 'UNKNOWN'
-      },
-      compatibility: {
-        pull_task_source_id: source.id,
-        pull_task_id: task.id,
-        external_source_id: source.external_source_id,
-        priority: source.priority,
-        enabled: Boolean(source.enabled),
-        desired_state: task.desired_state,
-        runtime_state: task.runtime_state
-      }
+      availability: sourceAvailability(task, source, isProgram), configured: true,
+      protocol: source.source_protocol || null, source_url_masked: source.source_url_masked || null,
+      evidence: isProgram
+        ? { level: 'OBSERVED', source: 'Pull Worker + SRS API', observed_at: nowIso(), freshness: 'FRESH' }
+        : { level: task && Number(task.active_source_id) === Number(source.external_source_id) ? 'RUNTIME' : 'CONFIGURED', source: task && Number(task.active_source_id) === Number(source.external_source_id) ? 'PullTask' : 'configuration', observed_at: null, freshness: 'UNKNOWN' },
+      compatibility: { pull_task_source_id: source.id, pull_task_id: task.id, external_source_id: source.external_source_id, priority: source.priority, enabled: Boolean(source.enabled), desired_state: task.desired_state, runtime_state: task.runtime_state }
     });
   }
   return { sources, programSourceId, attribution };

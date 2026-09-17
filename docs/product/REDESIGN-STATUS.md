@@ -150,11 +150,13 @@ Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-
 
 Last Completed：**Phase 02 — Capability / Evidence / Operation Core**。已接入 Product/Runtime/Destination Capability Registry、Evidence provenance/TTL/freshness、Expected-vs-Actual Health evaluator、持久化 Idempotency Operation Core，以及 `/api/v3/capabilities`、`/api/v3/output/validate`、`/api/v3/operations/:id`；Remote UNKNOWN 不冒充失败，SRS 不可达不伪造观测时间。Phase 02 focused 11/11、backend full regression 38/38、frontend i18n/build PASS。
 
-Current Task：**Phase 03 — Sources / Program / Secure Monitor**。先建立独立 IN-PUSH Source/Ingest Credential 与 Program selector 的兼容数据面，再把安全预览切为 HTTP-FLV-first / HLS fallback；切源继续复用既有 Pull Source Switch Operation，不重写 Pull Worker。
+Current Task：**Phase 03 — Sources / Program / Secure Monitor**（IMPLEMENTED / FIELD GATE PENDING）。独立 IN-PUSH Credential、Publisher 归属、V3 Pull Program Switch、HTTP-FLV-first/HLS fallback、按需 IN-PULL PVW 均已实现；本地 backend 42/42 与 frontend build PASS，等待 10.30.5.199 隔离真实媒体验收后再转 COMPLETE。
 
 Next Task：**Phase 04 — Unified Output / Rendition / Scene Builder**。Phase 03 Gate 通过后再开放 V3 Unified Output mutation 与 Scene/Professional Builder，不提前把 Phase 02 Operation Core 暴露成假 Runtime 能力。
 
 ## 验证债务 / 已知边界
+
+- 前端依赖审计存在既有 `echarts < 6.1.0` moderate XSS advisory；修复需要 ECharts major upgrade，应作为独立兼容性任务处理，非本轮 `flv.js` 引入；
 
 - SRS 8080 直连 HLS 不受当前 `on_play` Hook 策略保护；若对外暴露 HLS，必须在反向代理/CDN 层增加鉴权与防盗链；
 - OUT-PUSH Runtime RUNNING 证明本地受管 FFmpeg 工作且输入在线，不等同于第三方平台已经成功播放；远端健康仍需供应商 API 或独立观测证据；

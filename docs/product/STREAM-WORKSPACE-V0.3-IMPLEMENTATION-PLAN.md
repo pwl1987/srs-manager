@@ -68,6 +68,8 @@ Gate：**PASS**。现有 Runtime 状态经新 Evidence/Health 层解释后不出
 
 ## Phase 03 — Sources / Program / Secure Monitor
 
+状态：**IMPLEMENTED / FIELD GATE PENDING**。
+
 目标：先把左侧输入和中央监看切到 V3 业务模型，Output 仍可继续兼容展示。
 
 交付：

@@ -10,4 +10,8 @@ test('operator preview token is short lived and stream bound', () => {
   assert.equal(service.verifyPreviewToken(issued.token, { id: 8, name: 'other' }), false);
   assert.ok(Date.parse(issued.expires_at) > Date.now());
   assert.ok(issued.ttl_seconds <= 600);
+  assert.equal(issued.preferred_transport, 'http-flv');
+  assert.ok(issued.preview_urls.http_flv.includes('/live.flv?preview_token='));
+  assert.ok(issued.preview_urls.hls.includes('/index.m3u8?preview_token='));
+  assert.equal(issued.preview_url, issued.preview_urls.hls);
 });

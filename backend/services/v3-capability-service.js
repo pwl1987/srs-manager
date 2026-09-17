@@ -2,6 +2,7 @@ const pushTaskService = require('./push-task-service');
 const pullTaskService = require('./pull-task-service');
 const transcodeBindingService = require('./transcode-binding-service');
 const wangsuService = require('./wangsu');
+const sourcePreviewService = require('./source-preview-service');
 
 const PRODUCT = Object.freeze({
   PUSH: { transports: ['rtmp', 'rtmps', 'srt'] },
@@ -28,7 +29,7 @@ function runtimeSnapshot(workspace = null) {
     push_worker: workers?.push || pushTaskService.getWorkerHealth(),
     transcode_worker: workers?.transcode || transcodeBindingService.getWorkerHealth(),
     srs_observed: workspace ? workspace.evidence?.srs?.available === true : null,
-    preview: { hls_secure_proxy: true, http_flv_secure_proxy: false },
+    preview: { hls_secure_proxy: true, http_flv_secure_proxy: true, preferred: 'http-flv', fallback: 'hls', source_preview: sourcePreviewService.capability() },
     record: { available: false, reason_code: 'PHASE_05_NOT_IMPLEMENTED' }
   };
 }

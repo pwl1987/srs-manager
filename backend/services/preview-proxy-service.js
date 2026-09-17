@@ -13,6 +13,10 @@ function originPlaylistUrl(streamName) {
   return new URL(`/live/${encodeURIComponent(String(streamName))}.m3u8`, `${originBase()}/`).toString();
 }
 
+function originFlvUrl(streamName) {
+  return new URL(`/live/${encodeURIComponent(String(streamName))}.flv`, `${originBase()}/`).toString();
+}
+
 function validateResourceUrl(resource, streamName) {
   const playlist = new URL(originPlaylistUrl(streamName));
   const target = new URL(String(resource || ''), playlist);
@@ -59,11 +63,26 @@ async function fetchOrigin(url, { range = null, timeoutMs = 8000 } = {}) {
   return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs), redirect: 'error' });
 }
 
+async function fetchLiveOrigin(url, { timeoutMs = 5000 } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: controller.signal, redirect: 'error' });
+    clearTimeout(timer);
+    return response;
+  } catch (error) {
+    clearTimeout(timer);
+    throw error;
+  }
+}
+
 module.exports = {
   originBase,
   originPlaylistUrl,
+  originFlvUrl,
   validateResourceUrl,
   proxyUrl,
   rewritePlaylist,
-  fetchOrigin
+  fetchOrigin,
+  fetchLiveOrigin
 };

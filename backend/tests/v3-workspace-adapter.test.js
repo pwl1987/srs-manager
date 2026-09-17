@@ -15,6 +15,7 @@ const pushTaskService = require('../services/push-task-service');
 const transcodeService = require('../services/transcode-service');
 const transcodeBindingService = require('../services/transcode-binding-service');
 const v3 = require('../services/v3-workspace-service');
+const ingestCredentialService = require('../services/ingest-credential-service');
 
 const originals = {
   getStreams: srsService.getStreams,
@@ -24,7 +25,7 @@ const originals = {
 
 function resetData() {
   for (const table of [
-    'out_pull_sessions', 'access_grants', 'out_pull_policies', 'operations',
+    'out_pull_sessions', 'access_grants', 'out_pull_policies', 'ingest_sessions', 'ingest_credentials', 'operations',
     'stream_transcode_bindings', 'transcode_templates', 'forward_tasks',
     'distribution_requests', 'cdn_channels', 'pull_task_sources', 'pull_tasks',
     'external_sources', 'hook_events', 'streams'
@@ -79,6 +80,17 @@ test('V3 read adapter reconciles current V2 facts without changing runtime owner
   assert.equal(aggregate.program.attribution, 'EXTERNAL_PUSH_OBSERVED');
   assert.equal(aggregate.program.source_id, `source:in_push:legacy-${streamId}`);
   assert.equal(aggregate.sources.find(x => x.kind === 'IN_PUSH').role, 'PROGRAM');
+  assert.equal(aggregate.health.status, 'NORMAL');
+  const ingestCreated = ingestCredentialService.createCredential(streamId, { label: '主编码器' });
+  aggregate = await v3.getWorkspace(streamId);
+  assert.equal(aggregate.program.attribution, 'UNATTRIBUTED_EXTERNAL_PUSH');
+  assert.equal(aggregate.health.status, 'DEGRADED');
+  const ingestAuth = ingestCredentialService.authorizePublish({ stream: 'news-main', client_id: 'pub-external', ip: '10.0.0.9', param: `?ingest_token=${ingestCreated.token}` });
+  ingestCredentialService.recordPublishSession({ client_id: 'pub-external', ip: '10.0.0.9' }, ingestAuth);
+  aggregate = await v3.getWorkspace(streamId);
+  assert.equal(aggregate.program.attribution, 'INGEST_CREDENTIAL_VERIFIED');
+  assert.equal(aggregate.program.source_id, `source:in_push:credential-${ingestCreated.credential.id}`);
+  assert.equal(aggregate.sources.find(x => x.compatibility?.ingest_credential_id === ingestCreated.credential.id).role, 'PROGRAM');
   assert.equal(aggregate.health.status, 'NORMAL');
   assert.equal(aggregate.capabilities.phase, '02');
   assert.equal(aggregate.capabilities.runtime.record.available, false);

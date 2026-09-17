@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const { randomUUID } = require('crypto');
 const srsService = require('./services/srs');
 const pullTaskService = require('./services/pull-task-service');
+const internalMediaService = require('./services/internal-media-service');
 const operationService = require('./services/operation-service');
 const { decidePullSwitchStep } = require('./services/pull-switch-machine');
 const { decidePullFailure } = require('./services/pull-failover-policy');
@@ -42,7 +43,8 @@ function redactText(value) {
 function targetUrl(task) {
   const url = `${SRS_PUBLISH_BASE}/${encodeURIComponent(task.stream_name)}`;
   const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}srs_manager_pull=${encodeURIComponent(task.id)}`;
+  const token = internalMediaService.getInternalMediaToken();
+  return `${url}${separator}internal_media_token=${encodeURIComponent(token)}&srs_manager_pull=${encodeURIComponent(task.id)}`;
 }
 
 function nextBackoffMs(attempt) {

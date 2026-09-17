@@ -58,13 +58,22 @@ function listPullOperations(taskId, limit = 10) {
   `).all(Number(taskId), size).map(hydrate);
 }
 
-function requestPullSourceSwitch(taskId, targetSourceId, requestedBy = null) {
+function requestPullSourceSwitch(taskId, targetSourceId, requestedBy = null, idempotencyKey = null) {
   const id = Number(taskId);
   const targetId = Number(targetSourceId);
   if (!Number.isInteger(id) || id <= 0) throw new Error('Invalid pull task');
   if (!Number.isInteger(targetId) || targetId <= 0) throw new Error('Invalid target source');
+  const key = idempotencyKey ? String(idempotencyKey).trim() : null;
+  if (key) {
+    const existing = db.prepare(`SELECT * FROM operations WHERE type = ? AND subject_type = 'pull_task' AND subject_id = ? AND idempotency_key = ? ORDER BY id DESC LIMIT 1`).get(PULL_SWITCH_TYPE, id, key);
+    if (existing) return hydrate(existing);
+  }
 
   const create = db.transaction(() => {
+    if (key) {
+      const existing = db.prepare(`SELECT * FROM operations WHERE type = ? AND subject_type = 'pull_task' AND subject_id = ? AND idempotency_key = ? ORDER BY id DESC LIMIT 1`).get(PULL_SWITCH_TYPE, id, key);
+      if (existing) return Number(existing.id);
+    }
     const task = pullTaskService.getTask(id);
     if (!task) throw new Error('Pull task not found');
     if (task.desired_state !== 'RUNNING') throw new Error('Pull task must be RUNNING before source switch');
@@ -83,9 +92,9 @@ function requestPullSourceSwitch(taskId, targetSourceId, requestedBy = null) {
       target_source_id: targetId
     });
     const result = db.prepare(`
-      INSERT INTO operations (type, subject_type, subject_id, state, requested_by, payload_json)
-      VALUES (?, 'pull_task', ?, 'QUEUED', ?, ?)
-    `).run(PULL_SWITCH_TYPE, id, requestedBy || null, payload);
+      INSERT INTO operations (type, subject_type, subject_id, state, requested_by, payload_json, idempotency_key)
+      VALUES (?, 'pull_task', ?, 'QUEUED', ?, ?, ?)
+    `).run(PULL_SWITCH_TYPE, id, requestedBy || null, payload, key);
     return Number(result.lastInsertRowid);
   });
 

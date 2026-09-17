@@ -321,6 +321,34 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_operations_active_pull_switch
   WHERE type = 'PULL_SOURCE_SWITCH'
     AND state IN ('QUEUED', 'STOPPING', 'STARTING', 'VERIFYING');
 
+CREATE TABLE IF NOT EXISTS ingest_credentials (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  label TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  token_hint TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','REVOKED')),
+  created_by TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  last_used_at TEXT,
+  revoked_at TEXT,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_ingest_credentials_stream_status ON ingest_credentials(stream_id, status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS ingest_sessions (
+  client_id TEXT PRIMARY KEY,
+  stream_id INTEGER NOT NULL,
+  credential_id INTEGER,
+  session_kind TEXT NOT NULL DEFAULT 'external',
+  ip TEXT,
+  started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  stopped_at TEXT,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
+  FOREIGN KEY (credential_id) REFERENCES ingest_credentials(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ingest_sessions_stream_active ON ingest_sessions(stream_id, stopped_at);
+
 INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   'admin',
   'default_change_me',

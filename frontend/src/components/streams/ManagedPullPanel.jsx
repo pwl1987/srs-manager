@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRightLeft, CircleDot, Link2, Play, Plus, RefreshCw, Square, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, CircleDot, Eye, Link2, Play, Plus, RefreshCw, Square, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
@@ -19,7 +19,7 @@ function RuntimeBadge({ state }) {
   return <span className={cn('rounded-md px-2 py-1 text-[10px] font-semibold', tones[state] || tones.STOPPED)}>{state || 'STOPPED'}</span>;
 }
 
-export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
+export default function ManagedPullPanel({ workspace, stream, t, onChanged, onPreviewSource, previewingSourceId }) {
   const managed = workspace.inputs?.managed_pull || {};
   const task = managed.task;
   const worker = managed.worker || { available: false };
@@ -104,7 +104,9 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
     if (!task || !switchTargetId) return;
     setWorking(true);
     try {
-      await api.post(`/pull-tasks/${task.id}/switch-source`, { target_source_id: Number(switchTargetId) });
+      const target = taskSources.find(source => Number(source.external_source_id) === Number(switchTargetId));
+      const idempotencyKey = globalThis.crypto?.randomUUID?.() || `switch-${Date.now()}-${switchTargetId}`;
+      await api.post(`/v3/rooms/room:${stream.id}/program/switch`, { target_source_id: `source:in_pull:ptsrc-${target.id}` }, { headers: { 'Idempotency-Key': idempotencyKey } });
       toast.success(t('streams:workspace.managedPull.switchQueued'));
       setConfirmSwitch(false);
       setSwitchTargetId('');
@@ -301,6 +303,14 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
                       <div className="mt-1 truncate font-mono text-[10px] text-[var(--text-faint)]" title={source.source_url_masked}>{source.source_url_masked}</div>
                     </div>
                     <div className="flex justify-end gap-1">
+                      <button
+                        className={btnGhost}
+                        disabled={!source.enabled || working}
+                        onClick={() => onPreviewSource?.({ ...source, v3_source_id: `source:in_pull:ptsrc-${source.id}` })}
+                        title="预监备用源"
+                      >
+                        <Eye size={13} className={previewingSourceId === `source:in_pull:ptsrc-${source.id}` ? 'text-[var(--primary)]' : ''} />
+                      </button>
                       <button
                         className={btnGhost}
                         disabled={working || destructiveLocked}

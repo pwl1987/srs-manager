@@ -20,6 +20,10 @@ function evaluateWorkspace(workspace) {
     reasons.push(reason('PROGRAM_EXPECTED_NOT_OBSERVED', 'CRITICAL', 'Program is expected to run but no current media is observed.', workspace.program?.id, 'all_outputs'));
   }
 
+  if (state === 'LIVE' && String(workspace.program?.attribution || '').startsWith('UNATTRIBUTED')) {
+    reasons.push(reason('PROGRAM_SOURCE_UNATTRIBUTED', 'WARNING', 'Program is live but the publisher cannot be attributed to a configured ingest source.', workspace.program?.id, 'program'));
+  }
+
   const programEvidence = workspace.program?.evidence;
   if (state === 'LIVE' && programEvidence?.freshness === 'STALE') {
     reasons.push(reason('PROGRAM_EVIDENCE_STALE', 'WARNING', 'Program evidence is stale.', workspace.program?.id, 'program'));

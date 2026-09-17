@@ -1,5 +1,6 @@
 const db = require('../database');
 const outPullService = require('./out-pull-service');
+const ingestCredentialService = require('./ingest-credential-service');
 
 function recordEvent(eventType, streamName) {
   try {
@@ -18,8 +19,13 @@ function recordEvent(eventType, streamName) {
 function handleOnPublish(data) {
   // SRS sends the stream name as "stream"; "stream_name" is kept for older callers.
   const streamName = data.stream || data.stream_name || data.params?.stream;
-  if (!streamName) return;
-
+  if (!streamName) return { allowed: true, reason: 'missing_stream' };
+  const authorization = ingestCredentialService.authorizePublish(data);
+  if (!authorization.allowed) {
+    console.log(`[Hooks] Publisher rejected for "${streamName}": ${authorization.reason}`);
+    return authorization;
+  }
+  ingestCredentialService.recordPublishSession(data, authorization);
   recordEvent('on_publish', streamName);
 
   db.prepare(`
@@ -27,7 +33,8 @@ function handleOnPublish(data) {
     WHERE name = ?
   `).run(streamName);
 
-  console.log(`[Hooks] Stream "${streamName}" published`);
+  console.log(`[Hooks] Stream "${streamName}" published (${authorization.reason})`);
+  return authorization;
 }
 
 function handleOnUnpublish(data) {
@@ -35,6 +42,7 @@ function handleOnUnpublish(data) {
   const streamName = data.stream || data.stream_name || data.params?.stream;
   if (!streamName) return;
 
+  ingestCredentialService.recordUnpublishSession(data);
   recordEvent('on_unpublish', streamName);
 
   db.prepare(`

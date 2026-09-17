@@ -30,6 +30,9 @@ test('preview proxy requires a stream-bound token and rewrites nested HLS resour
   origin.get('/live/news-1.ts', (req, res) => {
     res.type('video/mp2t').send(Buffer.from([0x47, 0x40, 0x00, 0x10]));
   });
+  origin.get('/live/news.flv', (req, res) => {
+    res.type('video/x-flv').send(Buffer.from([0x46, 0x4c, 0x56, 0x01, 0x05, 0x00, 0x00, 0x00, 0x09]));
+  });
   const originServer = await listen(origin);
   const originPort = originServer.address().port;
   settings.setSetting('srs_api_url', `http://127.0.0.1:${originPort}/api/v1`);
@@ -55,6 +58,12 @@ test('preview proxy requires a stream-bound token and rewrites nested HLS resour
   const base = `http://127.0.0.1:${managerPort}/api/preview/${streamId}`;
   const denied = await fetch(`${base}/index.m3u8`);
   assert.equal(denied.status, 403);
+  const flvDenied = await fetch(`${base}/live.flv`);
+  assert.equal(flvDenied.status, 403);
+  const flv = await fetch(`${base}/live.flv?preview_token=${encodeURIComponent(token)}`);
+  assert.equal(flv.status, 200);
+  assert.equal(flv.headers.get('cache-control'), 'private, no-store, max-age=0');
+  assert.deepEqual(Buffer.from(await flv.arrayBuffer()), Buffer.from([0x46, 0x4c, 0x56, 0x01, 0x05, 0x00, 0x00, 0x00, 0x09]));
 
   const index = await fetch(`${base}/index.m3u8?preview_token=${encodeURIComponent(token)}`);
   assert.equal(index.status, 200);

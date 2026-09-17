@@ -7,7 +7,8 @@ const router = express.Router();
 // SRS http_hooks protocol: HTTP 200 with JSON body {"code": 0} means "allow".
 // Any other code (or HTTP error) makes SRS reject/deny the event.
 router.post('/on_publish', (req, res) => {
-  hooksHandler.handleOnPublish(req.body);
+  const result = hooksHandler.handleOnPublish(req.body);
+  if (result?.allowed === false) return res.status(200).json({ code: 403, msg: result.reason || 'Publish denied' });
   res.status(200).json({ code: 0 });
 });
 
