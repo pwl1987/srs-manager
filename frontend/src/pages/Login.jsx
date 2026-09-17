@@ -54,7 +54,7 @@ export default function Login() {
               {t('common:brand.subtitle')}
             </p>
             <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[var(--primary)]/20 bg-[var(--primary)]/9 px-3 py-1.5 text-[10px] font-semibold text-[var(--primary)]">
-              <Sparkles size={12} />v{CURRENT_VERSION} · MVP
+              <Sparkles size={12} />v{CURRENT_VERSION} · {t('common:brand.stable')}
             </div>
           </div>
 

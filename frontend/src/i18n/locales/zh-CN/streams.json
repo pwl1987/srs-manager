@@ -180,7 +180,8 @@
     "endpoints": {
       "title": "访问端点",
       "subtitle": "地址由当前流配置生成；复制地址不会改变任何运行状态。",
-      "publish": "推流入口"
+      "publish": "推流入口",
+      "hlsBoundary": "HLS 直连地址仅用于播放端点展示，不代表已受 Hook Grant 保护；对外开放时请在反向代理/CDN 层配置鉴权。"
     },
     "activity": {
       "title": "最近观测事件",

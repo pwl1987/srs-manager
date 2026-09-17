@@ -1,6 +1,36 @@
-export const CURRENT_VERSION = '0.4.0';
+export const CURRENT_VERSION = '0.5.0';
 
 export const RELEASES = [
+  {
+    version: '0.5.0',
+    date: '2026-09-17',
+    stage: { zh: '直播工作台 V2', en: 'Stream Workspace V2' },
+    title: { zh: '单流直播工作站', en: 'Per-stream Operations Workstation' },
+    summary: {
+      zh: '把采集、SRS 原始流、多路转码、输出分发、鉴权和实时监看收进同一直播工作台，并补齐真实 Transcode Worker 与安全预览代理。',
+      en: 'Unifies acquisition, SRS source evidence, multi-rendition transcoding, distribution, access control and monitoring in one per-stream workstation.'
+    },
+    highlights: {
+      zh: [
+        '灰阶播控视觉降低长时间值守的黑白强对比疲劳。',
+        '业务信号路径重构为采集 → SRS 原始流 → 处理/转码 → 输出分发。',
+        '新增 Transcode Worker，同一源流一个 FFmpeg Pipeline 可同时生成 1080P、720P、纯音频等派生流。',
+        '多转码支持 GOP/keyint、Desired / Runtime / Observed 分离，并经过真实 SRS 媒体验证。',
+        '管理员 HLS 预览改走 Manager 同源短时受保护代理，并增加本地 L/R RMS dBFS 电平。',
+        '内部 Worker 读流不再误计为观众，断开观众也不会误踢内部媒体会话。',
+        'OUT-PULL 明确 Hook 与直连 HLS 安全边界，不再生成无效 HLS 授权链接。'
+      ],
+      en: [
+        'Introduced a lower-fatigue neutral gray broadcast-console visual system.',
+        'Reframed the signal path as acquisition → SRS source → processing/transcode → distribution.',
+        'Added a Transcode Worker where one FFmpeg pipeline can generate 1080p, 720p, audio-only and custom renditions.',
+        'Added GOP/keyint control plus Desired / Runtime / Observed semantics with real SRS media verification.',
+        'Moved operator HLS preview behind a short-lived same-origin Manager proxy with local L/R RMS dBFS metering.',
+        'Internal worker playback no longer inflates viewer counts or gets disconnected by viewer controls.',
+        'Clarified the Hook-versus-direct-HLS security boundary and removed misleading HLS grant URLs.'
+      ]
+    }
+  },
   {
     version: '0.4.0',
     date: '2026-09-17',

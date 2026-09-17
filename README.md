@@ -4,26 +4,28 @@
 
 **面向 SRS 的推流、拉流、监看、分发与直播值守控制台**
 
-`v0.4.0` · `React 19` · `Node.js 24` · `SQLite WAL` · `FFmpeg Media Workers`
+`v0.5.0` · `React 19` · `Node.js 24` · `SQLite WAL` · `FFmpeg Media Workers`
 
-> 当前 MVP 目标很明确：**能推进去、能拉进来、能看见真实状态、能安全控制。**
+> 当前目标：**一条直播业务在一个工作台完成采集、处理、转码、分发、访问控制与实时监看。**
 
 </div>
 
 ---
 
-## 当前版本：v0.4.0 · 四向链路控制
+## 当前版本：v0.5.0 · 直播工作台 V2
 
-v0.4.0 在 v0.3.0 推拉流 MVP 基础上继续补齐输出方向控制：现在四类基础链路已经都进入统一工作台与控制模型。
+v0.5.0 将 SRS Manager 从“四向链路控制”继续收敛为一条直播业务的完整工作站：
 
-- **第三方推给我（IN-PUSH）**：创建直播流 → 获取 RTMP 推流地址 → OBS/编码器推入 SRS → 工作台观察真实 Publisher；
-- **我拉第三方（IN-PULL）**：创建外部源 → 绑定 Managed Pull → Pull Worker + FFmpeg 拉入 SRS → 支持主备故障切换与人工安全切源；
-- **我推第三方（OUT-PUSH）**：Push Worker 从当前 SRS 流取流 → 主动推送 RTMP/RTMPS/SRT 目标 → 可真正 Start / Stop / Retry；
-- **第三方拉我（OUT-PULL）**：可分别控制 Origin 端点、新连接准入、Access Grant 与当前播放会话。
+- **采集**：外部编码器主动推入（IN-PUSH），或 Pull Worker 主动拉取第三方源（IN-PULL）；
+- **SRS 原始流**：真实 Publisher、码率、观众、在线时长、视频/音频格式在同一上下文观察；
+- **处理 / 转码**：一条源流可挂多个模板，由独立 Transcode Worker 在同一个 FFmpeg Pipeline 中生成 1080P、720P、纯音频等派生流；
+- **输出**：Push Worker 主动外推（OUT-PUSH），或第三方通过 SRS Origin / CDN 拉取（OUT-PULL）；
+- **访问控制**：RTMP / HTTP-FLV 等会触发 `on_play` 的 Origin 路径支持 Access Grant；SRS 8080 直连 HLS 是独立安全边界，必须由反向代理/CDN 另做鉴权；
+- **实时监看**：管理员 HLS 预览通过 Manager 同源短时保护代理，附带本地 L/R RMS dBFS 电平，不把内部 Worker 读流误算成观众。
 
 完整版本记录见 [CHANGELOG.md](./CHANGELOG.md)，产品内也可直接打开「版本更新」页面查看。
 
-## MVP 快速开始
+## 快速开始
 
 ### 1. 推流到 SRS
 
@@ -37,7 +39,7 @@ rtmp://<SRS_HOST>:1935/live/<STREAM_NAME>
 
 ### 2. 从外部源拉流到 SRS
 
-进入「转发路由」创建外部来源，可使用 RTMP、RTMPS、SRT、RTSP、HTTP 或 HTTPS 地址；随后进入对应的「单流工作台」绑定 Managed Pull。
+进入「直播工作台」选择目标流，在“主动拉流”区域直接登记 RTMP、RTMPS、SRT、RTSP、HTTP 或 HTTPS 来源，并绑定 / 启动 Managed Pull。正常值守不再需要跳到独立「转发路由」。
 
 执行链路：
 
@@ -58,17 +60,17 @@ SRS /live/<stream>
 | 能力域 | 当前能力 |
 |---|---|
 | 运营中心 | 系统状态、正在直播、码率/观众、事件时间线、MVP 推流/拉流快捷入口 |
-| 直播流 | 流管理、推流地址、拉流地址、二维码、预览、真实在线状态 |
-| 单流工作台 | 输入/输出聚合、Publisher/Viewer 状态、Managed Pull、Managed Push、OUT-PULL 授权、CDN、分发、活动记录 |
+| 直播工作台 | 采集 → SRS → 多路转码 → 输出分发的完整业务路径、二维码、安全预览、实时指标与精确控制 |
+| 单流运行台 | Publisher/Viewer、码率/时长/观众、Managed Pull/Push、多转码、OUT-PULL、CDN、分发、活动记录 |
 | Managed Pull | 独立 Pull Worker、FFmpeg 拉流、重试退避、Worker Lease、主备源、人工安全切源 |
 | Managed Push | 独立 Push Worker、RTMP/RTMPS/SRT 外推、WAITING_INPUT、重试退避、Worker Lease、真启动/真停止 |
-| OUT-PULL | Origin 端点、新连接准入、Access Grant、授权吊销、当前会话断开 |
+| OUT-PULL | RTMP/HTTP-FLV 等 on_play 路径的 Hook 准入、Access Grant、吊销与当前会话断开；直连 HLS 单独防护 |
 | CDN | 网宿 CDN 频道管理、状态查询、启停、禁播/复播 |
 | DNS | 阿里云 DNS 与域名记录管理 |
 | 来源与外推 | 外部输入源、Managed OUT-PUSH、旧 SRS Dynamic Forward 兼容 |
 | 鉴权 | 推流/拉流密钥、时间戳防盗链、密钥轮换 |
-| 转码 | 转码模板、纯音频模板、SRS 配置生成 |
-| 监看 | 单流状态、HLS 预览、观众趋势 |
+| 转码 | 全局模板 + 工作台多挂载；独立 Transcode Worker；1080P/720P/纯音频；GOP/keyint；真实派生流观测 |
+| 监看 | 工作台同源安全 HLS 预览、L/R RMS dBFS 电平、码率/观众/运行时长、真实媒体格式 |
 | 版本更新 | 产品内版本时间线、当前版本亮点、仓库中文 CHANGELOG |
 
 ## 架构概览
@@ -78,6 +80,8 @@ flowchart LR
     PUSH[OBS / 编码器 / 第三方推流] --> SRS[SRS]
     SRC[外部直播源] --> WORKER[Pull Worker + FFmpeg]
     WORKER --> SRS
+    SRS --> TC[Transcode Worker + FFmpeg]
+    TC --> SRS
     SRS --> PLAYER[HLS / FLV / RTMP 播放]
     SRS --> CDN[网宿 CDN]
     SRS --> PUSHWORKER[Push Worker + FFmpeg]
@@ -85,6 +89,9 @@ flowchart LR
     MANAGER[SRS Manager Web] --> SRS
     MANAGER --> WORKER
     MANAGER --> PUSHWORKER
+    MANAGER --> TC
+    MANAGER --> PREVIEW[受保护 HLS 预览代理]
+    PREVIEW --> SRS
     MANAGER --> CDN
     MANAGER --> DNS[阿里云 DNS]
 ```
@@ -96,7 +103,9 @@ flowchart LR
 - **数据库**：SQLite WAL；
 - **Pull Worker**：独立容器，持有唯一 Worker Lease，负责 Managed Pull 生命周期；
 - **Push Worker**：独立容器，持有独立 Lease，负责 Managed OUT-PUSH 生命周期；
-- **媒体执行**：FFmpeg，默认优先直拷贝/封装转换，不自动偷偷转码；
+- **Transcode Worker**：独立执行器，一条源流一个 FFmpeg Pipeline，负责多派生转码与恢复；
+- **Preview Proxy**：Web 内的同源受保护 HLS 代理，只为已登录值班员签发短时单流预览访问；
+- **媒体执行**：FFmpeg；拉流/外推默认不偷偷转码，只有明确挂载转码模板时才重新编码；
 - **状态事实源**：SRS streams / clients / hooks 与 Worker Runtime 共同组成真实运行证据。
 
 ## 部署
@@ -122,7 +131,7 @@ ADMIN_PASSWORD='请设置一个强密码' ./scripts/deploy.sh
 - 创建权限为 `0600` 的 `.env`；
 - 生成 `JWT_SECRET`；
 - 使用项目镜像内的 `bcryptjs` 生成管理员密码哈希，无需宿主机安装 Node/npm；
-- 构建并启动 Web、Pull Worker、Push Worker；
+- 构建并启动 Web、Pull Worker、Push Worker、Transcode Worker；
 - 等待 `/api/health` 健康检查通过；
 - 启动失败时打印最近 Compose 日志。
 
@@ -193,10 +202,9 @@ ADMIN_PASSWORD='管理员密码' node scripts/e2e-test.js
 - [产品与工作流设计](./docs/product/README.md)
 - [整改阶段状态](./docs/product/REDESIGN-STATUS.md)
 - [流向与控制模型](./docs/product/STREAM-FLOW-AND-CONTROL-MODEL.md)
-- [单流工作台设计](./docs/product/STREAM-WORKSPACE-V0.1.md)
+- [直播工作台 V2 设计](./docs/product/STREAM-WORKSPACE-V0.2.md)
 - [拉流运行时与四向链路](./docs/product/PULL-RUNTIME-AND-FLOW-LINKAGE-V0.1.md)
 - [主备拉流与故障切换](./docs/product/PULL-FAILOVER-V0.1.md)
-- [主动外推与第三方拉流控制](./docs/product/OUT-PUSH-OUT-PULL-V0.1.md)
 - [主动外推与拉流授权控制](./docs/product/OUT-PUSH-OUT-PULL-V0.1.md)
 - [界面与体验整改基线](./docs/product/UI-REDESIGN-V0.1.md)
 - [版本更新记录](./CHANGELOG.md)
@@ -209,13 +217,14 @@ srs-manager/
 ├── backend/                  # Express API 与业务服务
 │   ├── pull-worker.js        # Managed Pull 独立 Worker
 │   ├── push-worker.js        # Managed OUT-PUSH 独立 Worker
+│   ├── transcode-worker.js   # 多派生转码 Worker
 │   ├── routes/               # API 路由
 │   ├── services/             # 领域服务 / Operation / 状态聚合
 │   └── tests/                # 后端回归测试
 ├── docs/product/             # 中文产品、工作流和架构设计
 ├── scripts/                  # 部署与验证脚本
 ├── Dockerfile                # Web / 媒体 Worker 多阶段镜像
-├── docker-compose.yml        # Web + Pull Worker + Push Worker 编排
+├── docker-compose.yml        # Web + Pull / Push / Transcode Worker 编排
 ├── srs-hooks-config.conf     # SRS Hooks 配置片段
 └── CHANGELOG.md              # 中文版本更新记录
 ```
@@ -225,9 +234,10 @@ srs-manager/
 - Access Token + Refresh Token + bcrypt 登录认证；
 - 登录失败锁定与请求限流；
 - 外部 Source URL 在普通 API 与 Worker 日志中默认脱敏；
-- Pull Worker 与 Push Worker 分别使用 Lease 保证单执行者；
+- Pull Worker、Push Worker 与 Transcode Worker 分别使用 Lease 保证单执行者；
 - Access Grant 数据库只保存 token 哈希，完整 token 仅签发时返回一次；
-- OUT-PULL 的授权策略只对 SRS Origin 负责，不冒充第三方 CDN 鉴权；
+- OUT-PULL Hook 授权只覆盖真实触发 `on_play` 的 Origin 路径；SRS 8080 直连 HLS 与第三方 CDN 必须单独鉴权；
+- 管理员 HLS 监看通过 Manager 短时单流 Preview Token + 同源代理，不暴露内部媒体凭据；
 - 危险操作必须区分配置状态、期望状态、运行状态和真实观测状态；
 - 人工安全切源不会直接改一个字段后宣称成功，而是经过完整 Operation 状态机验证。
 
@@ -253,4 +263,4 @@ npm run dev
 
 ---
 
-> 当前优先级：完成 **v0.4.0 四向链路控制** 的真实媒体验收，再进入 Live Event、Preflight、告警、Reconciler、Audit、Runbook 与自动化。
+> 当前状态：**v0.5.0 Workspace V2 收口版**。默认进入稳定维护 / 现场验收 / bugfix 模式，不再把这个小项目继续扩成大型直播平台。

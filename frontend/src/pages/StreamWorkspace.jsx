@@ -203,6 +203,7 @@ export default function StreamWorkspace() {
             <EndpointRow label="HLS" value={hlsUrl} onCopy={handleCopy} />
             <EndpointRow label="FLV" value={flvUrl} onCopy={handleCopy} />
             <EndpointRow label="RTMP" value={rtmpUrl} onCopy={handleCopy} />
+            <p className="mt-3 rounded-lg border border-[var(--warning)]/16 bg-[var(--warning-soft)]/10 px-3 py-2 text-[10px] leading-4 text-[var(--muted-foreground)]">{t('streams:workspace.endpoints.hlsBoundary')}</p>
           </section>
 
           <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">

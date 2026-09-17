@@ -118,7 +118,7 @@ export default function Sidebar({ onNavigate }) {
         </p>
         <div className="mt-3 flex items-center justify-between border-t border-[var(--border-soft)] pt-2.5 text-[9px] font-medium">
           <span className="text-[var(--text-faint)]">{t('common:brand.version')}</span>
-          <span className="rounded-md bg-[var(--primary)]/10 px-2 py-1 font-mono text-[var(--primary)]">v{CURRENT_VERSION} · MVP</span>
+          <span className="rounded-md bg-[var(--primary)]/10 px-2 py-1 font-mono text-[var(--primary)]">v{CURRENT_VERSION} · {t('common:brand.stable')}</span>
         </div>
       </div>
     </aside>

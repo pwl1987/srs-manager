@@ -2,7 +2,8 @@
   "brand": {
     "subtitle": "直播运维控制台",
     "console": "运营控制台",
-    "version": "当前版本"
+    "version": "当前版本",
+    "stable": "稳定版"
   },
   "actions": {
     "save": "保存",

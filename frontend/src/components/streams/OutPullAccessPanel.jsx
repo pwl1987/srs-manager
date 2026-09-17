@@ -178,7 +178,7 @@ export default function OutPullAccessPanel({ workspace, stream, t, onChanged, on
         <div className="mt-3 rounded-lg border border-[var(--success)]/25 bg-[var(--success-soft)]/35 p-3">
           <div className="text-xs font-semibold text-[var(--success)]">{t('streams:workspace.outPull.tokenOnce')}</div>
           <div className="mt-2 flex items-center gap-2">
-            <code className="min-w-0 flex-1 break-all rounded bg-black/15 px-2 py-1.5 text-[10px]">{issued.token}</code>
+            <code className="min-w-0 flex-1 break-all rounded bg-[var(--background)]/45 px-2 py-1.5 text-[10px]">{issued.token}</code>
             <button className={btnGhost} onClick={() => copy(issued.token)}><Copy size={13} /></button>
           </div>
           <div className="mt-3 space-y-2">

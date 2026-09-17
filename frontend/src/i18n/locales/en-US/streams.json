@@ -180,7 +180,8 @@
     "endpoints": {
       "title": "Access Endpoints",
       "subtitle": "Addresses are derived from the current stream configuration; copying an address does not change runtime state.",
-      "publish": "Publish input"
+      "publish": "Publish input",
+      "hlsBoundary": "Direct HLS is shown as a playback endpoint but is not protected by Hook grants; protect external HLS at the reverse-proxy/CDN layer."
     },
     "activity": {
       "title": "Recent Observed Events",

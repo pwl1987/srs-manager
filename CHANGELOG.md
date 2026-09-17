@@ -2,6 +2,36 @@
 
 本文件记录用户能够感知到的产品能力、运维机制、界面体验和重要工程变化。版本记录以“现在能做什么”为核心，不把纯代码重构包装成功能更新。
 
+## v0.5.0 — 直播工作台 V2
+
+发布日期：2026-09-17
+
+### 核心目标
+
+把直播值守从“多个资源页面来回跳转”收敛到**一条流一个业务工作站**：采集、SRS 原始流、多路转码、输出分发、鉴权和实时监看都在 `/streams/:id` 完成。
+
+### 新增与改进
+
+- 灰阶播控视觉：背景从近黑抬升为中性深灰，正文使用柔和浅灰，降低长时间值守的黑白强对比疲劳；
+- 业务信号路径重构为「采集 → SRS 原始流 → 处理/转码 → 输出分发」，技术枚举退居辅助标签；
+- 新增 `stream_transcode_bindings` 与独立 Transcode Worker，一条源流一个 FFmpeg Pipeline，可同时挂载 1080P、720P、纯音频和自定义派生流；
+- 转码支持 GOP/keyint、分辨率、帧率、视频/音频码率等模板参数，并严格区分 Desired / Runtime / Observed；
+- 管理员 HLS 预览改为 Manager:3001 同源受保护代理，Preview Token 短时且绑定单流，主/二级 playlist 与分片全部重写；
+- 工作台增加本地 L/R RMS dBFS 音频电平，明确不是 EBU R128 广播响度计；
+- 内部 Push/Transcode 读流不再误计为观众，“断开观众”不会误踢内部媒体会话；
+- OUT-PULL 安全边界纠正：RTMP/HTTP-FLV 等 `on_play` 路径可用 Hook Grant；SRS 8080 直连 HLS 不再被错误描述为受该策略保护；
+- OUT-PULL 签发后不再生成无效的 HLS `access_token` 地址，只生成已验证的 RTMP / HTTP-FLV 授权地址；
+- 正常导航移除独立“转发路由 / 实时监看”，兼容路由继续保留，日常操作回到直播工作台。
+
+### 真实验证
+
+- 后端自动回归：27/27 通过；前端 production build 与中英文 key 校验通过；
+- `10.30.5.199` 真实 1080P H.264/AAC 源流同时生成 1080P、720P、纯音频三路派生流，SRS Observed 与 `ffprobe` 均通过；
+- Transcode Worker 重启后 Desired RUNNING 自动恢复；单独停止纯音频后该派生真实消失，1080P/720P 自动恢复；
+- Manager Preview Proxy：无 Token=403，主清单/二级清单/TS 均可受保护读取，预览前后业务观众数保持不变；
+- 合成 640×360 H.264 + AAC 流经 3001 Preview Proxy 被 `ffprobe` 实际读取成功；
+- 数据库迁移与测试清理前后 `PRAGMA integrity_check=ok`。
+
 ## v0.4.0 — 四向链路控制
 
 发布日期：2026-09-17
@@ -103,13 +133,6 @@
 - Docker / Docker Compose 部署；
 - JWT + Refresh Token + bcrypt 基础认证。
 
-## 后续版本方向
+## 后续维护原则
 
-接下来优先完成：
-
-1. OUT-PUSH 运行态与 Desired / Runtime / Observed 分离；
-2. OUT-PULL Access Grant 与播放授权控制；
-3. Live Event / Template / Preflight；
-4. 告警、Operation 时间线、Reconciler 与 Audit；
-5. Runbook、批量操作和自动化策略；
-6. 真实部署环境下的端到端媒体链路验收。
+当前小项目默认进入**稳定维护 / 现场验收 / bugfix**模式。除非出现明确业务需求，不继续加入 Live Event、复杂告警、Reconciler、Runbook 等大型平台能力；新增功能必须继续遵守“配置不冒充运行、运行不冒充观测”的证据原则。

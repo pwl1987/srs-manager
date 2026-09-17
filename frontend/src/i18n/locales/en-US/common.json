@@ -2,7 +2,8 @@
   "brand": {
     "subtitle": "Streaming Operations Console",
     "console": "Operations Console",
-    "version": "Current Version"
+    "version": "Current Version",
+    "stable": "Stable"
   },
   "actions": {
     "save": "Save",

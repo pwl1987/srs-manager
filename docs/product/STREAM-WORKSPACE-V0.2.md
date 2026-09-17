@@ -139,4 +139,4 @@ Workspace 默认前台 2 秒刷新运行快照；页面隐藏时降低频率，�
 - W2-B 已完成：`stream_transcode_bindings`、独立 Transcode Worker、同源多输出单 Pipeline、1080P/720P/纯音频、GOP/keyint 参数、Desired/Runtime/Observed。
 - 2026-09-17 已在 `10.30.5.199` 使用真实 1080P 源流完成三路并发派生、ffprobe、Worker 重启恢复和单挂载 Stop 验证。
 - W2-C 已完成：Manager 同源受保护 HLS 代理、短时单流 Preview Token、主/二级 playlist 与 TS 重写、本地双声道 RMS dBFS 电平；现场 `ffprobe` 已通过代理读取 H.264/AAC。
-- 当前进入 W2-D：响应式/可用性检查、四向真实链路回归和发布收口。
+- W2-D 已完成：移动/桌面断点结构审计、四向真实媒体闭环、过期入口/文案清理与 v0.5.0 发布收口；项目进入稳定维护。

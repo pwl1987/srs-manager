@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**Workspace V2 / W2-D：真实回归、响应式与发布收口。**
+**v0.5.0 Workspace V2：COMPLETE，进入稳定维护 / 现场验收 / bugfix。**
 
 ## 已完成
 
@@ -108,7 +108,7 @@
 1. W2-A：**COMPLETE** — 灰阶视觉、导航收敛、采集 → SRS → 转码 → 输出的信息架构；
 2. W2-B：**COMPLETE** — 一条流多转码模板挂载 + 单 Pipeline Transcode Worker + Desired/Runtime/Observed；
 3. W2-C：**COMPLETE** — Manager 同源安全预览代理、本地双声道 RMS dBFS 电平、内部会话不计观众；
-4. W2-D：**CURRENT** — 最终四向真实回归、响应式/可用性检查与发布收口。
+4. W2-D：**COMPLETE** — 四向真实媒体回归、响应式/可用性审计、过期入口/文案与版本发布收口。
 
 `/forwarding` 与 `/monitor` 暂保留兼容路由，但不再作为正常工作流主入口。转码模板作为全局资源保留，具体挂载在 Stream Workspace 完成。
 
@@ -132,14 +132,25 @@
 - 额外合成 640×360 H.264 + AAC 48kHz 测试流，经 3001 Preview Proxy 被 `ffprobe` 实际读取成功，测试流随后自动清理；
 - 浏览器电平使用当前预览媒体的 L/R RMS dBFS，明确标记为本地监看电平，不冒充 EBU R128/广播响度计。
 
+### W2-D 四向真实媒体回归（10.30.5.199）
+
+- 使用完全隔离的 `w2d_*` 临时流完成闭环，未触碰业务流 `22`；
+- IN-PUSH：FFmpeg 合成源真实推入 SRS，Workspace 观测到 opaque Publisher id、H.264 640×360 + AAC；
+- IN-PULL：Pull Worker 从同机私网 RTMP 源拉入另一条业务流，Runtime=RUNNING 且 SRS Observed；Stop 后目标流真实消失；
+- OUT-PUSH：Push Worker 将源流主动推送到私网 RTMP 目标，Runtime=RUNNING 且目标流真实出现；Stop 后目标真实消失；
+- OUT-PULL：Endpoint 关闭时真实 RTMP 播放被拒绝；Require Grant 后有效 token 播放成功；
+- 测试完成后 `w2d_* / w2proxy_*` 流、PullTask、PushTask 零残留，数据库 `integrity_check=ok`；
+- SRS / Manager / Pull Worker / Push Worker / Transcode Worker 五个现场服务最终均为 active。
+
 W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已改为内嵌预览、实时指标、真实 SRS 媒体证据和“采集 → SRS → 处理/转码 → 输出分发”业务路径；IN-PULL 来源登记与 OUT-PUSH 目标创建已内聚到当前流。旧 `streams.transcode_template_id` 只作为迁移记录展示，不再声称存在真实转码 Runtime。
 
 ## 下一任务
 
-进入 W2-D：按 1440P/4K/移动端检查工作台信息层级和操作密度，完成四向真实链路回归、过期入口/文案清理与版本发布收口。
+默认不再扩展大功能。进入稳定维护：现场使用、bugfix、供应商/CDN 接入细节与必要的小型体验改进。新的大型能力（Live Event、复杂告警、Runbook 等）只有在出现明确业务需求后再立项。
 
-## 验证债务
+## 验证债务 / 已知边界
 
-- v0.4.1 运行修复已部署 10.30.5.199：允许受管媒体使用 RFC1918/ULA，兼容 SRS 6 opaque client/stream id，19/19 现场回归通过；
-- Workspace V2 完成后重新跑真实 IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 媒体证据；
-- SRS 8080 直连 HLS 不受当前 on_play Hook 策略保护；若对外暴露 HLS，必须在反向代理/CDN 层增加鉴权与防盗链。
+- SRS 8080 直连 HLS 不受当前 `on_play` Hook 策略保护；若对外暴露 HLS，必须在反向代理/CDN 层增加鉴权与防盗链；
+- OUT-PUSH Runtime RUNNING 证明本地受管 FFmpeg 工作且输入在线，不等同于第三方平台已经成功播放；远端健康仍需供应商 API 或独立观测证据；
+- 浏览器音频电平是本地预览 RMS dBFS，不是 EBU R128 / LUFS 广播响度计；
+- `/forwarding` 与 `/monitor` 继续保留兼容深链接，但不作为正常值守工作流入口。
