@@ -17,8 +17,10 @@ function templateNameMap() {
   return map;
 }
 
-// Uptime of the current publishing session: time since the latest on_publish
-// hook event. processed_at is SQLite CURRENT_TIMESTAMP (UTC, "YYYY-MM-DD HH:MM:SS").
+function isPublisher(client) {
+  return String(client?.type || '').toLowerCase().includes('publish');
+}
+
 function currentUptimeSeconds(streamName) {
   const row = db.prepare("SELECT processed_at FROM hook_events WHERE event_type = 'on_publish' AND stream_name = ?")
     .get(streamName);
@@ -28,10 +30,6 @@ function currentUptimeSeconds(streamName) {
   return Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
 }
 
-// SRS 6 /streams list items expose stats as item.kbps / item.clients; the
-// per-stream detail shape (item.stream.inbps) is accepted as a fallback.
-// kbps.recv_30s is the server-side receive bitrate in kbps (30s rolling
-// window); clients counts every session including the publisher.
 function extractLiveStats(item) {
   const kbpsSource = item?.kbps?.recv_30s ?? item?.kbps?.publish ?? item?.stream?.inbps;
   const kbps = Math.round(Number(kbpsSource)) || 0;
@@ -59,9 +57,6 @@ async function listStreams() {
   });
 }
 
-// Live publishes that reached SRS but are not registered in the panel, so the
-// operator can see pushes with mismatched names (e.g. pushed "22" while the
-// panel stream is "222") instead of wondering why nothing shows as online.
 async function listExternalStreams() {
   const [srsStreams, clients] = await Promise.all([
     srsService.getStreams(),
@@ -71,7 +66,7 @@ async function listExternalStreams() {
   return srsStreams
     .filter(s => (s.app || 'live') === 'live' && !known.has(s.name))
     .map(s => {
-      const publisher = clients.find(c => (c.app || 'live') === 'live' && c.stream === s.name && String(c.type || '').includes('publish'));
+      const publisher = clients.find(c => (c.app || 'live') === 'live' && c.stream === s.name && isPublisher(c));
       const stats = extractLiveStats(s);
       return { name: s.name, kbps: stats.kbps, viewers: stats.viewers, publish_ip: publisher?.ip || null };
     });
@@ -130,14 +125,50 @@ async function deleteStream(id) {
   return { name: stream.name };
 }
 
-// Stop a live broadcast by kicking every SRS client session on the stream
-// (publisher and players). Returns the number of kicked sessions.
+async function disconnectMatchingClients(id, predicate) {
+  const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(id);
+  if (!stream) return null;
+
+  const clients = await srsService.listClients();
+  const targets = clients.filter(client =>
+    (client.app || 'live') === 'live' && client.stream === stream.name && predicate(client)
+  );
+
+  let disconnected = 0;
+  const errors = [];
+  for (const client of targets) {
+    try {
+      await srsService.kickClient(client.id);
+      disconnected++;
+    } catch (e) {
+      errors.push(`client ${client.id}: ${e.message}`);
+    }
+  }
+
+  return { name: stream.name, disconnected, errors };
+}
+
+async function disconnectPublisher(id) {
+  const result = await disconnectMatchingClients(id, isPublisher);
+  if (!result) return null;
+  return { ...result, scope: 'publisher' };
+}
+
+async function disconnectViewers(id) {
+  const result = await disconnectMatchingClients(id, client => !isPublisher(client));
+  if (!result) return null;
+  return { ...result, scope: 'viewers' };
+}
+
+// Legacy broad stop: retained for compatibility. It actively kicks every SRS
+// session for the stream, both publisher and players. New UI must use the
+// precise disconnect-publisher / disconnect-viewers actions instead.
 async function stopStream(id) {
   const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(id);
   if (!stream) return null;
 
   const clients = await srsService.listClients();
-  const targets = clients.filter(c => c.app === 'live' && c.stream === stream.name);
+  const targets = clients.filter(c => (c.app || 'live') === 'live' && c.stream === stream.name);
 
   let kicked = 0;
   const errors = [];
@@ -154,4 +185,14 @@ async function stopStream(id) {
   return { name: stream.name, kicked, errors };
 }
 
-module.exports = { listStreams, listExternalStreams, getStream, createStream, updateStream, deleteStream, stopStream };
+module.exports = {
+  listStreams,
+  listExternalStreams,
+  getStream,
+  createStream,
+  updateStream,
+  deleteStream,
+  disconnectPublisher,
+  disconnectViewers,
+  stopStream
+};
