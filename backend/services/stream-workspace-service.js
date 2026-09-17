@@ -19,14 +19,45 @@ function liveStats(srsStream) {
   return { bitrate, viewers: Math.max(0, clients - 1) };
 }
 
-function uptimeSeconds(streamName, online) {
-  if (!online) return null;
+function uptimeSeconds(streamName, srsStream) {
+  if (!srsStream) return null;
+  const liveMs = Number(srsStream.live_ms);
+  if (Number.isFinite(liveMs) && liveMs > 0 && liveMs <= Date.now()) {
+    return Math.max(0, Math.floor((Date.now() - liveMs) / 1000));
+  }
   const row = db.prepare("SELECT processed_at FROM hook_events WHERE event_type = 'on_publish' AND stream_name = ?")
     .get(streamName);
   if (!row?.processed_at) return null;
   const startedAt = Date.parse(row.processed_at.replace(' ', 'T') + 'Z');
   if (!Number.isFinite(startedAt)) return null;
   return Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+}
+
+function mediaEvidence(srsStream) {
+  if (!srsStream) return null;
+  const video = srsStream.video || null;
+  const audio = srsStream.audio || null;
+  return {
+    stream_id: srsStream.id || null,
+    vhost: srsStream.vhost || null,
+    app: srsStream.app || null,
+    frames: Number(srsStream.frames || 0),
+    recv_bytes: Number(srsStream.recv_bytes || 0),
+    send_bytes: Number(srsStream.send_bytes || 0),
+    video: video ? {
+      codec: video.codec || null,
+      profile: video.profile || null,
+      level: video.level || null,
+      width: Number(video.width || 0) || null,
+      height: Number(video.height || 0) || null
+    } : null,
+    audio: audio ? {
+      codec: audio.codec || null,
+      profile: audio.profile || null,
+      sample_rate: Number(audio.sample_rate || 0) || null,
+      channels: Number(audio.channel || audio.channels || 0) || null
+    } : null
+  };
 }
 
 async function getWorkspace(streamId) {
@@ -110,7 +141,8 @@ async function getWorkspace(streamId) {
       online,
       bitrate: online ? stats.bitrate : 0,
       viewers: online ? stats.viewers : 0,
-      uptime_seconds: uptimeSeconds(stream.name, online === true),
+      uptime_seconds: uptimeSeconds(stream.name, srsStream),
+      media: mediaEvidence(srsStream),
       publisher: publisher ? {
         id: publisher.id,
         ip: publisher.ip || null,

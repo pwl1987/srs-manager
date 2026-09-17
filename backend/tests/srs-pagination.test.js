@@ -83,6 +83,7 @@ test('SRS client helpers understand opaque stream/client ids from current SRS AP
     id: 'h0i75x23',
     type: 'fmle-publish',
     stream: 'vid-8a69um9',
+    name: 'news-main',
     url: '/live/news-main',
     ip: '10.30.5.199'
   };

@@ -89,7 +89,7 @@ function clientAppName(client) {
 }
 
 function clientStreamName(client) {
-  const explicit = client?.stream_name ?? client?.streamName;
+  const explicit = client?.stream_name ?? client?.streamName ?? client?.name;
   if (explicit) return String(explicit);
   const fromUrl = clientUrlIdentity(client).stream;
   if (fromUrl) return fromUrl;
@@ -103,7 +103,7 @@ function clientMatchesStream(client, streamName, app = 'live') {
   const identity = clientUrlIdentity(client);
   const clientApp = client?.app || identity.app;
   if (clientApp && app && clientApp !== app) return false;
-  if (client?.stream_name === expected || client?.streamName === expected || client?.stream === expected) return true;
+  if (client?.stream_name === expected || client?.streamName === expected || client?.name === expected || client?.stream === expected) return true;
   return identity.stream === expected;
 }
 

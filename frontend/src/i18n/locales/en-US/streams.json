@@ -146,7 +146,16 @@
         "SUCCEEDED": "Source switch completed",
         "FAILED": "Source switch failed",
         "CANCELLED": "Source switch cancelled"
-      }
+      },
+      "registerSource": "Register Source",
+      "sourceName": "Source Name",
+      "sourceNamePlaceholder": "e.g. Studio Backup",
+      "sourceProtocol": "Protocol",
+      "sourceUrl": "Source URL",
+      "saveSource": "Save Source",
+      "sourceCreated": "External source registered",
+      "sourceCreateHint": "The new source is selected after saving but pull does not start automatically.",
+      "noSourcesInline": "No active external source is available. Register one directly in this workspace."
     },
     "core": {
       "protocol": "Registered protocol",
@@ -212,7 +221,15 @@
       "retry": "Retry",
       "updated": "Outbound push state updated",
       "evidenceHint": "RUNNING proves only that the managed FFmpeg process is alive while local input is online. Remote playback health still requires independent platform/CDN evidence.",
-      "legacyHint": "This legacy task remains on SRS Dynamic Forward to avoid double-pushing during upgrades. See Sources & Outbound Push for its compatibility control semantics."
+      "legacyHint": "This legacy task remains on SRS Dynamic Forward to avoid double-pushing during upgrades. See Sources & Outbound Push for its compatibility control semantics.",
+      "addTarget": "Add Target",
+      "targetType": "Target Type",
+      "targetUrl": "Target URL",
+      "createStopped": "Save Target",
+      "createHint": "New targets remain STOPPED until explicitly started to prevent accidental distribution.",
+      "invalidUrl": "Enter a valid RTMP / RTMPS / SRT URL.",
+      "created": "Outbound target created",
+      "deleted": "Outbound target deleted"
     },
     "outPull": {
       "title": "Third-party Pull · OUT-PULL",
@@ -241,6 +258,48 @@
       "grantCreated": "Access grant created",
       "grantRevoked": "Access grant revoked",
       "originOnlyHint": "This policy controls direct SRS Origin playback only. Third-party CDN domains still require separate provider-side authentication and verification."
+    },
+    "console": {
+      "startPreview": "Start live preview",
+      "waitingSignal": "Waiting for input signal",
+      "localPreview": "Local HLS preview",
+      "noPreviewEndpoint": "No preview endpoint is available",
+      "pausePreview": "Pause preview",
+      "title": "On-Air Console",
+      "subtitle": "Keep video, acquisition, bitrate, audience and media format in one operating context.",
+      "source": "Acquisition",
+      "media": "Source media",
+      "distribution": "Active distribution",
+      "viewers": "Current viewers"
+    },
+    "path": {
+      "title": "Business Signal Path",
+      "subtitle": "Read the stream in operating order: acquisition → SRS source → processing/transcode → distribution.",
+      "evidenceNote": "Green is reserved for runtime evidence",
+      "acquisition": "Acquisition",
+      "acquisitionHint": "External publisher or managed pull",
+      "noInput": "No input configured or observed",
+      "publisherObserved": "SRS publisher observed",
+      "awaitingAcquisition": "Waiting for acquisition signal",
+      "srsCore": "SRS Source",
+      "srsCoreHint": "Media actually observed on this node",
+      "processing": "Processing & Transcode",
+      "processingHint": "Passthrough and derived renditions",
+      "passthrough": "Source passthrough",
+      "legacyTranscodeNote": "This is a legacy single-profile configuration record, not evidence that transcoding is running.",
+      "processingPending": "Multi-rendition runtime will be attached through a real Worker in the next phase.",
+      "distribution": "Distribution",
+      "distributionHint": "Managed push, CDN and third-party pull",
+      "guardsAttached": "Authentication, hotlink protection and session controls attach to outputs"
+    },
+    "processing": {
+      "title": "Processing & Transcode",
+      "subtitle": "Only real runtime state is shown; the legacy single-profile field is no longer presented as active transcoding.",
+      "passthroughTitle": "Source passthrough",
+      "passthroughHint": "Without re-encoding the system cannot change GOP/keyint, resolution or codec parameters.",
+      "legacyConfigured": "Legacy profile configuration",
+      "legacyHint": "This record will migrate to an observable binding when the multi-transcode runtime lands.",
+      "next": "Multi-transcode Worker next: 1080P, 720P, audio-only and GOP/keyint control."
     }
   },
   "modal": {

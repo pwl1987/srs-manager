@@ -151,7 +151,7 @@
   },
   "navigation": {
     "dashboard": "运营中心",
-    "streams": "直播流",
+    "streams": "直播工作台",
     "cdnChannels": "CDN 分发",
     "authKeys": "访问凭证",
     "distribution": "分发申请",

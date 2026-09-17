@@ -51,7 +51,12 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
   const kicked = [];
   srsService.listClients = async () => clients;
   srsService.kickClient = async (id) => { kicked.push(id); return { ok: true }; };
-  srsService.getStreams = async () => [{ name: 'news-main', app: 'live', clients: 3, kbps: { recv_30s: 7200 } }];
+  srsService.getStreams = async () => [{
+    id: 'vid-stream-main', name: 'news-main', app: 'live', vhost: 'vid-vhost', live_ms: Date.now() - 65000,
+    clients: 3, frames: 1800, recv_bytes: 123456, send_bytes: 654321, kbps: { recv_30s: 7200 },
+    video: { codec: 'H264', profile: 'High', level: '4.1', width: 1920, height: 1080 },
+    audio: { codec: 'AAC', profile: 'LC', sample_rate: 48000, channel: 2 }
+  }];
   cdnService.getBatchState = async () => [{ channel_id: 'cdn-1', is_live: true, bitrate: 6800, viewers: 40 }];
 
   t.after(() => {
@@ -102,6 +107,12 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
   assert.equal(workspace.observed.online, true);
   assert.equal(workspace.observed.publisher.id, 11);
   assert.equal(workspace.observed.players.count, 2);
+  assert.equal(workspace.observed.media.stream_id, 'vid-stream-main');
+  assert.equal(workspace.observed.media.video.codec, 'H264');
+  assert.equal(workspace.observed.media.video.width, 1920);
+  assert.equal(workspace.observed.media.audio.codec, 'AAC');
+  assert.equal(workspace.observed.media.audio.sample_rate, 48000);
+  assert.ok(workspace.observed.uptime_seconds >= 60 && workspace.observed.uptime_seconds <= 70);
   assert.equal(workspace.outputs.forwards.length, 1);
   assert.equal(workspace.outputs.forwards[0].runtime_state, 'RUNNING');
   assert.equal(workspace.outputs.forwards[0].target_url, undefined);

@@ -151,7 +151,7 @@
   },
   "navigation": {
     "dashboard": "Operations Center",
-    "streams": "Live Streams",
+    "streams": "Live Workspace",
     "cdnChannels": "CDN Distribution",
     "authKeys": "Access Credentials",
     "distribution": "Distribution",

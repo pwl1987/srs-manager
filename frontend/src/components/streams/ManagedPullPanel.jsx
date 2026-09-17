@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRightLeft, CircleDot, Link2, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, CircleDot, Link2, Play, Plus, RefreshCw, Square, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { getErrorCode } from '../../lib/error-mapper';
-import { btnDangerGhost, btnPrimary, btnSecondary, btnGhost, inputClass } from '../ui/styles';
+import { btnDangerGhost, btnPrimary, btnSecondary, btnGhost, inputClass, labelClass } from '../ui/styles';
 import ConfirmDialog from '../ui/ConfirmDialog';
 
 function RuntimeBadge({ state }) {
@@ -31,6 +30,9 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
   const [switchTargetId, setSwitchTargetId] = useState('');
   const [confirmSwitch, setConfirmSwitch] = useState(false);
   const [working, setWorking] = useState(false);
+  const [showSourceCreate, setShowSourceCreate] = useState(false);
+  const [sourceForm, setSourceForm] = useState({ name: '', source_url: '', protocol: 'rtmp' });
+  const [sourceError, setSourceError] = useState('');
 
   useEffect(() => {
     api.get('/external-sources')
@@ -127,6 +129,30 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
     }
   }
 
+  async function registerSource(event) {
+    event.preventDefault();
+    setSourceError('');
+    if (!sourceForm.name.trim() || !sourceForm.source_url.trim()) return;
+    setWorking(true);
+    try {
+      const created = await api.post('/external-sources', {
+        name: sourceForm.name.trim(),
+        source_url: sourceForm.source_url.trim(),
+        protocol: sourceForm.protocol,
+        pull_mode: 'pull'
+      });
+      setSources(rows => [created, ...rows.filter(row => Number(row.id) !== Number(created.id))]);
+      setSourceId(String(created.id));
+      setSourceForm({ name: '', source_url: '', protocol: 'rtmp' });
+      setShowSourceCreate(false);
+      toast.success(t('streams:workspace.managedPull.sourceCreated'));
+    } catch (error) {
+      setSourceError(t(`common:errors.${getErrorCode(error)}`));
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -137,14 +163,43 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
           </div>
           <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">{t('streams:workspace.managedPull.subtitle')}</p>
         </div>
-        <span className={cn(
-          'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold',
-          worker.available ? 'bg-[var(--success-soft)] text-[var(--success)]' : 'bg-[var(--warning-soft)] text-[var(--warning)]'
-        )}>
-          <CircleDot size={10} />
-          {worker.available ? t('streams:workspace.managedPull.workerOnline') : t('streams:workspace.managedPull.workerOffline')}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold',
+            worker.available ? 'bg-[var(--success-soft)] text-[var(--success)]' : 'bg-[var(--warning-soft)] text-[var(--warning)]'
+          )}>
+            <CircleDot size={10} />
+            {worker.available ? t('streams:workspace.managedPull.workerOnline') : t('streams:workspace.managedPull.workerOffline')}
+          </span>
+          <button className={btnSecondary} onClick={() => { setShowSourceCreate(value => !value); setSourceError(''); }}>
+            {showSourceCreate ? <X size={13} /> : <Plus size={13} />}{showSourceCreate ? t('common:actions.cancel') : t('streams:workspace.managedPull.registerSource')}
+          </button>
+        </div>
       </div>
+
+      {showSourceCreate && (
+        <form onSubmit={registerSource} className="mt-4 rounded-xl border border-[var(--info)]/18 bg-[var(--background)]/28 p-3">
+          <div className="grid gap-3 md:grid-cols-[minmax(140px,0.65fr)_130px_minmax(0,1.6fr)_auto] md:items-end">
+            <div>
+              <label className={labelClass}>{t('streams:workspace.managedPull.sourceName')}</label>
+              <input className={inputClass} value={sourceForm.name} onChange={event => setSourceForm({ ...sourceForm, name: event.target.value })} placeholder={t('streams:workspace.managedPull.sourceNamePlaceholder')} />
+            </div>
+            <div>
+              <label className={labelClass}>{t('streams:workspace.managedPull.sourceProtocol')}</label>
+              <select className={inputClass} value={sourceForm.protocol} onChange={event => setSourceForm({ ...sourceForm, protocol: event.target.value })}>
+                {['rtmp','rtmps','srt','rtsp','http','https'].map(protocol => <option key={protocol} value={protocol}>{protocol.toUpperCase()}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>{t('streams:workspace.managedPull.sourceUrl')}</label>
+              <input className={`${inputClass} font-mono`} value={sourceForm.source_url} onChange={event => setSourceForm({ ...sourceForm, source_url: event.target.value })} placeholder="rtmp://… / srt://… / rtsp://…" autoComplete="off" />
+            </div>
+            <button className={btnPrimary} type="submit" disabled={working || !sourceForm.name.trim() || !sourceForm.source_url.trim()}><Plus size={13} />{t('streams:workspace.managedPull.saveSource')}</button>
+          </div>
+          {sourceError && <p className="mt-2 text-xs text-[var(--destructive)]">{sourceError}</p>}
+          <p className="mt-2 text-[10px] text-[var(--text-faint)]">{t('streams:workspace.managedPull.sourceCreateHint')}</p>
+        </form>
+      )}
 
       {!task ? (
         <div className="mt-4 space-y-3">
@@ -159,11 +214,7 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
               <Link2 size={14} />{t('streams:workspace.managedPull.bind')}
             </button>
           </div>
-          {sources.length === 0 && (
-            <p className="text-xs text-[var(--muted-foreground)]">
-              {t('streams:workspace.managedPull.noSources')} <Link to="/forwarding" className="text-[var(--primary)] hover:underline">{t('streams:workspace.managedPull.manageSources')}</Link>
-            </p>
-          )}
+          {sources.length === 0 && <p className="text-xs text-[var(--muted-foreground)]">{t('streams:workspace.managedPull.noSourcesInline')}</p>}
         </div>
       ) : (
         <div className="mt-4 space-y-4">

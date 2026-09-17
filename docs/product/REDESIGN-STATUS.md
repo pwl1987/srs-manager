@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.4.0 发布基线：四向链路控制、部署与控制面验收已收口。**
+**Workspace V2 / W2-A：直播业务工作台信息架构与低疲劳灰阶视觉正在收口。**
 
 ## 已完成
 
@@ -88,7 +88,7 @@
 
 已完成：
 
-- 后端回归测试当前 15/15 通过；
+- 后端回归测试当前 19/19 通过；
 - 前端生产构建与多语言 key 校验通过；
 - v0.3.0 Web / Pull Worker 镜像及 FFmpeg 发布门禁已通过；
 - v0.4.0 Compose 已包含 Web / Pull Worker / Push Worker 三服务并通过模型校验；
@@ -99,42 +99,28 @@
 
 ## 当前任务
 
-### v0.4.0 发布后现场验收
+### Workspace V2 — 直播业务工作台
 
-功能范围已经冻结，不再继续扩业务：
+当前从“技术对象汇总页”转向“单路直播完整工作站”。设计基线见 `STREAM-WORKSPACE-V0.2.md`。
 
-1. v0.4.0 代码、部署脚本、SRS Hooks 示例和控制面 smoke 已收口；
-2. 后端、前端、迁移、Hook、Compose 与媒体 Worker 门禁均已通过；
-3. 当前只剩真实部署环境的媒体链路验收与必要 bugfix；
-4. 在取得远端媒体证据前，OUT-PUSH 的 RUNNING 只表示受管 FFmpeg 与本地输入成立，不标记远端平台“已验证健康”。
+执行顺序：
 
-## 后续增强（不阻塞本项目当前完成线）
+1. W2-A：灰阶视觉、导航收敛、采集 → SRS → 转码 → 输出的信息架构；
+2. W2-B：一条流多转码模板挂载与 Transcode Runtime；
+3. W2-C：2 秒运行态、内嵌预览、观众/码率/运行时长、音频电平与输出一键控制；
+4. W2-D：真实 SRS 验收与 UI/UX 收口。
 
-当前小项目的完成定义收敛为：四向推拉控制、单流工作台、基础监看、CDN/DNS 管理、可部署、可验收。以下能力作为后续增强，不再阻塞 v0.4：
+`/forwarding` 与 `/monitor` 暂保留兼容路由，但不再作为正常工作流主入口。转码模板作为全局资源保留，具体挂载在 Stream Workspace 完成。
 
-- Live Event / 开播前 Preflight；
-- Operation 时间线、Alert、Reconciler 与 Audit；
-- Runbook、模板、批量操作和自动化策略；
-- CDN / DNS / 设置等低频页面的进一步工作流优化。
+W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已改为内嵌预览、实时指标、真实 SRS 媒体证据和“采集 → SRS → 处理/转码 → 输出分发”业务路径；IN-PULL 来源登记与 OUT-PUSH 目标创建已内聚到当前流。旧 `streams.transcode_template_id` 只作为迁移记录展示，不再声称存在真实转码 Runtime。
+
+## 下一任务
+
+完成 W2-A 后立即进入多转码绑定，不再扩展与直播工作台无关的新业务域。
 
 ## 验证债务
 
-以下能力已有代码和自动测试，但仍需要真实部署环境证据后才能标记为“运行时验证完成”：
-
-1. 真实 RTMP/SRT/RTSP 来源 → Pull Worker → SRS 的持续拉流；
-2. 主源断开 → 连续失败达到门槛 → 自动切备用源；
-3. 人工安全切源：旧 Publisher 消失 → 目标来源启动 → 新 Publisher 被确认；
-4. Pull Worker 容器重启后的期望状态恢复；
-5. 双 Pull Worker 同时存在时只有 Lease Owner 启动 FFmpeg；
-6. Web 重启不影响正在运行的 Pull Worker；
-7. 长时间运行下 SQLite WAL、心跳、Operation 和流状态保持一致；
-8. 真实输入 → Push Worker → 第三方 RTMP/SRT 目标持续外推；
-9. OUT-PUSH Stop 后第三方接收端立即断流，输入消失后任务进入 WAITING_INPUT；
-10. SRS Origin 在开放、暂停新连接、需要 Grant、关闭端点四种策略下的真实播放行为；
-11. 吊销 Grant 与“断开当前会话”分别取得实际媒体证据。
-
-## 当前完成度估计
-
-按当前“小项目快速完成”的收敛范围估算，核心产品与交付能力约完成 **90%**。
-
-v0.4.0 已补齐四向链路控制、部署与控制面验收闭环。剩余约 10% 主要是现场真实媒体证据和少量维护性打磨；Live Event、告警、Runbook 等已明确降为后续增强，不再计入当前版本完成门槛。
+- v0.4.1 运行修复已部署 10.30.5.199：允许受管媒体使用 RFC1918/ULA，兼容 SRS 6 opaque client/stream id，19/19 现场回归通过；
+- W2-C 管理员内嵌预览需要独立短时授权，不能通过关闭 OUT-PULL Grant 策略绕过；
+- Workspace V2 完成后重新跑真实 IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 媒体证据；
+- 多转码需要真实 1080P / 720P / audio-only 同时运行证据。

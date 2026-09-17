@@ -4,24 +4,24 @@
   color-scheme: dark;
 
   /* Core surfaces */
-  --background: oklch(0.115 0.018 258);
-  --foreground: oklch(0.93 0.012 258);
-  --sidebar: oklch(0.135 0.018 258);
-  --card: oklch(0.165 0.018 258);
-  --card-foreground: oklch(0.93 0.012 258);
-  --panel: oklch(0.185 0.020 258);
-  --elevated: oklch(0.215 0.022 258);
+  --background: oklch(0.185 0.012 258);
+  --foreground: oklch(0.86 0.010 258);
+  --sidebar: oklch(0.205 0.012 258);
+  --card: oklch(0.225 0.012 258);
+  --card-foreground: oklch(0.86 0.010 258);
+  --panel: oklch(0.245 0.014 258);
+  --elevated: oklch(0.275 0.014 258);
 
   /* Interaction */
   --primary: oklch(0.66 0.18 252);
   --primary-foreground: oklch(0.99 0 0);
   --accent: oklch(0.72 0.16 246);
   --accent-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.235 0.022 258);
-  --secondary-foreground: oklch(0.91 0.012 258);
-  --muted: oklch(0.15 0.015 258);
-  --muted-foreground: oklch(0.68 0.018 258);
-  --input: oklch(0.145 0.018 258);
+  --secondary: oklch(0.285 0.014 258);
+  --secondary-foreground: oklch(0.84 0.010 258);
+  --muted: oklch(0.205 0.010 258);
+  --muted-foreground: oklch(0.67 0.012 258);
+  --input: oklch(0.235 0.012 258);
   --ring: oklch(0.69 0.17 250);
 
   /* Semantic status */
@@ -32,7 +32,7 @@
   --destructive-foreground: oklch(0.99 0 0);
 
   /* Structure */
-  --border: oklch(0.275 0.018 258);
+  --border: oklch(0.335 0.012 258);
   --border-soft: color-mix(in oklab, var(--border), transparent 38%);
   --surface-hover: color-mix(in oklab, var(--secondary), var(--foreground) 6%);
   --surface-active: color-mix(in oklab, var(--primary), transparent 84%);
@@ -40,8 +40,8 @@
   --text-faint: color-mix(in oklab, var(--muted-foreground), transparent 32%);
   --danger: var(--destructive);
 
-  --shadow-panel: 0 18px 45px rgb(0 0 0 / 0.18);
-  --shadow-elevated: 0 24px 70px rgb(0 0 0 / 0.42);
+  --shadow-panel: 0 14px 34px rgb(0 0 0 / 0.12);
+  --shadow-elevated: 0 22px 54px rgb(0 0 0 / 0.24);
 
   --duration-instant: 80ms;
   --duration-fast: 150ms;
@@ -146,7 +146,7 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.22;
+  opacity: 0.12;
   background-image:
     linear-gradient(color-mix(in oklab, var(--primary), transparent 94%) 1px, transparent 1px),
     linear-gradient(90deg, color-mix(in oklab, var(--primary), transparent 94%) 1px, transparent 1px);
@@ -167,7 +167,7 @@ body::after {
   border-radius: 999px;
   background: radial-gradient(circle, color-mix(in oklab, var(--primary), transparent 83%), transparent 66%);
   filter: blur(50px);
-  opacity: 0.36;
+  opacity: 0.18;
 }
 
 .lux-panel {

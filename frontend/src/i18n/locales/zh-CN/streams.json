@@ -146,7 +146,16 @@
         "SUCCEEDED": "切源已完成",
         "FAILED": "切源失败",
         "CANCELLED": "切源已取消"
-      }
+      },
+      "registerSource": "登记来源",
+      "sourceName": "来源名称",
+      "sourceNamePlaceholder": "例如：演播室备源",
+      "sourceProtocol": "协议",
+      "sourceUrl": "来源地址",
+      "saveSource": "保存来源",
+      "sourceCreated": "外部来源已登记",
+      "sourceCreateHint": "来源保存后会自动选中，但不会自动启动拉流。",
+      "noSourcesInline": "当前没有可用外部来源，可直接在本工作台登记。"
     },
     "core": {
       "protocol": "登记协议",
@@ -212,7 +221,15 @@
       "retry": "重新尝试",
       "updated": "主动外推状态已更新",
       "evidenceHint": "RUNNING 只证明本地受管 FFmpeg 进程持续工作且输入在线；第三方平台是否真正播放仍需平台侧或 CDN 侧独立证据。",
-      "legacyHint": "历史任务保持 SRS Dynamic Forward 兼容模式以避免升级期间双推；请在“来源与外推”页面查看其兼容启停语义。"
+      "legacyHint": "历史任务保持 SRS Dynamic Forward 兼容模式以避免升级期间双推；请在“来源与外推”页面查看其兼容启停语义。",
+      "addTarget": "新增外推",
+      "targetType": "目标类型",
+      "targetUrl": "目标地址",
+      "createStopped": "保存目标",
+      "createHint": "新目标默认保持 STOPPED，确认后再启动，避免误推。",
+      "invalidUrl": "请输入有效的 RTMP / RTMPS / SRT 地址。",
+      "created": "主动外推目标已创建",
+      "deleted": "主动外推目标已删除"
     },
     "outPull": {
       "title": "第三方拉流 · OUT-PULL",
@@ -241,6 +258,48 @@
       "grantCreated": "访问授权已创建",
       "grantRevoked": "访问授权已吊销",
       "originOnlyHint": "本策略只对 SRS Origin 直连播放入口做控制承诺。若使用第三方 CDN 域名，CDN 鉴权仍需在对应供应商侧单独配置和验证。"
+    },
+    "console": {
+      "startPreview": "打开实时预览",
+      "waitingSignal": "等待输入信号",
+      "localPreview": "本地 HLS 预览",
+      "noPreviewEndpoint": "当前没有可用的预览地址",
+      "pausePreview": "暂停预览",
+      "title": "直播运行台",
+      "subtitle": "画面、输入、码率、观众和媒体格式在同一运行上下文中查看。",
+      "source": "当前采集",
+      "media": "原始码流",
+      "distribution": "活动分发",
+      "viewers": "当前观众"
+    },
+    "path": {
+      "title": "业务信号路径",
+      "subtitle": "按实际工作顺序阅读：采集输入 → SRS 原始流 → 处理/转码 → 输出分发。",
+      "evidenceNote": "绿色只表示真实运行证据",
+      "acquisition": "采集输入",
+      "acquisitionHint": "外部推入或本机主动拉取",
+      "noInput": "尚未配置/观测到输入",
+      "publisherObserved": "已观测到 SRS Publisher",
+      "awaitingAcquisition": "等待采集信号",
+      "srsCore": "SRS 原始流",
+      "srsCoreHint": "当前节点收到的真实媒体",
+      "processing": "处理与转码",
+      "processingHint": "原始直通与派生码流",
+      "passthrough": "原始码流直通",
+      "legacyTranscodeNote": "这是旧单模板配置记录，不作为“正在转码”的运行证据。",
+      "processingPending": "多转码 Runtime 将在下一阶段以真实 Worker 挂载。",
+      "distribution": "输出分发",
+      "distributionHint": "主动推送、CDN 与第三方拉取",
+      "guardsAttached": "鉴权、防盗链和会话控制附着在输出端"
+    },
+    "processing": {
+      "title": "处理与转码",
+      "subtitle": "当前只展示真实状态；旧单模板字段不再被描述为运行中的转码。",
+      "passthroughTitle": "原始流直通",
+      "passthroughHint": "未重新编码时不能改变 GOP/keyint、分辨率或编码参数。",
+      "legacyConfigured": "旧模板配置",
+      "legacyHint": "该配置将在多转码 Runtime 上线后迁移为可观察的挂载项。",
+      "next": "多转码 Worker 建设中：支持 1080P、720P、纯音频和 GOP/keyint。"
     }
   },
   "modal": {

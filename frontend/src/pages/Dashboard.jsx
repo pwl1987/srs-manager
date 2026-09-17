@@ -179,7 +179,7 @@ export default function Dashboard() {
           tone="primary"
         />
         <QuickAction
-          to="/forwarding"
+          to="/streams"
           icon={ArrowDownToLine}
           eyebrow={t('common:dashboard.mvp.pullEyebrow')}
           title={t('common:dashboard.mvp.pullTitle')}

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   Activity, AlertTriangle, ArrowUpRight, Clock3, Copy, Edit3,
-  Film, Plus, QrCode, Radio, Trash2, Users
+  Plus, QrCode, Radio, Trash2, Users
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from '../lib/utils';
@@ -62,12 +62,6 @@ function StreamCard({ stream, t, onPreview, onQr, onCopy, onEdit, onDelete }) {
             <span className="rounded-md border border-[var(--border-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
               {stream.protocol || 'rtmp'}
             </span>
-            {stream.transcode_template_name && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-[var(--secondary)] px-2 py-0.5 text-[10px] text-[var(--muted-foreground)]">
-                <Film size={10} />
-                {stream.transcode_template_name}
-              </span>
-            )}
           </div>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -119,18 +113,13 @@ export default function Streams() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', protocol: 'rtmp', transcode_template_id: '' });
+  const [form, setForm] = useState({ name: '', protocol: 'rtmp' });
   const [formError, setFormError] = useState('');
   const [previewStream, setPreviewStream] = useState(null);
   const [qrStream, setQrStream] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [working, setWorking] = useState(false);
   const [externalLive, setExternalLive] = useState([]);
-  const [templates, setTemplates] = useState([]);
-
-  useEffect(() => {
-    api.get('/transcode-templates').then(setTemplates).catch(() => {});
-  }, []);
 
   async function loadStreams(silent = false) {
     if (!silent) setLoading(true);
@@ -159,7 +148,7 @@ export default function Streams() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: '', protocol: 'rtmp', transcode_template_id: '' });
+    setForm({ name: '', protocol: 'rtmp' });
     setFormError('');
     setShowModal(true);
   }
@@ -168,8 +157,7 @@ export default function Streams() {
     setEditing(stream);
     setForm({
       name: stream.name,
-      protocol: stream.protocol || 'rtmp',
-      transcode_template_id: stream.transcode_template_id || ''
+      protocol: stream.protocol || 'rtmp'
     });
     setFormError('');
     setShowModal(true);
@@ -345,18 +333,6 @@ export default function Streams() {
               <option value="rtmp">RTMP</option>
               <option value="srt">SRT</option>
             </select>
-          </div>
-          <div>
-            <label className={labelClass}>{t('streams:transcode.label')}</label>
-            <select
-              value={form.transcode_template_id}
-              onChange={event => setForm({ ...form, transcode_template_id: event.target.value })}
-              className={inputClass}
-            >
-              <option value="">{t('streams:transcode.none')}</option>
-              {templates.map(template => <option key={template.id} value={template.id}>{template.name}</option>)}
-            </select>
-            <p className="mt-1.5 text-xs text-[var(--muted-foreground)]">{t('streams:transcode.note')}</p>
           </div>
           {formError && <p className="text-sm text-[var(--destructive)]">{formError}</p>}
         </form>

@@ -6,8 +6,6 @@ import {
   Radio,
   Satellite,
   Key,
-  ArrowLeftRight,
-  Monitor,
   Film,
   Settings as SettingsIcon,
   Cloud,
@@ -26,7 +24,6 @@ export default function Sidebar({ onNavigate }) {
       key: 'operations',
       items: [
         { path: '/', label: t('common:navigation.dashboard'), icon: LayoutDashboard },
-        { path: '/monitor', label: t('common:navigation.monitor'), icon: Monitor },
         { path: '/releases', label: t('common:navigation.releases'), icon: Sparkles },
       ],
     },
@@ -34,7 +31,6 @@ export default function Sidebar({ onNavigate }) {
       key: 'streaming',
       items: [
         { path: '/streams', label: t('common:navigation.streams'), icon: Radio },
-        { path: '/forwarding', label: t('common:navigation.forwarding'), icon: ArrowLeftRight },
       ],
     },
     {
@@ -42,12 +38,12 @@ export default function Sidebar({ onNavigate }) {
       items: [
         { path: '/cdn-channels', label: t('common:navigation.cdnChannels'), icon: Satellite },
         { path: '/dns-records', label: t('common:navigation.dnsRecords'), icon: Globe },
-        { path: '/transcode', label: t('common:navigation.transcode'), icon: Film },
       ],
     },
     {
       key: 'system',
       items: [
+        { path: '/transcode', label: t('common:navigation.transcode'), icon: Film },
         { path: '/auth-keys', label: t('common:navigation.authKeys'), icon: Key },
         { path: '/wangsu-auth', label: t('common:navigation.wangsuAuth'), icon: Cloud },
         { path: '/aliyun-dns-auth', label: t('common:navigation.aliyunDnsAuth'), icon: Server },
