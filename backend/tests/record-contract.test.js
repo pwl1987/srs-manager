@@ -85,9 +85,36 @@ test('RECORD is a shared Rendition consumer and prevents premature teardown', ()
   assert.equal(bindingService.getBinding(binding.id).desired_state, 'RUNNING');
 
   recordTaskService.setDesiredState(record.id, 'STOPPED');
+  assert.equal(renditionService.runningConsumers(binding.id), 1);
+  assert.equal(bindingService.getBinding(binding.id).desired_state, 'RUNNING');
+  recordTaskService.updateRuntime(record.id, { runtime_state: 'FINALIZING' });
   assert.equal(renditionService.runningConsumers(binding.id), 0);
   assert.equal(bindingService.getBinding(binding.id).desired_state, 'STOPPED');
   assert.throws(() => bindingService.deleteBinding(binding.id), /still referenced/);
+});
+test('record worker lease is exclusive and restart preserves recoverable media', () => {
+  assert.equal(recordTaskService.claimWorkerLease('rec-a', 10000).acquired, true);
+  assert.equal(recordTaskService.claimWorkerLease('rec-b', 10000).acquired, false);
+  assert.equal(recordTaskService.renewWorkerLease('rec-a'), true);
+  recordTaskService.clearWorkerHeartbeat('rec-a');
+  assert.equal(recordTaskService.claimWorkerLease('rec-b', 10000).acquired, true);
+  recordTaskService.clearWorkerHeartbeat('rec-b');
+
+  const streamId = Number(db.prepare("INSERT INTO streams (name, protocol) VALUES ('record-restart', 'rtmp')").run().lastInsertRowid);
+  const task = recordTaskService.createTask({ stream_id: streamId, name: 'restart-safe', format: 'mp4' });
+  recordTaskService.setDesiredState(task.id, 'RUNNING');
+  recordTaskService.updateRuntime(task.id, { runtime_state: 'RECORDING', worker_instance_id: 'dead-worker' });
+  const asset = assetService.createAsset(recordTaskService.getTask(task.id), { nonce: 'restart' });
+  const paths = assetService.resolveAssetPaths(asset, { createWorkDir: true });
+  fs.writeFileSync(path.join(paths.work_dir, 'segment-000000.ts'), Buffer.alloc(188 * 10));
+  assetService.updateAsset(asset.id, { state: 'RECORDING' });
+
+  const recovered = assetService.recoverInterruptedAssets();
+  assert.equal(recovered.find(item => item.id === asset.id).state, 'RECOVERABLE');
+  recordTaskService.resetStaleRuntime();
+  const after = recordTaskService.getTask(task.id);
+  assert.equal(after.runtime_state, 'STARTING');
+  assert.equal(after.worker_instance_id, null);
 });
 
 test.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));

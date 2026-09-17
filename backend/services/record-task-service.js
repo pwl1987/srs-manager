@@ -137,6 +137,8 @@ function setDesiredState(id, desiredState) {
 }
 
 function updateRuntime(id, updates = {}) {
+  const before = getTask(id);
+  if (!before) return null;
   const fields = {};
   const allowed = ['runtime_state','attempt','worker_instance_id','last_error','last_growth_at','bytes_written','last_started_at','last_stopped_at'];
   for (const key of allowed) if (updates[key] !== undefined) fields[key] = updates[key];
@@ -149,6 +151,9 @@ function updateRuntime(id, updates = {}) {
   const clauses = Object.keys(fields).map(key => `${key} = ?`).join(', ');
   db.prepare(`UPDATE record_tasks SET ${clauses}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
     .run(...Object.values(fields), Number(id));
+  if (before.source_binding_id && fields.runtime_state !== undefined) {
+    renditionService.reconcileDesiredState(before.source_binding_id);
+  }
   return getTask(id);
 }
 function deleteTask(id) {
@@ -166,5 +171,74 @@ function deleteTask(id) {
 module.exports = {
   DESIRED_STATES, RUNTIME_STATES, FORMATS, AUDIO_FORMATS,
   listTasksByStream, listWorkerTasks, getTask, createTask,
-  setDesiredState, updateRuntime, deleteTask
+  setDesiredState, updateRuntime, deleteTask,
+  resetStaleRuntime, claimWorkerLease, renewWorkerLease,
+  clearWorkerHeartbeat, getWorkerHealth
 };
+
+const WORKER_HEARTBEAT_KEY = 'runtime.record_worker.heartbeat';
+
+function heartbeatPayload(instanceId, now = new Date()) {
+  return JSON.stringify({ instance_id: String(instanceId), ts: now.toISOString() });
+}
+
+function parseHeartbeat(value) {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    const ts = Date.parse(parsed.ts);
+    if (!parsed.instance_id || !Number.isFinite(ts)) return null;
+    return { instance_id: String(parsed.instance_id), ts: parsed.ts, ts_ms: ts };
+  } catch { return null; }
+}
+
+function claimWorkerLease(instanceId, maxAgeMs = 10000) {
+  if (!instanceId) throw new Error('Worker instance ID is required');
+  const owner = String(instanceId);
+  const claim = db.transaction(() => {
+    const now = new Date();
+    const current = parseHeartbeat(db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY)?.value);
+    if (current && current.instance_id !== owner && now.getTime() - current.ts_ms <= maxAgeMs) {
+      return { acquired: false, instance_id: current.instance_id, last_seen_at: current.ts, age_ms: now.getTime() - current.ts_ms };
+    }
+    db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
+      .run(WORKER_HEARTBEAT_KEY, heartbeatPayload(owner, now));
+    return { acquired: true, instance_id: owner, last_seen_at: now.toISOString(), age_ms: 0 };
+  });
+  return claim.immediate();
+}
+
+function renewWorkerLease(instanceId) {
+  const owner = String(instanceId || '');
+  if (!owner) throw new Error('Worker instance ID is required');
+  const renew = db.transaction(() => {
+    const current = parseHeartbeat(db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY)?.value);
+    if (!current || current.instance_id !== owner) return false;
+    db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(heartbeatPayload(owner), WORKER_HEARTBEAT_KEY);
+    return true;
+  });
+  return renew.immediate();
+}
+
+function clearWorkerHeartbeat(instanceId) {
+  const current = parseHeartbeat(db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY)?.value);
+  if (!current || current.instance_id !== String(instanceId)) return;
+  db.prepare('DELETE FROM settings WHERE key = ?').run(WORKER_HEARTBEAT_KEY);
+}
+function getWorkerHealth(maxAgeMs = 10000) {
+  const current = parseHeartbeat(db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY)?.value);
+  if (!current) return { available: false, instance_id: null, last_seen_at: null, age_ms: null };
+  const age = Math.max(0, Date.now() - current.ts_ms);
+  return { available: age <= maxAgeMs, instance_id: current.instance_id, last_seen_at: current.ts, age_ms: age };
+}
+
+function resetStaleRuntime() {
+  db.prepare(`UPDATE record_tasks
+    SET runtime_state = CASE WHEN desired_state = 'RUNNING' THEN 'STARTING' ELSE 'STOPPED' END,
+        worker_instance_id = NULL,
+        last_error = CASE WHEN desired_state = 'RUNNING' THEN 'Record worker restarted; starting a new recoverable asset' ELSE last_error END,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE runtime_state IN ('STARTING','RECORDING','STOPPING','FINALIZING','STALLED')
+       OR worker_instance_id IS NOT NULL`).run();
+}

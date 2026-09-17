@@ -97,5 +97,41 @@ function refreshObserved(assetId) {
 
 module.exports = {
   STATES, getAsset, listAssetsByTask, createAsset, resolveAssetPaths,
-  updateAsset, scanSegments, refreshObserved
+  updateAsset, scanSegments, refreshObserved,
+  writeConcatManifest, recoverInterruptedAssets
 };
+
+function escapeConcatPath(value) {
+  return String(value).replace(/'/g, "'\\''");
+}
+
+function writeConcatManifest(asset) {
+  const paths = resolveAssetPaths(asset, { createWorkDir: true });
+  const observed = scanSegments(asset);
+  if (!observed.files.length) throw new Error('No recording segments available to finalize');
+  const lines = observed.files.map(name => `file '${escapeConcatPath(path.join(paths.work_dir, name))}'`);
+  fs.writeFileSync(paths.concat_file, `${lines.join('\n')}\n`, { mode: 0o640 });
+  return { ...paths, files: observed.files, segment_count: observed.segment_count, size_bytes: observed.size_bytes };
+}
+
+function recoverInterruptedAssets() {
+  const rows = db.prepare(`SELECT * FROM record_assets
+    WHERE state IN ('PREPARING','RECORDING','FINALIZING') ORDER BY id ASC`).all();
+  const recovered = [];
+  for (const row of rows) {
+    const asset = hydrate(row);
+    const paths = resolveAssetPaths(asset);
+    if (fs.existsSync(paths.final_path) && fs.statSync(paths.final_path).size > 0) {
+      recovered.push(updateAsset(asset.id, { state: 'COMPLETE', size_bytes: fs.statSync(paths.final_path).size, completed_at: new Date().toISOString(), error: null }));
+      continue;
+    }
+    const observed = scanSegments(asset);
+    recovered.push(updateAsset(asset.id, {
+      state: observed.segment_count ? 'RECOVERABLE' : 'FAILED',
+      segment_count: observed.segment_count, size_bytes: observed.size_bytes,
+      error: observed.segment_count ? 'Record worker interrupted; TS segments retained' : 'Record worker interrupted before media was written',
+      completed_at: new Date().toISOString()
+    }));
+  }
+  return recovered;
+}

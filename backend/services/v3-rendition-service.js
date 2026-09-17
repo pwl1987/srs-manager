@@ -77,7 +77,8 @@ function runningConsumers(bindingId) {
     WHERE source_binding_id = ? AND execution_mode = 'managed_worker' AND desired_state = 'RUNNING'`)
     .get(id).count;
   const record = db.prepare(`SELECT COUNT(*) AS count FROM record_tasks
-    WHERE source_binding_id = ? AND desired_state = 'RUNNING'`).get(id).count;
+    WHERE source_binding_id = ?
+      AND (desired_state = 'RUNNING' OR runtime_state IN ('STARTING','RECORDING','STOPPING','STALLED'))`).get(id).count;
   return Number(push || 0) + Number(record || 0);
 }
 
