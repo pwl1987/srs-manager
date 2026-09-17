@@ -9,6 +9,7 @@ const db = require('../database');
 const previewAccessService = require('../services/preview-access-service');
 const sourcePreviewService = require('../services/source-preview-service');
 const outputService = require('../services/v3-output-service');
+const incidentService = require('../services/incident-service');
 const runPlanService = require('../services/run-plan-service');
 const sessionService = require('../services/session-service');
 const preflightService = require('../services/preflight-service');
@@ -203,6 +204,28 @@ router.post('/sessions/:sessionId/start', async (req, res) => {
     const missing = String(error.message).includes('not found');
     return res.status(missing ? 404 : 409).json({ code: missing ? 'V3_SESSION_NOT_FOUND' : 'V3_SESSION_START_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null });
   }
+});
+
+
+router.get('/rooms/:roomId/incidents', async (req, res) => {
+  const stream = requireRoomStream(req, res); if (!stream) return;
+  try {
+    const workspace = await workspaceV3.getWorkspace(stream.id);
+    return res.json(incidentService.syncWorkspace(workspace));
+  } catch (error) {
+    return internalError(res, error, 'V3_INCIDENT_SYNC_FAILED');
+  }
+});
+
+router.post('/rooms/:roomId/incidents/:incidentId/ack', (req, res) => {
+  const stream = requireRoomStream(req, res); if (!stream) return;
+  const incident = incidentService.acknowledge(req.params.incidentId, stream.id, req.user?.username || req.user?.sub || null);
+  if (!incident) return res.status(404).json({ code: 'V3_INCIDENT_NOT_FOUND', message: 'Incident not found in this Room.', detail: req.params.incidentId, retryable: false, correlation_id: null });
+  return res.json({ incident, events: incidentService.listEvents(incident.id) });
+});
+
+router.get('/incidents/:incidentId/events', (req, res) => {
+  return res.json({ events: incidentService.listEvents(req.params.incidentId) });
 });
 
 router.get('/capabilities', async (req, res) => {

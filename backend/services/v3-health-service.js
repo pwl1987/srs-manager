@@ -47,6 +47,22 @@ function evaluateWorkspace(workspace) {
     }
   }
 
+  for (const output of workspace.outputs || []) {
+    if (output.mode !== 'RECORD' || output.desired_state !== 'RUNNING') continue;
+    if (output.runtime_state === 'FAILED') {
+      reasons.push(reason('RECORD_RUNTIME_FAILED', 'WARNING', 'A requested recording output has failed.', output.id, 'single_output'));
+    }
+  }
+
+  const recordExpected = (workspace.outputs || []).some(o => o.mode === 'RECORD' && o.desired_state === 'RUNNING');
+  const recordWorker = workspace.evidence?.workers?.record;
+  if (recordExpected && recordWorker && !recordWorker.available) {
+    reasons.push(reason('RECORD_WORKER_UNAVAILABLE', 'WARNING', 'Recording is requested but the Record Worker heartbeat is unavailable.', null, 'recording'));
+  }
+  if (recordExpected && workspace.capabilities?.runtime?.record?.storage?.low_space === true) {
+    reasons.push(reason('RECORD_STORAGE_LOW', 'WARNING', 'Recording storage has no usable capacity above reserve.', null, 'recording'));
+  }
+
   const pushExpected = (workspace.outputs || []).some(o => o.mode === 'PUSH' && o.control_mode !== 'LEGACY_UNMANAGED' && o.desired_state === 'RUNNING');
   const pushWorker = workspace.evidence?.workers?.push;
   if (pushExpected && pushWorker && !pushWorker.available) {

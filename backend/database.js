@@ -418,6 +418,42 @@ CREATE TABLE IF NOT EXISTS session_outputs (
 );
 CREATE INDEX IF NOT EXISTS idx_session_outputs_session ON session_outputs(session_id, importance, sort_order, id);
 
+CREATE TABLE IF NOT EXISTS incidents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  session_id INTEGER,
+  fingerprint TEXT NOT NULL,
+  category TEXT NOT NULL CHECK(category IN ('SIGNAL','DELIVERY','RESOURCE','SYSTEM')),
+  severity TEXT NOT NULL CHECK(severity IN ('CRITICAL','WARNING','INFO')),
+  code TEXT NOT NULL,
+  subject_ref TEXT,
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN','ACKNOWLEDGED','RECOVERED')),
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  impact_json TEXT NOT NULL DEFAULT '{}',
+  first_seen_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  acknowledged_at TEXT,
+  acknowledged_by TEXT,
+  recovered_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_incidents_stream_status ON incidents(stream_id, status, last_seen_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_incidents_active_fingerprint ON incidents(stream_id, fingerprint) WHERE status IN ('OPEN','ACKNOWLEDGED');
+
+CREATE TABLE IF NOT EXISTS incident_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  incident_id INTEGER NOT NULL,
+  event_type TEXT NOT NULL CHECK(event_type IN ('OPENED','UPDATED','ACKNOWLEDGED','RECOVERED')),
+  detail_json TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_incident_events_incident ON incident_events(incident_id, created_at, id);
+
 CREATE TABLE IF NOT EXISTS operations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   type TEXT NOT NULL,
