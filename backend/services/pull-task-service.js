@@ -2,6 +2,7 @@ const db = require('../database');
 
 const DESIRED_STATES = new Set(['RUNNING', 'STOPPED']);
 const RUNTIME_STATES = new Set(['STOPPED', 'STARTING', 'RUNNING', 'RETRYING', 'FAILED', 'BLOCKED']);
+const WORKER_HEARTBEAT_KEY = 'runtime.pull_worker.heartbeat';
 
 function maskSourceUrl(value) {
   if (!value) return null;
@@ -145,6 +146,46 @@ function resetStaleRuntime() {
   `).run();
 }
 
+function writeWorkerHeartbeat(instanceId) {
+  if (!instanceId) throw new Error('Worker instance ID is required');
+  const payload = JSON.stringify({ instance_id: String(instanceId), ts: new Date().toISOString() });
+  db.prepare(`
+    INSERT INTO settings (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `).run(WORKER_HEARTBEAT_KEY, payload);
+}
+
+function clearWorkerHeartbeat(instanceId) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY);
+  if (!row?.value) return;
+  try {
+    const parsed = JSON.parse(row.value);
+    if (parsed.instance_id !== String(instanceId)) return;
+  } catch {
+    // Corrupt heartbeat belongs to nobody; clearing is safe during shutdown.
+  }
+  db.prepare('DELETE FROM settings WHERE key = ?').run(WORKER_HEARTBEAT_KEY);
+}
+
+function getWorkerHealth(maxAgeMs = 10000) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY);
+  if (!row?.value) return { available: false, instance_id: null, last_seen_at: null, age_ms: null };
+  try {
+    const parsed = JSON.parse(row.value);
+    const ts = Date.parse(parsed.ts);
+    if (!parsed.instance_id || !Number.isFinite(ts)) throw new Error('invalid heartbeat');
+    const age = Math.max(0, Date.now() - ts);
+    return {
+      available: age <= maxAgeMs,
+      instance_id: parsed.instance_id,
+      last_seen_at: parsed.ts,
+      age_ms: age
+    };
+  } catch {
+    return { available: false, instance_id: null, last_seen_at: null, age_ms: null };
+  }
+}
+
 module.exports = {
   DESIRED_STATES,
   RUNTIME_STATES,
@@ -157,5 +198,8 @@ module.exports = {
   setDesiredState,
   updateRuntime,
   listWorkerTasks,
-  resetStaleRuntime
+  resetStaleRuntime,
+  writeWorkerHeartbeat,
+  clearWorkerHeartbeat,
+  getWorkerHealth
 };
