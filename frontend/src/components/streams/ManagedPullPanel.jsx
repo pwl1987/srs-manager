@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CircleDot, Link2, Play, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { AlertTriangle, CircleDot, Link2, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { getErrorCode } from '../../lib/error-mapper';
-import { btnDangerGhost, btnPrimary, btnSecondary, inputClass } from '../ui/styles';
+import { btnDangerGhost, btnPrimary, btnSecondary, btnGhost, inputClass } from '../ui/styles';
 
 function RuntimeBadge({ state }) {
   const tones = {
@@ -28,13 +28,18 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
   const [working, setWorking] = useState(false);
 
   useEffect(() => {
-    if (task) return;
     api.get('/external-sources')
       .then(rows => setSources((Array.isArray(rows) ? rows : []).filter(row => row.status === 'active')))
       .catch(() => setSources([]));
-  }, [task]);
+  }, [task?.id]);
 
-  async function mutate(path, body) {
+  const taskSources = task?.sources || [];
+  const availableSources = useMemo(() => {
+    const used = new Set(taskSources.map(source => Number(source.external_source_id)));
+    return sources.filter(source => !used.has(Number(source.id)));
+  }, [sources, taskSources]);
+
+  async function post(path, body) {
     setWorking(true);
     try {
       await api.post(path, body);
@@ -47,9 +52,37 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
     }
   }
 
+  async function runRequest(method, path, body) {
+    setWorking(true);
+    try {
+      await api[method](path, body);
+      toast.success(t('streams:workspace.managedPull.updated'));
+      setSourceId('');
+      await onChanged?.();
+    } catch (error) {
+      toast.error(t(`common:errors.${getErrorCode(error)}`));
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function createTask() {
     if (!sourceId) return;
-    await mutate('/pull-tasks', { stream_id: stream.id, external_source_id: Number(sourceId) });
+    await post('/pull-tasks', { stream_id: stream.id, external_source_id: Number(sourceId) });
+    setSourceId('');
+  }
+
+  async function addStandby() {
+    if (!task || !sourceId) return;
+    await runRequest('post', `/pull-tasks/${task.id}/sources`, { external_source_id: Number(sourceId) });
+  }
+
+  async function toggleSource(source) {
+    await runRequest('put', `/pull-tasks/${task.id}/sources/${source.external_source_id}`, { enabled: source.enabled ? 0 : 1 });
+  }
+
+  async function removeSource(source) {
+    await runRequest('delete', `/pull-tasks/${task.id}/sources/${source.external_source_id}`);
   }
 
   async function deleteTask() {
@@ -108,7 +141,14 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/35 p-3">
               <div className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">{t('streams:workspace.managedPull.source')}</div>
-              <div className="mt-1 text-sm font-medium">{task.source_name}</div>
+              <div className="mt-1 flex items-center gap-2 text-sm font-medium">
+                <span>{task.source_name}</span>
+                {task.sources?.length > 1 && (
+                  <span className="rounded bg-[var(--warning-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--warning)]">
+                    {t('streams:workspace.managedPull.failoverArmed')}
+                  </span>
+                )}
+              </div>
               <div className="mt-1 break-all font-mono text-[10px] text-[var(--muted-foreground)]">{task.source_url_masked}</div>
             </div>
             <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/35 p-3">
@@ -120,6 +160,83 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
               </div>
             </div>
           </div>
+
+          <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/25 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-xs font-semibold">{t('streams:workspace.managedPull.candidates')}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--text-faint)]">{t('streams:workspace.managedPull.failoverHint')}</div>
+              </div>
+              <span className="text-[10px] text-[var(--muted-foreground)]">{taskSources.length} {t('streams:workspace.managedPull.sourcesCount')}</span>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {taskSources.map(source => {
+                const active = Number(source.external_source_id) === Number(task.active_source_id);
+                const destructiveLocked = active && task.desired_state === 'RUNNING';
+                return (
+                  <div key={source.id} className={cn(
+                    'grid gap-2 rounded-lg border px-3 py-2.5 sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:items-center',
+                    active ? 'border-[var(--success)]/30 bg-[var(--success-soft)]/25' : 'border-[var(--border-soft)] bg-[var(--card)]'
+                  )}>
+                    <div className="text-center text-[10px] font-semibold text-[var(--text-faint)]">P{source.priority}</div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-xs font-medium">{source.source_name}</span>
+                        <span className={cn(
+                          'rounded px-1.5 py-0.5 text-[9px] font-semibold',
+                          active ? 'bg-[var(--success-soft)] text-[var(--success)]' : 'bg-[var(--secondary)] text-[var(--muted-foreground)]'
+                        )}>
+                          {active ? t('streams:workspace.managedPull.active') : t('streams:workspace.managedPull.standby')}
+                        </span>
+                        {!source.enabled && <span className="text-[9px] text-[var(--text-faint)]">{t('streams:workspace.managedPull.disabled')}</span>}
+                      </div>
+                      <div className="mt-1 truncate font-mono text-[10px] text-[var(--text-faint)]" title={source.source_url_masked}>{source.source_url_masked}</div>
+                    </div>
+                    <div className="flex justify-end gap-1">
+                      <button
+                        className={btnGhost}
+                        disabled={working || destructiveLocked}
+                        onClick={() => toggleSource(source)}
+                        title={source.enabled ? t('streams:workspace.managedPull.disable') : t('streams:workspace.managedPull.enable')}
+                      >
+                        <CircleDot size={13} className={source.enabled ? 'text-[var(--success)]' : 'text-[var(--text-faint)]'} />
+                      </button>
+                      <button
+                        className={cn(btnGhost, 'text-[var(--destructive)] hover:text-[var(--destructive)]')}
+                        disabled={working || destructiveLocked || taskSources.length <= 1}
+                        onClick={() => removeSource(source)}
+                        title={t('streams:workspace.managedPull.removeSource')}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {availableSources.length > 0 && (
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <select className={inputClass} value={sourceId} onChange={event => setSourceId(event.target.value)}>
+                  <option value="">{t('streams:workspace.managedPull.selectStandby')}</option>
+                  {availableSources.map(source => (
+                    <option key={source.id} value={source.id}>{source.name} · {String(source.protocol || '').toUpperCase()}</option>
+                  ))}
+                </select>
+                <button className={btnSecondary} disabled={!sourceId || working} onClick={addStandby}>
+                  <Plus size={14} />{t('streams:workspace.managedPull.addStandby')}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {task.last_source_switch_reason && (
+            <div className="rounded-lg border border-[var(--warning)]/20 bg-[var(--warning-soft)]/50 p-3 text-xs text-[var(--warning)]">
+              <div className="font-medium">{t('streams:workspace.managedPull.lastSwitch')}</div>
+              <div className="mt-1 text-[10px] leading-5">{task.last_source_switch_reason}</div>
+            </div>
+          )}
 
           {!worker.available && task.desired_state === 'RUNNING' && (
             <div className="flex gap-2 rounded-lg border border-[var(--warning)]/25 bg-[var(--warning-soft)] p-3 text-xs text-[var(--warning)]">
@@ -136,17 +253,17 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
 
           <div className="flex flex-wrap gap-2">
             {task.desired_state === 'STOPPED' && task.runtime_state !== 'FAILED' && (
-              <button className={btnPrimary} disabled={working} onClick={() => mutate(`/pull-tasks/${task.id}/start`)}>
+              <button className={btnPrimary} disabled={working} onClick={() => post(`/pull-tasks/${task.id}/start`)}>
                 <Play size={14} />{t('streams:workspace.managedPull.start')}
               </button>
             )}
             {task.runtime_state === 'FAILED' && (
-              <button className={btnPrimary} disabled={working} onClick={() => mutate(`/pull-tasks/${task.id}/retry`)}>
+              <button className={btnPrimary} disabled={working} onClick={() => post(`/pull-tasks/${task.id}/retry`)}>
                 <RefreshCw size={14} />{t('streams:workspace.managedPull.retry')}
               </button>
             )}
             {task.desired_state === 'RUNNING' && (
-              <button className={btnSecondary} disabled={working} onClick={() => mutate(`/pull-tasks/${task.id}/stop`)}>
+              <button className={btnSecondary} disabled={working} onClick={() => post(`/pull-tasks/${task.id}/stop`)}>
                 <Square size={13} />{t('streams:workspace.managedPull.stop')}
               </button>
             )}
