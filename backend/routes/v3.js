@@ -12,6 +12,7 @@ const outputService = require('../services/v3-output-service');
 const runPlanService = require('../services/run-plan-service');
 const sessionService = require('../services/session-service');
 const preflightService = require('../services/preflight-service');
+const sessionOrchestration = require('../services/session-orchestration-service');
 
 const router = express.Router();
 router.use(jwtAuth);
@@ -190,6 +191,20 @@ router.post('/sessions/:sessionId/preflight', async (req, res) => {
   }
 });
 
+
+router.post('/sessions/:sessionId/start', async (req, res) => {
+  const idempotencyKey = String(req.get('Idempotency-Key') || '').trim();
+  if (!idempotencyKey) return res.status(400).json({ code: 'V3_IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key is required', detail: null, retryable: false, correlation_id: null });
+  try {
+    const result = await sessionOrchestration.startSession(req.params.sessionId, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
+    if (result.conflict) return res.status(409).json({ code: 'V3_SESSION_OPERATION_CONFLICT', message: 'Another Session operation is already active.', detail: result.operation, retryable: true, correlation_id: null });
+    return res.status(result.reused || result.operation.phase === 'SUCCEEDED' ? 200 : result.operation.phase === 'FAILED' ? 409 : 202).json(result.operation);
+  } catch (error) {
+    const missing = String(error.message).includes('not found');
+    return res.status(missing ? 404 : 409).json({ code: missing ? 'V3_SESSION_NOT_FOUND' : 'V3_SESSION_START_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null });
+  }
+});
+
 router.get('/capabilities', async (req, res) => {
   try {
     let workspace = null;
@@ -226,6 +241,7 @@ router.get('/operations/:operationId', (req, res) => {
     if (!operation) return res.status(404).json({ code: 'V3_OPERATION_NOT_FOUND', message: 'Operation not found', detail: req.params.operationId, retryable: false, correlation_id: null });
     if (operation.subject_type === 'forward_task') operation = outputService.reconcilePushOperation(operation);
     if (operation.subject_type === 'record_task') operation = outputService.reconcileRecordOperation(operation);
+    if (operation.subject_type === 'session' && operation.type === 'V3_SESSION_START') operation = sessionOrchestration.reconcileSessionStartOperation(operation);
     return res.json(operation);
   } catch (error) {
     internalError(res, error, 'V3_OPERATION_READ_FAILED');
