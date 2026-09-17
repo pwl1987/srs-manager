@@ -5,23 +5,23 @@ import { cn } from '../lib/utils';
 import { formatBitrateKbps, formatDateTime, formatRelativeTime } from '../i18n/format';
 import { getErrorCode } from '../lib/error-mapper';
 import { usePolling } from '../lib/use-polling';
+import PageHeader from '../components/ui/PageHeader';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import EmptyState from '../components/ui/EmptyState';
 import { CardSkeleton } from '../components/ui/Skeleton';
-import { Radio, Activity, Users, Satellite, FileText, ArrowLeftRight, TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react';
-
-function StatCard({ icon: Icon, label, value, sub }) {
-  return (
-    <div className="bg-[var(--card)] rounded-lg p-4 border">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon size={20} className="text-[var(--primary)] shrink-0" />
-        <span className="text-sm text-[var(--muted-foreground)] truncate">{label}</span>
-      </div>
-      <div className="text-2xl font-bold">{value}</div>
-      {sub && <div className="text-xs text-[var(--muted-foreground)] mt-1">{sub}</div>}
-    </div>
-  );
-}
+import {
+  Radio,
+  Activity,
+  Users,
+  Satellite,
+  FileText,
+  ArrowLeftRight,
+  TrendingUp,
+  TrendingDown,
+  Eye,
+  EyeOff,
+  Server,
+} from 'lucide-react';
 
 const ACTIVITY_ICONS = {
   on_publish: { icon: TrendingUp, color: 'text-[var(--success)]' },
@@ -29,6 +29,50 @@ const ACTIVITY_ICONS = {
   on_play: { icon: Eye, color: 'text-[var(--info)]' },
   on_stop: { icon: EyeOff, color: 'text-[var(--muted-foreground)]' },
 };
+
+function Metric({ icon: Icon, label, value, detail, tone = 'primary' }) {
+  const tones = {
+    primary: 'text-[var(--primary)] bg-[var(--primary)]/10 border-[var(--primary)]/15',
+    success: 'text-[var(--success)] bg-[var(--success)]/10 border-[var(--success)]/15',
+    info: 'text-[var(--info)] bg-[var(--info)]/10 border-[var(--info)]/15',
+    warning: 'text-[var(--warning)] bg-[var(--warning)]/10 border-[var(--warning)]/15',
+  };
+
+  return (
+    <div className="min-w-0 p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/26">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <span className="text-xs font-medium text-[var(--muted-foreground)] truncate">{label}</span>
+        <span className={cn('w-8 h-8 rounded-lg border flex items-center justify-center shrink-0', tones[tone] || tones.primary)}>
+          <Icon size={15} strokeWidth={1.9} />
+        </span>
+      </div>
+      <div className="text-2xl font-semibold tracking-[-0.03em] tabular-nums truncate">{value}</div>
+      {detail && <div className="text-[11px] text-[var(--text-faint)] mt-1.5 truncate">{detail}</div>}
+    </div>
+  );
+}
+
+function Panel({ title, icon: Icon, badge, children, className = '' }) {
+  return (
+    <section className={cn(
+      'rounded-2xl border border-[var(--border-soft)] bg-[var(--card)]/88 shadow-[var(--shadow-panel)] overflow-hidden',
+      className
+    )}>
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border-soft)]">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {Icon && (
+            <span className="w-8 h-8 rounded-lg bg-[var(--secondary)] flex items-center justify-center text-[var(--muted-foreground)] shrink-0">
+              <Icon size={15} />
+            </span>
+          )}
+          <h3 className="text-sm font-semibold truncate">{title}</h3>
+        </div>
+        {badge}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export default function Dashboard() {
   const { t } = useTranslation(['streams', 'channels', 'common']);
@@ -41,11 +85,16 @@ export default function Dashboard() {
   async function load(silent = false) {
     if (!silent) setLoading(true);
     if (!silent) setError(null);
+
     const [s, st, act] = await Promise.all([
-      api.get('/monitor/dashboard').catch(err => { if (!silent) setError({ code: getErrorCode(err) }); return null; }),
+      api.get('/monitor/dashboard').catch(err => {
+        if (!silent) setError({ code: getErrorCode(err) });
+        return null;
+      }),
       api.get('/streams').catch(() => []),
-      api.get('/monitor/activity?limit=12').catch(() => [])
+      api.get('/monitor/activity?limit=12').catch(() => []),
     ]);
+
     setStats(s);
     setStreams(Array.isArray(st) ? st : []);
     setActivities(Array.isArray(act) ? act : []);
@@ -54,18 +103,23 @@ export default function Dashboard() {
 
   usePolling(() => load(true), 15000);
 
-  const liveStreams = streams.filter(s => s.status === 'online').sort((a, b) => (b.viewers || 0) - (a.viewers || 0));
+  const liveStreams = streams
+    .filter(s => s.status === 'online')
+    .sort((a, b) => (b.viewers || 0) - (a.viewers || 0));
   const offlineStreams = streams.filter(s => s.status !== 'online');
+  const systemHealthy = Boolean(stats) && !error;
 
   if (loading) {
     return (
       <div>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-          {[1, 2, 3, 4, 5, 6].map(i => <CardSkeleton key={i} className="h-28" />)}
+        <div className="mb-7">
+          <div className="h-3 w-32 rounded bg-[var(--secondary)] animate-pulse mb-3" />
+          <div className="h-8 w-56 rounded bg-[var(--secondary)] animate-pulse" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <CardSkeleton className="h-64" />
-          <CardSkeleton className="h-64" />
+        <CardSkeleton className="h-56 rounded-2xl mb-5" />
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)] gap-5">
+          <CardSkeleton className="h-96 rounded-2xl" />
+          <CardSkeleton className="h-96 rounded-2xl" />
         </div>
       </div>
     );
@@ -73,40 +127,125 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-6">{t('common:navigation.dashboard')}</h2>
+      <PageHeader
+        eyebrow={t('common:dashboard.eyebrow')}
+        title={t('common:dashboard.title')}
+        subtitle={t('common:dashboard.subtitle')}
+      />
 
       {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => load()} />}
 
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-          <StatCard icon={Radio} label={t('common:navigation.streams')} value={stats.online_streams} sub={t('common:dashboard.online')} />
-          <StatCard icon={Users} label={t('streams:columns.viewers')} value={stats.total_viewers} />
-          <StatCard icon={Activity} label={t('streams:columns.bitrate')} value={formatBitrateKbps(stats.total_bitrate)} />
-          <StatCard icon={Satellite} label={t('common:navigation.cdnChannels')} value={`${stats.active_channels}/${stats.total_channels}`} sub={t('common:dashboard.activeTotal')} />
-          <StatCard icon={FileText} label={t('common:navigation.distribution')} value={stats.active_distribution_requests} sub={t('common:dashboard.active')} />
-          <StatCard icon={ArrowLeftRight} label={t('common:navigation.forwarding')} value={stats.active_forward_tasks} sub={t('common:dashboard.active')} />
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[var(--card)] rounded-lg border p-4 min-w-0">
-          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-            <Radio size={16} className="text-[var(--success)]" />
-            {t('streams:status.online')}
-          </h3>
-          {liveStreams.length === 0 ? (
-            <p className="text-sm text-[var(--muted-foreground)] py-4 text-center">{t('streams:empty.title')}</p>
-          ) : (
+      <section className="relative overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--panel)]/88 shadow-[var(--shadow-panel)] mb-5">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--primary)]/55 to-transparent" />
+        <div className="flex flex-wrap items-center justify-between gap-4 px-5 md:px-6 pt-5 pb-4">
+          <div className="flex items-center gap-3">
+            <span className={cn(
+              'w-10 h-10 rounded-xl border flex items-center justify-center',
+              systemHealthy
+                ? 'bg-[var(--success)]/10 border-[var(--success)]/18 text-[var(--success)]'
+                : 'bg-[var(--warning)]/10 border-[var(--warning)]/18 text-[var(--warning)]'
+            )}>
+              <Server size={18} />
+            </span>
             <div>
-              {liveStreams.map(s => (
-                <div key={s.id} className="flex items-center justify-between gap-3 py-2 border-b last:border-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-2 h-2 rounded-full bg-[var(--success)] animate-pulse shrink-0" />
-                    <span className="text-sm font-medium truncate">{s.name}</span>
+              <p className="text-xs text-[var(--muted-foreground)]">{t('common:dashboard.systemStatus')}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={cn(
+                  'w-2 h-2 rounded-full',
+                  systemHealthy ? 'bg-[var(--success)]' : 'bg-[var(--warning)]'
+                )} />
+                <span className="text-sm font-semibold">
+                  {t(systemHealthy ? 'common:dashboard.connected' : 'common:dashboard.degraded')}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="text-xs text-[var(--text-faint)]">
+            15s polling · SRS Manager
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 px-4 md:px-5 pb-5">
+          <Metric
+            icon={Radio}
+            label={t('common:navigation.streams')}
+            value={stats?.online_streams ?? liveStreams.length}
+            detail={t('common:dashboard.online')}
+            tone="success"
+          />
+          <Metric
+            icon={Users}
+            label={t('streams:columns.viewers')}
+            value={stats?.total_viewers ?? 0}
+            tone="info"
+          />
+          <Metric
+            icon={Activity}
+            label={t('streams:columns.bitrate')}
+            value={formatBitrateKbps(stats?.total_bitrate || 0)}
+            tone="primary"
+          />
+          <Metric
+            icon={Satellite}
+            label={t('common:dashboard.cdnActive')}
+            value={`${stats?.active_channels ?? 0}/${stats?.total_channels ?? 0}`}
+            detail={t('common:dashboard.activeTotal')}
+            tone="warning"
+          />
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)] gap-5 items-start">
+        <Panel
+          title={t('common:dashboard.liveNow')}
+          icon={Radio}
+          badge={(
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--success)]/10 border border-[var(--success)]/15 px-2.5 py-1 text-[11px] font-medium text-[var(--success)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />
+              {liveStreams.length}
+            </span>
+          )}
+        >
+          {liveStreams.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <div className="w-11 h-11 mx-auto rounded-xl bg-[var(--secondary)] flex items-center justify-center text-[var(--muted-foreground)] mb-3">
+                <Radio size={18} />
+              </div>
+              <p className="text-sm font-medium">{t('common:dashboard.noLive')}</p>
+              {offlineStreams.length > 0 && (
+                <p className="text-xs text-[var(--muted-foreground)] mt-1.5">
+                  {t('common:dashboard.configuredOffline', { count: offlineStreams.length })}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="divide-y divide-[var(--border-soft)]">
+              {liveStreams.map((s) => (
+                <div key={s.id} className="group flex items-center justify-between gap-4 px-5 py-4 hover:bg-[var(--surface-hover)] transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-30 animate-ping" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--success)]" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-semibold truncate">{s.name}</span>
+                        <span className="hidden sm:inline-flex text-[9px] font-semibold tracking-[0.12em] text-[var(--success)]">LIVE</span>
+                      </div>
+                      <div className="text-[11px] text-[var(--text-faint)] mt-1">
+                        {s.protocol ? String(s.protocol).toUpperCase() : 'STREAM'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-xs text-[var(--muted-foreground)] flex gap-3 shrink-0">
-                    <span>{s.viewers || 0} {t('streams:columns.viewers')}</span>
-                    <span>{formatBitrateKbps(s.bitrate)}</span>
+                  <div className="flex items-center gap-5 shrink-0 text-right">
+                    <div>
+                      <div className="text-sm font-semibold tabular-nums">{s.viewers || 0}</div>
+                      <div className="text-[10px] text-[var(--text-faint)] mt-0.5">{t('streams:columns.viewers')}</div>
+                    </div>
+                    <div className="min-w-24 hidden sm:block">
+                      <div className="text-sm font-medium tabular-nums">{formatBitrateKbps(s.bitrate)}</div>
+                      <div className="text-[10px] text-[var(--text-faint)] mt-0.5">{t('streams:columns.bitrate')}</div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -114,52 +253,71 @@ export default function Dashboard() {
           )}
 
           {offlineStreams.length > 0 && (
-            <>
-              <h3 className="text-sm font-bold mt-4 mb-3">{t('streams:status.offline')}</h3>
-              <div>
-                {offlineStreams.slice(0, 5).map(s => (
-                  <div key={s.id} className="flex items-center justify-between gap-3 py-2 border-b last:border-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-2 h-2 rounded-full bg-[var(--border)] shrink-0" />
-                      <span className="text-sm text-[var(--muted-foreground)] truncate">{s.name}</span>
-                    </div>
-                    <span className="text-xs text-[var(--muted-foreground)] shrink-0">{s.last_online_at ? formatDateTime(s.last_online_at) : '-'}</span>
-                  </div>
-                ))}
+            <div className="px-5 py-3.5 border-t border-[var(--border-soft)] bg-[var(--background)]/18">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  {t('common:dashboard.configuredOffline', { count: offlineStreams.length })}
+                </span>
+                {offlineStreams[0]?.last_online_at && (
+                  <span className="text-[10px] text-[var(--text-faint)]">
+                    {offlineStreams[0].name}: {formatDateTime(offlineStreams[0].last_online_at)}
+                  </span>
+                )}
               </div>
-            </>
-          )}
-        </div>
-
-        <div className="bg-[var(--card)] rounded-lg border p-4 min-w-0">
-          <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
-            <Activity size={16} className="text-[var(--primary)]" />
-            {t('common:dashboard.recentActivity')}
-          </h3>
-          {activities.length === 0 ? (
-            <EmptyState title={t('common:page.emptyTitle')} />
-          ) : (
-            <div>
-              {activities.map((a, i) => {
-                const meta = ACTIVITY_ICONS[a.event_type] || ACTIVITY_ICONS.on_stop;
-                return (
-                  <div key={i} className="flex items-center justify-between gap-3 py-2 border-b last:border-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <meta.icon size={14} className={cn(meta.color, 'shrink-0')} />
-                      <span className="text-sm truncate">
-                        <span className="font-medium">{a.stream_name}</span>
-                        {' '}
-                        {t(`common:dashboard.activity.${a.event_type}`, a.event_type)}
-                      </span>
-                    </div>
-                    <span className="text-xs text-[var(--muted-foreground)] shrink-0" title={a.processed_at}>
-                      {formatRelativeTime(a.processed_at)}
-                    </span>
-                  </div>
-                );
-              })}
             </div>
           )}
+        </Panel>
+
+        <div className="space-y-5">
+          <Panel title={t('common:dashboard.distributionStatus')} icon={Satellite}>
+            <div className="grid grid-cols-3 divide-x divide-[var(--border-soft)]">
+              <div className="px-4 py-5 text-center">
+                <Satellite size={15} className="mx-auto text-[var(--warning)] mb-2" />
+                <div className="text-xl font-semibold tabular-nums">{stats?.active_channels ?? 0}</div>
+                <div className="text-[10px] leading-tight text-[var(--text-faint)] mt-1.5">{t('common:dashboard.cdnActive')}</div>
+              </div>
+              <div className="px-4 py-5 text-center">
+                <FileText size={15} className="mx-auto text-[var(--info)] mb-2" />
+                <div className="text-xl font-semibold tabular-nums">{stats?.active_distribution_requests ?? 0}</div>
+                <div className="text-[10px] leading-tight text-[var(--text-faint)] mt-1.5">{t('common:dashboard.distributions')}</div>
+              </div>
+              <div className="px-4 py-5 text-center">
+                <ArrowLeftRight size={15} className="mx-auto text-[var(--primary)] mb-2" />
+                <div className="text-xl font-semibold tabular-nums">{stats?.active_forward_tasks ?? 0}</div>
+                <div className="text-[10px] leading-tight text-[var(--text-faint)] mt-1.5">{t('common:dashboard.routes')}</div>
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title={t('common:dashboard.recentActivity')} icon={Activity}>
+            {activities.length === 0 ? (
+              <EmptyState title={t('common:page.emptyTitle')} />
+            ) : (
+              <div className="divide-y divide-[var(--border-soft)] max-h-[470px] overflow-y-auto">
+                {activities.map((a, i) => {
+                  const meta = ACTIVITY_ICONS[a.event_type] || ACTIVITY_ICONS.on_stop;
+                  return (
+                    <div key={`${a.processed_at || i}-${i}`} className="flex gap-3 px-5 py-3.5">
+                      <span className="w-7 h-7 rounded-lg bg-[var(--secondary)] flex items-center justify-center shrink-0 mt-0.5">
+                        <meta.icon size={13} className={meta.color} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs leading-relaxed">
+                          <span className="font-semibold">{a.stream_name}</span>{' '}
+                          <span className="text-[var(--muted-foreground)]">
+                            {t(`common:dashboard.activity.${a.event_type}`, a.event_type)}
+                          </span>
+                        </p>
+                        <p className="text-[10px] text-[var(--text-faint)] mt-1" title={a.processed_at}>
+                          {formatRelativeTime(a.processed_at)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
         </div>
       </div>
     </div>
