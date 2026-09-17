@@ -332,7 +332,7 @@ async function getWorkspace(roomValue) {
       routing: { app: 'live', stream_name: legacy.stream.name },
       created_at: legacy.stream.created_at || null, updated_at: legacy.stream.updated_at || null
     },
-    session: activeSession ? { id: `session:${activeSession.id}`, legacy_session_id: activeSession.id, title: activeSession.title, lifecycle_state: activeSession.lifecycle_state, run_plan_id: activeSession.run_plan_id, planned_program_source_id: activeSession.planned_program_source_id, failover_source_ids: activeSession.failover_source_ids, preflight_status: activeSession.preflight_status, preflight_at: activeSession.preflight_at, outputs: activeSession.outputs } : null,
+    session: activeSession ? { id: `session:${activeSession.id}`, legacy_session_id: activeSession.id, title: activeSession.title, lifecycle_state: activeSession.lifecycle_state, run_plan_id: activeSession.run_plan_id, planned_program_source_id: activeSession.planned_program_source_id, failover_source_ids: activeSession.failover_source_ids, plan_snapshot: activeSession.plan_snapshot, preflight_status: activeSession.preflight_status, preflight: activeSession.preflight, preflight_at: activeSession.preflight_at, ready_at: activeSession.ready_at, started_at: activeSession.started_at, closing_at: activeSession.closing_at, ended_at: activeSession.ended_at, outputs: activeSession.outputs } : null,
     sources,
     program: {
       id: `program:${roomId(streamId)}`,

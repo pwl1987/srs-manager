@@ -27,6 +27,7 @@ import SourcePreviewPane from '../components/streams/SourcePreviewPane';
 import WorkspaceSignalPath from '../components/streams/WorkspaceSignalPath';
 import TranscodePipelinePanel from '../components/streams/TranscodePipelinePanel';
 import V3OutputRack from '../components/streams/V3OutputRack';
+import SessionCommandBar from '../components/streams/SessionCommandBar';
 import DistributionSection from './StreamsDistribution';
 import { btnSecondary, btnDangerGhost, btnGhost } from '../components/ui/styles';
 
@@ -198,6 +199,8 @@ export default function StreamWorkspace() {
         </>}
       />
       {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => load()} />}
+
+      <SessionCommandBar roomId={`room:${stream.id}`} workspace={v3Workspace} onChanged={() => load(true)} />
 
       <section className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
         <div className={sourcePreview ? 'grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,2fr)_minmax(250px,1fr)]' : 'min-w-0'}>
