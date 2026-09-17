@@ -15,6 +15,8 @@
       "edit": "Edit Source",
       "name": "Name",
       "url": "URL",
+      "urlKeepPlaceholder": "Leave blank to keep the current URL",
+      "urlKeepHint": "For credential safety, the console only displays the masked saved URL. Leaving this field blank preserves it; enter a new URL only when you want to replace it.",
       "protocol": "Protocol",
       "mode": "Mode",
       "save": "Save",
@@ -57,7 +59,7 @@
       "delete": "Delete"
     },
     "empty": "No forwarding tasks",
-    "note": "Tasks are configuration records: this version does not start a real forwarding process."
+    "note": "Enabled tasks are eligible OUT-PUSH targets returned to SRS Dynamic Forward when the stream publishes. Enabled/configured does not by itself prove that the remote destination is receiving media."
   },
   "protocol": {
     "rtmp": "RTMP",
