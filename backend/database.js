@@ -133,6 +133,9 @@ CREATE TABLE IF NOT EXISTS pull_tasks (
   last_stopped_at TEXT,
   next_retry_at TEXT,
   worker_instance_id TEXT,
+  active_source_id INTEGER,
+  last_source_switch_at TEXT,
+  last_source_switch_reason TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
@@ -141,6 +144,22 @@ CREATE TABLE IF NOT EXISTS pull_tasks (
 
 CREATE INDEX IF NOT EXISTS idx_pull_tasks_desired_runtime ON pull_tasks(desired_state, runtime_state);
 CREATE INDEX IF NOT EXISTS idx_pull_tasks_source ON pull_tasks(external_source_id);
+
+CREATE TABLE IF NOT EXISTS pull_task_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pull_task_id INTEGER NOT NULL,
+  external_source_id INTEGER NOT NULL,
+  priority INTEGER NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (pull_task_id) REFERENCES pull_tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (external_source_id) REFERENCES external_sources(id) ON DELETE RESTRICT,
+  UNIQUE(pull_task_id, external_source_id),
+  UNIQUE(pull_task_id, priority)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pull_task_sources_task_priority ON pull_task_sources(pull_task_id, enabled, priority);
 
 CREATE TABLE IF NOT EXISTS forward_tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,6 +240,23 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   ensureColumn('cdn_channels', 'updated_at', 'updated_at TEXT');
   ensureColumn('distribution_requests', 'notes', 'notes TEXT');
   ensureColumn('distribution_requests', 'updated_at', 'updated_at TEXT');
+  ensureColumn('pull_tasks', 'active_source_id', 'active_source_id INTEGER');
+  ensureColumn('pull_tasks', 'last_source_switch_at', 'last_source_switch_at TEXT');
+  ensureColumn('pull_tasks', 'last_source_switch_reason', 'last_source_switch_reason TEXT');
+
+  // P3-B: migrate every legacy single-source PullTask into a one-to-many
+  // source set without deleting the compatibility external_source_id column.
+  conn.prepare(`
+    INSERT OR IGNORE INTO pull_task_sources (pull_task_id, external_source_id, priority, enabled)
+    SELECT id, external_source_id, 1, 1
+    FROM pull_tasks
+    WHERE external_source_id IS NOT NULL
+  `).run();
+  conn.prepare(`
+    UPDATE pull_tasks
+    SET active_source_id = external_source_id
+    WHERE active_source_id IS NULL AND external_source_id IS NOT NULL
+  `).run();
 
   const adminHash = process.env.ADMIN_PASSWORD_HASH || 'default_change_me';
   conn.prepare('UPDATE users SET password_hash = ? WHERE username = ? AND password_hash = ?')
