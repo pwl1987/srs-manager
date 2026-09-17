@@ -4,27 +4,36 @@ import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { copyText } from '../../lib/clipboard';
 import { btnDangerGhost, btnPrimary, btnSecondary, inputClass, labelClass } from '../ui/styles';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 export default function IngestCredentialPanel({ stream, credentials = [], onChanged }) {
   const [label, setLabel] = useState('');
   const [working, setWorking] = useState(false);
   const [issued, setIssued] = useState(null);
+  const [confirmFirstEnable, setConfirmFirstEnable] = useState(false);
   const roomId = `room:${stream.id}`;
   const active = credentials.filter(item => item.status === 'ACTIVE');
 
-  async function createCredential(event) {
-    event.preventDefault();
+  async function issueCredential() {
     if (!label.trim() || working) return;
     setWorking(true);
     try {
       const result = await api.post(`/v3/rooms/${roomId}/ingest-credentials`, { label: label.trim() });
       setIssued(result);
       setLabel('');
+      setConfirmFirstEnable(false);
       await onChanged?.();
       toast.success('推流凭证已创建；密钥只显示这一次');
     } catch (error) {
       toast.error(error?.message || '创建推流凭证失败');
     } finally { setWorking(false); }
+  }
+
+  function createCredential(event) {
+    event.preventDefault();
+    if (!label.trim() || working) return;
+    if (credentials.length === 0) { setConfirmFirstEnable(true); return; }
+    void issueCredential();
   }
 
   async function revoke(credential) {
@@ -85,6 +94,16 @@ export default function IngestCredentialPanel({ stream, credentials = [], onChan
         <div><label className={labelClass}>来源名称</label><input className={inputClass} value={label} onChange={event => setLabel(event.target.value)} placeholder="主编码器 / 备编码器 / OBS" /></div>
         <button type="submit" className={btnPrimary} disabled={!label.trim() || working}><Plus size={13} />生成独立推流码</button>
       </form>
+
+      <ConfirmDialog
+        open={confirmFirstEnable}
+        onClose={() => setConfirmFirstEnable(false)}
+        onConfirm={issueCredential}
+        confirming={working}
+        title="启用推流凭据鉴权？"
+        description="创建第一枚凭据后，这个直播间的匿名外部推流将被拒绝。当前已经连接的 Publisher 不会被系统伪装成已断开；请先保存新 Stream Key，并在下一次重连前更新编码器配置。"
+        confirmLabel="启用并生成凭据"
+      />
     </section>
   );
 }
