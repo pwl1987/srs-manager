@@ -1,6 +1,7 @@
 const express = require('express');
 const jwtAuth = require('../middleware/jwt-auth');
 const streamService = require('../services/stream-service');
+const streamWorkspaceService = require('../services/stream-workspace-service');
 
 const router = express.Router();
 router.use(jwtAuth);
@@ -38,6 +39,36 @@ router.get('/external-live', async (req, res) => {
   }
 });
 
+router.get('/:id/workspace', async (req, res) => {
+  try {
+    const workspace = await streamWorkspaceService.getWorkspace(req.params.id);
+    if (!workspace) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
+    res.json(workspace);
+  } catch (err) {
+    res.status(500).json({ code: 'INTERNAL_FETCH_STREAM_FAILED', error: `Failed to build stream workspace: ${err.message}`, detail: `Stream ID: ${req.params.id}` });
+  }
+});
+
+router.post('/:id/disconnect-publisher', async (req, res) => {
+  try {
+    const result = await streamService.disconnectPublisher(req.params.id);
+    if (!result) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ code: 'INTERNAL_GENERAL', error: `Failed to disconnect publisher: ${err.message}`, detail: `Stream ID: ${req.params.id}` });
+  }
+});
+
+router.post('/:id/disconnect-viewers', async (req, res) => {
+  try {
+    const result = await streamService.disconnectViewers(req.params.id);
+    if (!result) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ code: 'INTERNAL_GENERAL', error: `Failed to disconnect viewers: ${err.message}`, detail: `Stream ID: ${req.params.id}` });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const stream = await streamService.getStream(req.params.id);
@@ -62,6 +93,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Legacy broad action kept for API compatibility. The new UI intentionally
+// avoids it because it kicks both publisher and viewers.
 router.post('/:id/stop', async (req, res) => {
   try {
     const result = await streamService.stopStream(req.params.id);
