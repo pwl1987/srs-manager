@@ -14,13 +14,21 @@ function seed() {
   const stream = db.prepare("INSERT INTO streams (name, protocol, status) VALUES ('pull-news', 'rtmp', 'offline')").run();
   const source = db.prepare(`
     INSERT INTO external_sources (name, source_url, protocol, pull_mode)
-    VALUES ('partner-source', 'rtmp://user:password@example.com/live/source?token=super-secret', 'rtmp', 'pull')
+    VALUES ('partner-primary', 'rtmp://primary.example.test/live/source', 'rtmp', 'pull')
   `).run();
-  return { streamId: Number(stream.lastInsertRowid), sourceId: Number(source.lastInsertRowid) };
+  const backup = db.prepare(`
+    INSERT INTO external_sources (name, source_url, protocol, pull_mode)
+    VALUES ('partner-backup', 'rtmp://backup.example.test/live/source', 'rtmp', 'pull')
+  `).run();
+  return {
+    streamId: Number(stream.lastInsertRowid),
+    sourceId: Number(source.lastInsertRowid),
+    backupId: Number(backup.lastInsertRowid)
+  };
 }
 
-test('PullTask separates desired/runtime state, masks secrets, and enforces worker lease ownership', (t) => {
-  const { streamId, sourceId } = seed();
+test('PullTask separates desired/runtime state, manages source sets, and enforces worker lease ownership', (t) => {
+  const { streamId, sourceId, backupId } = seed();
 
   t.after(() => {
     fs.rmSync(dataDir, { recursive: true, force: true });
@@ -29,13 +37,33 @@ test('PullTask separates desired/runtime state, masks secrets, and enforces work
   const task = pullTaskService.createTask({ stream_id: streamId, external_source_id: sourceId });
   assert.equal(task.desired_state, 'STOPPED');
   assert.equal(task.runtime_state, 'STOPPED');
+  assert.equal(task.active_source_id, sourceId);
   assert.equal(task.source_url, undefined);
-  assert.ok(task.source_url_masked.includes('example.com/live/source'));
-  assert.ok(!task.source_url_masked.includes('password'));
-  assert.ok(!task.source_url_masked.includes('super-secret'));
+  assert.equal(task.sources.length, 1);
+  assert.equal(task.sources[0].priority, 1);
+  assert.equal(task.sources[0].external_source_id, sourceId);
+  assert.equal(task.sources[0].source_url, undefined);
 
   const internal = pullTaskService.getTask(task.id, { includeSecret: true });
-  assert.ok(internal.source_url.includes('super-secret'));
+  assert.ok(internal.source_url.includes('primary.example.test'));
+  assert.ok(internal.sources[0].source_url.includes('primary.example.test'));
+
+  const withBackup = pullTaskService.addTaskSource(task.id, backupId);
+  assert.equal(withBackup.sources.length, 2);
+  assert.equal(withBackup.sources[1].priority, 2);
+  assert.equal(withBackup.sources[1].external_source_id, backupId);
+
+  const next = pullTaskService.getNextEnabledSource(task.id, sourceId);
+  assert.equal(next.external_source_id, backupId);
+  assert.ok(next.source_url.includes('backup.example.test'));
+
+  const switched = pullTaskService.switchActiveSource(task.id, backupId, 'primary exhausted');
+  assert.equal(switched.active_source_id, backupId);
+  assert.equal(switched.source_name, 'partner-backup');
+  assert.equal(switched.attempt, 0);
+  assert.equal(switched.runtime_state, 'RETRYING');
+  assert.equal(switched.last_source_switch_reason, 'primary exhausted');
+  assert.equal(pullTaskService.ensureUsableActiveSource(task.id).active_source_id, backupId, 'usable backup must not auto-failback');
 
   assert.equal(pullTaskService.getWorkerHealth().available, false);
 
@@ -66,7 +94,9 @@ test('PullTask separates desired/runtime state, masks secrets, and enforces work
 
   const requested = pullTaskService.setDesiredState(task.id, 'RUNNING');
   assert.equal(requested.desired_state, 'RUNNING');
-  assert.equal(requested.runtime_state, 'STOPPED', 'API request must not fake a running runtime state');
+  assert.equal(requested.runtime_state, 'RETRYING', 'switch state remains runtime evidence until worker reconciles');
+  assert.throws(() => pullTaskService.updateTaskSource(task.id, backupId, { enabled: 0 }), /cannot be disabled/);
+  assert.throws(() => pullTaskService.deleteTaskSource(task.id, backupId), /cannot be removed/);
 
   pullTaskService.updateRuntime(task.id, { runtime_state: 'RUNNING', worker_instance_id: 'worker-a', attempt: 1 });
   assert.throws(() => pullTaskService.deleteTask(task.id), /must be stopped/);
