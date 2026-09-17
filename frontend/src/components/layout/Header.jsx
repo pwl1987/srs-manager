@@ -58,7 +58,8 @@ export default function Header({ onMenuClick }) {
   const location = useLocation();
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const currentLang = getLanguage();
-  const titleKey = ROUTE_TITLE_KEYS[location.pathname];
+  const titleKey = ROUTE_TITLE_KEYS[location.pathname]
+    || (location.pathname.startsWith('/streams/') ? 'streams' : null);
   const userInitial = (user?.username || 'A').slice(0, 1).toUpperCase();
 
   function handleLangChange(lang) {
