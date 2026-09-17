@@ -175,7 +175,14 @@ function spawnTask(task) {
 
     // After lease loss another worker owns the control plane. Never overwrite
     // its runtime state from this old instance while draining local FFmpeg.
-    if (state.stopReason === 'lease lost') return;
+    if (state.stopReason === 'lease lost') {
+      if (shuttingDown) {
+        if (processes.size === 0) finalizeShutdown(0);
+      } else if (!leaseHeld && processes.size === 0) {
+        timer = setTimeout(bootstrap, STANDBY_RETRY_MS);
+      }
+      return;
+    }
 
     const fresh = pullTaskService.getTask(task.id, { includeSecret: true });
     if (!fresh) {
@@ -292,7 +299,7 @@ function handleLeaseLoss() {
   leaseHeld = false;
   log(`lease lost; draining ${processes.size} managed process(es)`);
   for (const taskId of processes.keys()) stopProcess(taskId, 'lease lost');
-  if (!shuttingDown) timer = setTimeout(bootstrap, STANDBY_RETRY_MS);
+  if (!shuttingDown && processes.size === 0) timer = setTimeout(bootstrap, STANDBY_RETRY_MS);
 }
 
 async function tick() {
