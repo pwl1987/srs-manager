@@ -11,7 +11,11 @@ import Login from './pages/Login';
 import EmptyState from './components/ui/EmptyState';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const LiveOperations = lazy(() => import('./pages/LiveOperations'));
 const Streams = lazy(() => import('./pages/Streams'));
+const IncidentCenter = lazy(() => import('./pages/IncidentCenter'));
+const RunPlans = lazy(() => import('./pages/RunPlans'));
+const Integrations = lazy(() => import('./pages/Integrations'));
 const StreamWorkspace = lazy(() => import('./pages/StreamWorkspace'));
 const CdnChannels = lazy(() => import('./pages/CdnChannels'));
 const AuthKeys = lazy(() => import('./pages/AuthKeys'));
@@ -60,8 +64,14 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/design-lab/*" element={import.meta.env.DEV ? <DesignLab /> : <ProtectedRoute><DesignLab /></ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route index element={<Dashboard />} />
-          <Route path="streams" element={<Streams />} />
+          <Route index element={<Navigate to="/streams" replace />} />
+          <Route path="streams" element={<LiveOperations />} />
+          <Route path="streams-legacy" element={<Streams />} />
+          <Route path="incidents" element={<IncidentCenter />} />
+          <Route path="run-plans" element={<RunPlans />} />
+          <Route path="integrations" element={<Integrations />} />
+          <Route path="system" element={<Dashboard />} />
+          <Route path="dashboard" element={<Navigate to="/system" replace />} />
           <Route path="streams/:id" element={<StreamWorkspace />} />
           <Route path="cdn-channels" element={<CdnChannels />} />
           <Route path="dns-records" element={<DnsRecords />} />

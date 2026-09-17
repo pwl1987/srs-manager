@@ -148,7 +148,8 @@
     "operations": "运营",
     "streaming": "直播",
     "resources": "资源",
-    "system": "系统"
+    "system": "系统",
+    "integrations": "集成"
   },
   "navigation": {
     "dashboard": "运营中心",
@@ -163,7 +164,13 @@
     "aliyunDnsAuth": "阿里云 DNS",
     "dnsRecords": "域名与 DNS",
     "settings": "系统设置",
-    "releases": "版本更新"
+    "releases": "版本更新",
+    "incidents": "告警中心",
+    "mediaProfiles": "媒体规格",
+    "runPlans": "开播方案",
+    "integrations": "平台与 CDN",
+    "credentials": "凭据与访问控制",
+    "systemRuntime": "节点与运行环境"
   },
   "labels": {
     "name": "名称",

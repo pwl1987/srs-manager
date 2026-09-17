@@ -398,10 +398,14 @@ async function getWorkspace(roomValue) {
 
 async function listRooms() {
   const localStreams = db.prepare('SELECT id, name, status FROM streams ORDER BY created_at DESC').all();
-  const pullRows = db.prepare('SELECT stream_id, desired_state, runtime_state FROM pull_tasks').all();
-  const pushRows = db.prepare("SELECT stream_id, desired_state, runtime_state FROM forward_tasks WHERE execution_mode = 'managed_worker'").all();
-  const transcodeRows = db.prepare(`SELECT b.stream_id, b.desired_state, b.runtime_state, b.output_suffix, s.name AS stream_name FROM stream_transcode_bindings b JOIN streams s ON s.id = b.stream_id`).all();
-  const recordRows = db.prepare('SELECT stream_id, desired_state, runtime_state FROM record_tasks').all();
+  const pullRows = db.prepare('SELECT id, stream_id, desired_state, runtime_state FROM pull_tasks').all();
+  const pushRows = db.prepare("SELECT id, stream_id, desired_state, runtime_state FROM forward_tasks WHERE execution_mode = 'managed_worker'").all();
+  const transcodeRows = db.prepare(`SELECT b.id, b.stream_id, b.desired_state, b.runtime_state, b.output_suffix, s.name AS stream_name FROM stream_transcode_bindings b JOIN streams s ON s.id = b.stream_id`).all();
+  const recordRows = db.prepare('SELECT id, stream_id, desired_state, runtime_state FROM record_tasks').all();
+  const serveRows = db.prepare('SELECT stream_id, endpoint_enabled FROM out_pull_policies').all();
+  const pushById = new Map(pushRows.map(row => [Number(row.id), row]));
+  const recordById = new Map(recordRows.map(row => [Number(row.id), row]));
+  const serveByStream = new Map(serveRows.map(row => [Number(row.stream_id), row]));
   const factsByStream = new Map();
   for (const row of [...pullRows, ...pushRows, ...transcodeRows, ...recordRows]) {
     const facts = factsByStream.get(Number(row.stream_id)) || [];
@@ -452,13 +456,32 @@ async function listRooms() {
         : anyFailed || missingDerived || workerUnavailable
           ? { status: 'DEGRADED', reasons: [{ code: anyFailed ? 'REQUESTED_RUNTIME_FAILED' : missingDerived ? 'RENDITION_MEDIA_NOT_OBSERVED' : 'RUNTIME_WORKER_UNAVAILABLE', severity: 'WARNING' }] }
           : { status: 'NORMAL', reasons: programState === 'NO_PROGRAM' ? [{ code: 'OFF_AIR_EXPECTED', severity: 'INFO' }] : [] };
+
+    const activeSession = sessionService.getActiveSessionForStream(stream.id);
+    const requiredOutputs = activeSession?.outputs?.filter(item => item.importance === 'REQUIRED') || [];
+    const outputHealthy = ref => {
+      let match = String(ref || '').match(/^output:push:(\d+)$/);
+      if (match) return pushById.get(Number(match[1]))?.runtime_state === 'RUNNING';
+      match = String(ref || '').match(/^output:record:(\d+)$/);
+      if (match) return ['RECORDING','FINALIZING','COMPLETE'].includes(recordById.get(Number(match[1]))?.runtime_state);
+      match = String(ref || '').match(/^output:serve:(\d+)$/);
+      if (match) return Boolean(serveByStream.get(Number(match[1]))?.endpoint_enabled);
+      return false;
+    };
+    const incidentSummary = db.prepare(`SELECT COUNT(*) AS total,
+      SUM(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END) AS critical
+      FROM incidents WHERE stream_id = ? AND status IN ('OPEN','ACKNOWLEDGED')`).get(Number(stream.id));
     return {
       contract_version: CONTRACT_VERSION,
       room: {
         id: roomId(stream.id), legacy_stream_id: stream.id, name: stream.name,
         routing: { app: 'live', stream_name: stream.name }
       },
-      session: null,
+      session: activeSession ? {
+        id: `session:${activeSession.id}`, legacy_session_id: activeSession.id, title: activeSession.title,
+        lifecycle_state: activeSession.lifecycle_state, preflight_status: activeSession.preflight_status,
+        started_at: activeSession.started_at, closing_at: activeSession.closing_at
+      } : null,
       program: {
         state: programState,
         bitrate: observed ? kbps : null,
@@ -466,9 +489,14 @@ async function listRooms() {
         uptime_seconds: uptime,
         evidence: { source: 'SRS API', observed_at: nowIso(), freshness: srsAvailable ? 'FRESH' : 'UNKNOWN' }
       },
-      outputs: { required_total: 0, required_healthy: 0, record_state: recordRows.find(row => Number(row.stream_id) === Number(stream.id))?.runtime_state || null },
+      outputs: {
+        required_total: requiredOutputs.length,
+        required_healthy: requiredOutputs.filter(item => outputHealthy(item.output_ref)).length,
+        record_state: recordRows.find(row => Number(row.stream_id) === Number(stream.id))?.runtime_state || null
+      },
       health: roomHealth,
-      active_incidents: 0,
+      active_incidents: Number(incidentSummary?.total || 0),
+      critical_incidents: Number(incidentSummary?.critical || 0),
       compatibility: { legacy_stream_status: stream.status || null }
     };
   });

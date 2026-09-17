@@ -148,7 +148,8 @@
     "operations": "OPERATIONS",
     "streaming": "STREAMING",
     "resources": "RESOURCES",
-    "system": "SYSTEM"
+    "system": "SYSTEM",
+    "integrations": "INTEGRATIONS"
   },
   "navigation": {
     "dashboard": "Operations Center",
@@ -163,7 +164,13 @@
     "aliyunDnsAuth": "Aliyun DNS",
     "dnsRecords": "Domains & DNS",
     "settings": "System Settings",
-    "releases": "Release Notes"
+    "releases": "Release Notes",
+    "incidents": "Incident Center",
+    "mediaProfiles": "Media Profiles",
+    "runPlans": "Run Plans",
+    "integrations": "Platforms & CDN",
+    "credentials": "Credentials & Access",
+    "systemRuntime": "Node & Runtime"
   },
   "labels": {
     "name": "Name",
