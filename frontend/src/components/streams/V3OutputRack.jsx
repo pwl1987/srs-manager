@@ -11,6 +11,7 @@ const SCENE_LABELS = {
   CDN_ORIGIN: '作为 CDN 回源',
   PARTNER_PULL: '合作方拉流',
   PLAYBACK_ACCESS: '播放访问',
+  LOCAL_RECORD: '本地录制',
   PROFESSIONAL: '专业自定义'
 };
 
@@ -21,9 +22,9 @@ function opKey(prefix) {
 
 function stateMeta(output) {
   const raw = String(output.runtime_state || output.desired_state || 'UNKNOWN').toUpperCase();
-  if (['FAILED'].includes(raw)) return { label: raw, tone: 'text-[var(--destructive)]', dot: 'bg-[var(--destructive)]' };
-  if (['RETRYING', 'STARTING', 'STOPPING', 'WAITING_INPUT'].includes(raw)) return { label: raw, tone: 'text-[var(--warning)]', dot: 'bg-[var(--warning)]' };
-  if (['RUNNING', 'AVAILABLE', 'ACTIVE'].includes(raw)) return { label: raw, tone: 'text-[var(--success)]', dot: 'bg-[var(--success)]' };
+  if (['FAILED', 'STALLED'].includes(raw)) return { label: raw, tone: 'text-[var(--destructive)]', dot: 'bg-[var(--destructive)]' };
+  if (['RETRYING', 'STARTING', 'STOPPING', 'WAITING_INPUT', 'FINALIZING'].includes(raw)) return { label: raw, tone: 'text-[var(--warning)]', dot: 'bg-[var(--warning)]' };
+  if (['RUNNING', 'AVAILABLE', 'ACTIVE', 'RECORDING', 'COMPLETE'].includes(raw)) return { label: raw, tone: 'text-[var(--success)]', dot: 'bg-[var(--success)]' };
   return { label: raw, tone: 'text-[var(--muted-foreground)]', dot: 'bg-[var(--text-faint)]' };
 }
 
@@ -64,13 +65,14 @@ function OutputRow({ output, renditionMap, busy, onToggle }) {
       <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2"><span className="truncate text-xs font-semibold">{output.name}</span><span className="text-[9px] font-semibold tracking-[.08em] text-[var(--text-faint)]">{output.mode}</span></div>
-        <div className="mt-1 truncate text-[10px] text-[var(--muted-foreground)]">{mediaLabel(output, renditionMap)} · {output.transport || output.endpoints?.filter(x => x.advertised !== false).map(x => x.transport).join('/') || '—'}{output.scene ? ` · ${SCENE_LABELS[output.scene] || output.scene}` : ''}</div>
+        <div className="mt-1 truncate text-[10px] text-[var(--muted-foreground)]">{mediaLabel(output, renditionMap)} · {output.transport || output.format || output.endpoints?.filter(x => x.advertised !== false).map(x => x.transport).join('/') || '—'}{output.scene ? ` · ${SCENE_LABELS[output.scene] || output.scene}` : ''}</div>
       </div>
       <div className={`w-24 text-right text-[9px] font-semibold ${meta.tone}`}>{meta.label}</div>
       {canControl && <button className={isRunning ? btnDangerGhost : btnSecondary} disabled={busy} onClick={() => onToggle(output, isRunning ? 'stop' : 'start')}>
         {isRunning ? <Square size={12}/> : <Radio size={12}/>} {isRunning ? '停止' : '启动'}
       </button>}
     </div>
+    {output.mode === 'RECORD' && <div className="mt-2 flex flex-wrap gap-1.5 pl-10 text-[9px] text-[var(--muted-foreground)]"><span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{output.format?.toUpperCase()} · {output.asset?.state || 'NO ASSET'}</span>{output.asset?.size_bytes > 0 && <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{(output.asset.size_bytes / 1024 / 1024).toFixed(1)} MB</span>}{output.asset?.duration_seconds != null && <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{Math.round(output.asset.duration_seconds)} s</span>}</div>}
     {output.mode === 'SERVE' && <div className="mt-2 flex flex-wrap gap-1.5 pl-10">{(output.endpoints || []).map(ep => <span key={ep.transport} className={`rounded-md border px-2 py-1 text-[9px] ${ep.advertised === false ? 'border-[var(--border-soft)] text-[var(--text-faint)]' : 'border-[var(--primary)]/15 bg-[var(--primary)]/5 text-[var(--muted-foreground)]'}`}>{ep.transport.toUpperCase()} · {ep.protection || 'none'}{ep.advertised === false ? ' · not advertised' : ''}</span>)}</div>}
     {open && <Evidence output={output}/>}
   </div>;
@@ -87,15 +89,19 @@ function BuilderDrawer({ roomId, scenes, capabilities, onClose, onCreated }) {
   const [mode, setMode] = useState('PUSH');
   const [transport, setTransport] = useState('rtmp');
   const [protection, setProtection] = useState('none');
+  const [recordFormat, setRecordFormat] = useState('mp4');
+  const [recordSubdir, setRecordSubdir] = useState('');
+  const [segmentSeconds, setSegmentSeconds] = useState('6');
   const [saving, setSaving] = useState(false);
   const [compatibility, setCompatibility] = useState(null);
   const scene = scenes.find(x => x.id === sceneId) || scenes[0];
   const protectionOptions = useMemo(() => {
-    const fromCaps = capabilities?.protections?.[`${mode}:${transport}`] || [];
+    const capabilityKey = `${mode}:${mode === 'RECORD' ? recordFormat : transport}`;
+    const fromCaps = capabilities?.protections?.[capabilityKey] || [];
     if (mode === 'SERVE' && ['rtmp', 'http-flv'].includes(transport)) return fromCaps.filter(x => ['none', 'access-grant'].includes(x));
     if (mode === 'SERVE' && transport === 'hls') return fromCaps.filter(x => ['none', 'external-proxy'].includes(x));
     return fromCaps.length ? fromCaps : ['none'];
-  }, [capabilities, mode, transport]);
+  }, [capabilities, mode, transport, recordFormat]);
 
   useEffect(() => {
     if (builderMode !== 'pro') { setCompatibility(null); return undefined; }
@@ -107,13 +113,14 @@ function BuilderDrawer({ roomId, scenes, capabilities, onClose, onCreated }) {
     api.post('/v3/output/validate', {
       room_id: roomId,
       mode,
-      transport,
-      protection,
-      destination: { kind: 'CUSTOM' }
+      transport: mode === 'RECORD' ? undefined : transport,
+      format: mode === 'RECORD' ? recordFormat : undefined,
+      protection: mode === 'RECORD' ? 'storage-policy' : protection,
+      destination: mode === 'RECORD' ? undefined : { kind: 'CUSTOM' }
     }).then(result => { if (active) setCompatibility(result); })
       .catch(error => { if (active) setCompatibility({ valid: false, message: error.message, reason_code: error.code }); });
     return () => { active = false; };
-  }, [builderMode, roomId, mode, transport, protection, protectionOptions]);
+  }, [builderMode, roomId, mode, transport, recordFormat, protection, protectionOptions]);
 
   async function ensureTemplates() {
     if (templates.length) return;
@@ -127,6 +134,7 @@ function BuilderDrawer({ roomId, scenes, capabilities, onClose, onCreated }) {
     setMode(next.mode || 'PUSH');
     setTransport(next.default_transport || next.transports?.[0] || 'rtmp');
     setProtection(next.default_protection || 'none');
+    if (next.default_format) setRecordFormat(next.default_format);
   }
 
   async function save() {
@@ -142,6 +150,14 @@ function BuilderDrawer({ roomId, scenes, capabilities, onClose, onCreated }) {
           protection, processing: processing === 'RENDITION' ? { mode: 'RENDITION', template_id: Number(templateId) } : { mode: 'PASSTHROUGH' },
           destination: { kind: 'CUSTOM', label: name.trim(), target_url: targetUrl.trim() }
         };
+      } else if (effectiveMode === 'RECORD') {
+        payload = {
+          mode: 'RECORD', name: name.trim(), scene: builderMode === 'scene' ? sceneId : 'PROFESSIONAL',
+          format: recordFormat, protection: 'storage-policy',
+          processing: processing === 'RENDITION' ? { mode: 'RENDITION', template_id: Number(templateId) } : { mode: 'PASSTHROUGH' },
+          storage: { subdir: recordSubdir.trim(), filename_prefix: name.trim(), segment_seconds: Number(segmentSeconds || 6) }
+        };
+        if (recordFormat === 'audio') payload.audio_format = 'aac';
       } else {
         payload = {
           mode: 'SERVE', name: name.trim(), scene: builderMode === 'scene' ? sceneId : 'PROFESSIONAL',
@@ -162,15 +178,15 @@ function BuilderDrawer({ roomId, scenes, capabilities, onClose, onCreated }) {
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border-soft)] bg-[var(--card)] px-5 py-4"><div><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">OUTPUT BUILDER</div><h3 className="mt-1 text-base font-semibold">创建输出</h3></div><button className={btnGhost} onClick={onClose}><X size={15}/></button></div>
       <div className="space-y-5 p-5">
         <div className="grid grid-cols-2 gap-1 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/30 p-1"><button className={builderMode === 'scene' ? btnPrimary : btnGhost} onClick={() => setBuilderMode('scene')}>场景模式</button><button className={builderMode === 'pro' ? btnPrimary : btnGhost} onClick={() => { setBuilderMode('pro'); ensureTemplates(); }}>专业模式</button></div>
-        {builderMode === 'scene' && <div><label className={labelClass}>我要做什么</label><div className="grid grid-cols-2 gap-2">{scenes.filter(x => x.id !== 'PROFESSIONAL').map(item => <button key={item.id} onClick={() => { chooseScene(item.id); ensureTemplates(); }} className={`rounded-xl border p-3 text-left text-xs ${sceneId === item.id ? 'border-[var(--primary)]/40 bg-[var(--primary)]/8' : 'border-[var(--border-soft)] bg-[var(--background)]/20 hover:border-[var(--primary)]/25'}`}><div className="font-semibold">{SCENE_LABELS[item.id] || item.id}</div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">{item.mode} · {(item.transports || []).join(' / ')}</div></button>)}</div></div>}
+        {builderMode === 'scene' && <div><label className={labelClass}>我要做什么</label><div className="grid grid-cols-2 gap-2">{scenes.filter(x => x.id !== 'PROFESSIONAL').map(item => <button key={item.id} onClick={() => { chooseScene(item.id); ensureTemplates(); }} className={`rounded-xl border p-3 text-left text-xs ${sceneId === item.id ? 'border-[var(--primary)]/40 bg-[var(--primary)]/8' : 'border-[var(--border-soft)] bg-[var(--background)]/20 hover:border-[var(--primary)]/25'}`}><div className="font-semibold">{SCENE_LABELS[item.id] || item.id}</div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">{item.mode} · {(item.transports || item.formats || []).join(' / ')}</div></button>)}</div></div>}
         <div><label className={labelClass}>输出名称</label><input className={inputClass} value={name} onChange={e => setName(e.target.value)} placeholder="例如：视频号 / 网宿 CDN / 合作方 A" /></div>
-        {builderMode === 'pro' && <div className="grid grid-cols-2 gap-3"><div><label className={labelClass}>Mode</label><select className={inputClass} value={mode} onChange={e => setMode(e.target.value)}><option>PUSH</option><option>SERVE</option></select></div><div><label className={labelClass}>Transport</label><select className={inputClass} value={transport} onChange={e => setTransport(e.target.value)}>{(mode === 'PUSH' ? ['rtmp','rtmps','srt'] : ['rtmp','http-flv','hls']).map(x => <option key={x}>{x}</option>)}</select></div></div>}
-        {(builderMode === 'pro' || (scene?.mode === 'PUSH')) && <div><label className={labelClass}>Protection</label><select className={inputClass} value={protection} onChange={e => setProtection(e.target.value)}>{(builderMode === 'pro' ? protectionOptions : (scene?.mode === 'PUSH' ? ['none','url-credential','token','timestamp-signature','provider-credential','passphrase'] : ['none'])).map(x => <option key={x}>{x}</option>)}</select></div>}
+        {builderMode === 'pro' && <div className="grid grid-cols-2 gap-3"><div><label className={labelClass}>Mode</label><select className={inputClass} value={mode} onChange={e => { setMode(e.target.value); if (e.target.value === 'RECORD') setProtection('storage-policy'); }}><option>PUSH</option><option>SERVE</option><option>RECORD</option></select></div><div><label className={labelClass}>{mode === 'RECORD' ? 'Format' : 'Transport'}</label>{mode === 'RECORD' ? <select className={inputClass} value={recordFormat} onChange={e => setRecordFormat(e.target.value)}><option value="mp4">MP4</option><option value="ts">TS</option><option value="audio">Audio</option></select> : <select className={inputClass} value={transport} onChange={e => setTransport(e.target.value)}>{(mode === 'PUSH' ? ['rtmp','rtmps','srt'] : ['rtmp','http-flv','hls']).map(x => <option key={x}>{x}</option>)}</select>}</div></div>}
+        {(builderMode === 'pro' || (scene?.mode === 'PUSH')) && mode !== 'RECORD' && <div><label className={labelClass}>Protection</label><select className={inputClass} value={protection} onChange={e => setProtection(e.target.value)}>{(builderMode === 'pro' ? protectionOptions : (scene?.mode === 'PUSH' ? ['none','url-credential','token','timestamp-signature','provider-credential','passphrase'] : ['none'])).map(x => <option key={x}>{x}</option>)}</select></div>}
         {builderMode === 'pro' && compatibility && <div className={`rounded-xl border p-3 text-[10px] leading-5 ${compatibility.valid ? 'border-[var(--success)]/18 bg-[var(--success)]/5 text-[var(--success)]' : 'border-[var(--destructive)]/18 bg-[var(--destructive)]/5 text-[var(--destructive)]'}`}><div className="font-semibold">{compatibility.valid ? '✓ 当前组合可执行' : '× 当前组合不可执行'}</div><div className="mt-1 opacity-80">{compatibility.message || compatibility.reason_code || 'Capability validation'}</div>{compatibility.warnings?.map(w => <div key={w.code} className="mt-1 text-[var(--warning)]">! {w.message}</div>)}</div>}
-        {(mode === 'PUSH' || scene?.mode === 'PUSH') && <><div><label className={labelClass}>媒体处理</label><div className="grid grid-cols-2 gap-2"><button className={processing === 'PASSTHROUGH' ? btnPrimary : btnSecondary} onClick={() => setProcessing('PASSTHROUGH')}>Program Original</button><button className={processing === 'RENDITION' ? btnPrimary : btnSecondary} onClick={() => { setProcessing('RENDITION'); ensureTemplates(); }}>共享 Rendition</button></div></div>{processing === 'RENDITION' && <div><label className={labelClass}>媒体规格</label><select className={inputClass} value={templateId} onChange={e => setTemplateId(e.target.value)}><option value="">选择媒体规格</option>{templates.filter(x => x.enabled).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select><p className="mt-1.5 text-[10px] text-[var(--muted-foreground)]">相同实际编码参数会自动复用同一条 Rendition，不重复编码。</p></div>}<div><label className={labelClass}>目标地址</label><input className={inputClass} value={targetUrl} onChange={e => setTargetUrl(e.target.value)} placeholder={transport === 'srt' ? 'srt://host:port?...' : 'rtmp://...'} /></div></>}
+        {(['PUSH','RECORD'].includes(mode) || ['PUSH','RECORD'].includes(scene?.mode)) && <><div><label className={labelClass}>媒体处理</label><div className="grid grid-cols-2 gap-2"><button className={processing === 'PASSTHROUGH' ? btnPrimary : btnSecondary} onClick={() => setProcessing('PASSTHROUGH')}>Program Original</button><button className={processing === 'RENDITION' ? btnPrimary : btnSecondary} onClick={() => { setProcessing('RENDITION'); ensureTemplates(); }}>共享 Rendition</button></div></div>{processing === 'RENDITION' && <div><label className={labelClass}>媒体规格</label><select className={inputClass} value={templateId} onChange={e => setTemplateId(e.target.value)}><option value="">选择媒体规格</option>{templates.filter(x => x.enabled).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select><p className="mt-1.5 text-[10px] text-[var(--muted-foreground)]">相同实际编码参数会自动复用同一条 Rendition，不重复编码。</p></div>}{(mode === 'PUSH' || scene?.mode === 'PUSH') && <div><label className={labelClass}>目标地址</label><input className={inputClass} value={targetUrl} onChange={e => setTargetUrl(e.target.value)} placeholder={transport === 'srt' ? 'srt://host:port?...' : 'rtmp://...'} /></div>}{(mode === 'RECORD' || scene?.mode === 'RECORD') && <div className="grid grid-cols-2 gap-3"><div><label className={labelClass}>格式</label><select className={inputClass} value={recordFormat} onChange={e => setRecordFormat(e.target.value)}><option value="mp4">MP4（安全分段后 Finalize）</option><option value="ts">TS</option><option value="audio">Audio AAC</option></select></div><div><label className={labelClass}>分段秒数</label><input className={inputClass} type="number" min="2" max="3600" value={segmentSeconds} onChange={e => setSegmentSeconds(e.target.value)} /></div><div className="col-span-2"><label className={labelClass}>存储子目录（可选）</label><input className={inputClass} value={recordSubdir} onChange={e => setRecordSubdir(e.target.value)} placeholder="例如 news/2026-09" /></div></div>}</>}
         <div className="rounded-xl border border-[var(--primary)]/15 bg-[var(--primary)]/5 p-3 text-[10px] leading-5 text-[var(--muted-foreground)]"><Layers3 size={13} className="mr-1 inline text-[var(--primary)]"/>创建动作只保存配置，不会自动发流。Start 后才进入 Desired → Runtime → Observed 验证。</div>
       </div>
-      <div className="sticky bottom-0 flex justify-end gap-2 border-t border-[var(--border-soft)] bg-[var(--card)] px-5 py-4"><button className={btnSecondary} onClick={onClose}>取消</button><button className={btnPrimary} disabled={saving || (processing === 'RENDITION' && !templateId) || (builderMode === 'pro' && compatibility?.valid === false)} onClick={save}>{saving ? '保存中…' : '保存输出'}</button></div>
+      <div className="sticky bottom-0 flex justify-end gap-2 border-t border-[var(--border-soft)] bg-[var(--card)] px-5 py-4"><button className={btnSecondary} onClick={onClose}>取消</button><button className={btnPrimary} disabled={saving || (processing === 'RENDITION' && !templateId) || (recordFormat === 'audio' && processing !== 'RENDITION') || (builderMode === 'pro' && compatibility?.valid === false)} onClick={save}>{saving ? '保存中…' : '保存输出'}</button></div>
     </aside>
   </div>;
 }
@@ -180,7 +196,7 @@ export default function V3OutputRack({ roomId, workspace, scenes = [], onChanged
   const [busyId, setBusyId] = useState(null);
   const renditionMap = useMemo(() => new Map((workspace?.renditions || []).map(r => [r.id, r])), [workspace]);
   const outputs = workspace?.outputs || [];
-  const incidents = outputs.filter(o => ['FAILED', 'RETRYING'].includes(String(o.runtime_state || '').toUpperCase()));
+  const incidents = outputs.filter(o => ['FAILED', 'RETRYING', 'STALLED'].includes(String(o.runtime_state || '').toUpperCase()));
   const running = outputs.filter(o => o.mode === 'SERVE' ? o.runtime_state === 'AVAILABLE' : o.desired_state === 'RUNNING').length;
 
   async function toggle(output, action) {

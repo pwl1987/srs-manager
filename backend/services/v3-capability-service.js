@@ -3,6 +3,8 @@ const pullTaskService = require('./pull-task-service');
 const transcodeBindingService = require('./transcode-binding-service');
 const wangsuService = require('./wangsu');
 const sourcePreviewService = require('./source-preview-service');
+const recordTaskService = require('./record-task-service');
+const recordStorageService = require('./record-storage-service');
 
 const PRODUCT = Object.freeze({
   PUSH: { transports: ['rtmp', 'rtmps', 'srt'] },
@@ -28,9 +30,15 @@ function runtimeSnapshot(workspace = null) {
     pull_worker: workers?.pull || pullTaskService.getWorkerHealth(),
     push_worker: workers?.push || pushTaskService.getWorkerHealth(),
     transcode_worker: workers?.transcode || transcodeBindingService.getWorkerHealth(),
+    record_worker: workers?.record || recordTaskService.getWorkerHealth(),
     srs_observed: workspace ? workspace.evidence?.srs?.available === true : null,
     preview: { hls_secure_proxy: true, http_flv_secure_proxy: true, preferred: 'http-flv', fallback: 'hls', source_preview: sourcePreviewService.capability() },
-    record: { available: false, reason_code: 'PHASE_05_NOT_IMPLEMENTED' }
+    record: (() => {
+      const worker = workers?.record || recordTaskService.getWorkerHealth();
+      let storage = null;
+      try { storage = recordStorageService.diskBudget(12_000_000); } catch {}
+      return { available: Boolean(worker?.available), worker, storage, reason_code: worker?.available ? null : 'RECORD_WORKER_UNAVAILABLE' };
+    })()
   };
 }
 
@@ -88,7 +96,10 @@ function validateOutput(input = {}, workspace = null) {
     return invalid('RUNTIME_SRS_UNAVAILABLE', 'SRS runtime is not currently observable');
   }
   if (mode === 'RECORD' && !caps.runtime.record.available) {
-    return invalid('RUNTIME_RECORD_UNAVAILABLE', 'Recording runtime is not implemented before Phase 05');
+    return invalid('RUNTIME_RECORD_UNAVAILABLE', 'Record Worker is unavailable');
+  }
+  if (mode === 'RECORD') {
+    return { valid: true, reason_code: null, message: 'Recording format is supported by the current Record Worker.', alternatives: [], override_allowed: false, warnings: [] };
   }
   const destination = caps.destination[destinationKind] || { state: 'UNKNOWN', override_allowed: true };
   if (destination.state === 'UNAVAILABLE') {

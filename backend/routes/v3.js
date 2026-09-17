@@ -105,7 +105,10 @@ router.post('/rooms/:roomId/outputs', (req, res) => {
     if (mode === 'SERVE') {
       return res.status(201).json({ output: outputService.configureServeOutput(stream.id, req.body) });
     }
-    return res.status(422).json({ code: 'V3_OUTPUT_MODE_UNSUPPORTED', message: 'Only PUSH and SERVE are implemented in Phase 04.', detail: mode || null, retryable: false, correlation_id: null });
+    if (mode === 'RECORD') {
+      return res.status(201).json({ output: outputService.createRecordOutput(stream.id, req.body) });
+    }
+    return res.status(422).json({ code: 'V3_OUTPUT_MODE_UNSUPPORTED', message: 'Supported Output modes are PUSH, SERVE and RECORD.', detail: mode || null, retryable: false, correlation_id: null });
   } catch (error) {
     return res.status(422).json({ code: 'V3_OUTPUT_CREATE_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null });
   }
@@ -118,6 +121,7 @@ for (const [action, desired] of [['start', 'RUNNING'], ['stop', 'STOPPED']]) {
     if (!idempotencyKey) return res.status(400).json({ code: 'V3_IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key is required', detail: null, retryable: false, correlation_id: null });
     const taskId = outputService.parsePushOutputId(req.params.outputId);
     const serveStreamId = outputService.parseServeOutputId(req.params.outputId);
+    const recordTaskId = outputService.parseRecordOutputId(req.params.outputId);
     try {
       let result;
       if (taskId) {
@@ -126,6 +130,10 @@ for (const [action, desired] of [['start', 'RUNNING'], ['stop', 'STOPPED']]) {
         result = outputService.startOrStopPush(taskId, desired, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
       } else if (serveStreamId && Number(serveStreamId) === Number(stream.id)) {
         result = outputService.startOrStopServe(stream.id, desired, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
+      } else if (recordTaskId) {
+        const task = require('../services/record-task-service').getTask(recordTaskId);
+        if (!task || Number(task.stream_id) !== Number(stream.id)) return res.status(404).json({ code: 'V3_OUTPUT_NOT_FOUND', message: 'Recording output not found in this Room.', detail: req.params.outputId, retryable: false, correlation_id: null });
+        result = outputService.startOrStopRecord(recordTaskId, desired, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
       } else {
         return res.status(422).json({ code: 'V3_OUTPUT_OPERATION_UNSUPPORTED', message: 'Unsupported Output operation target.', detail: req.params.outputId, retryable: false, correlation_id: null });
       }
@@ -172,6 +180,7 @@ router.get('/operations/:operationId', (req, res) => {
     let operation = operationCore.getOperation(req.params.operationId);
     if (!operation) return res.status(404).json({ code: 'V3_OPERATION_NOT_FOUND', message: 'Operation not found', detail: req.params.operationId, retryable: false, correlation_id: null });
     if (operation.subject_type === 'forward_task') operation = outputService.reconcilePushOperation(operation);
+    if (operation.subject_type === 'record_task') operation = outputService.reconcileRecordOperation(operation);
     return res.json(operation);
   } catch (error) {
     internalError(res, error, 'V3_OPERATION_READ_FAILED');

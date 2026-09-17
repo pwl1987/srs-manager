@@ -7,6 +7,8 @@ const operationService = require('./operation-service');
 const pushTaskService = require('./push-task-service');
 const outPullService = require('./out-pull-service');
 const transcodeBindingService = require('./transcode-binding-service');
+const recordTaskService = require('./record-task-service');
+const recordAssetService = require('./record-asset-service');
 
 function isPublisher(client) {
   return String(client?.type || '').toLowerCase().includes('publish');
@@ -74,6 +76,8 @@ async function getWorkspace(streamId) {
   const outPull = outPullService.getOverview(id);
   const transcodeBindings = transcodeBindingService.listBindingsByStream(id);
   const transcodeWorker = transcodeBindingService.getWorkerHealth();
+  const recordWorker = recordTaskService.getWorkerHealth();
+  const recordTasks = recordTaskService.listTasksByStream(id).map(task => ({ ...task, latest_asset: recordAssetService.listAssetsByTask(task.id)[0] || null }));
   const pullOperation = pullTask ? operationService.getActivePullSwitch(pullTask.id) : null;
   const pullOperationHistory = pullTask ? operationService.listPullOperations(pullTask.id, 5) : [];
 
@@ -178,6 +182,8 @@ async function getWorkspace(streamId) {
     outputs: {
       forwards,
       push_worker: pushWorker,
+      records: recordTasks,
+      record_worker: recordWorker,
       out_pull: outPull,
       cdn_channels: enrichedChannels,
       pull_endpoints: {
@@ -194,6 +200,7 @@ async function getWorkspace(streamId) {
       in_pull_runtime: pullWorker.available,
       out_push_runtime: pushWorker.available,
       transcode_runtime: transcodeWorker.available,
+      record_runtime: recordWorker.available,
       out_pull_policy: Boolean(outPull)
     }
   };

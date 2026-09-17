@@ -240,6 +240,28 @@ function projectOutputs(workspace) {
     });
   }
 
+
+  for (const task of workspace.outputs?.records || []) {
+    const asset = task.latest_asset || null;
+    const observed = task.runtime_state === 'RECORDING' && Number(task.bytes_written || 0) > 0;
+    outputs.push({
+      id: `output:record:${task.id}`,
+      name: task.name,
+      mode: 'RECORD', scene: 'LOCAL_RECORD',
+      media_ref: task.source_binding_id ? `rendition:${roomId(streamId)}:binding-${task.source_binding_id}` : originalRef,
+      format: task.format, audio_format: task.audio_format || null,
+      protection: 'storage-policy', desired_state: task.desired_state, runtime_state: task.runtime_state,
+      storage: { subdir: task.subdir, filename_prefix: task.filename_prefix, retention_days: task.retention_days },
+      asset: asset ? { id: asset.id, state: asset.state, final_path: asset.final_path, format: asset.format, segment_count: asset.segment_count, size_bytes: asset.size_bytes, duration_seconds: asset.duration_seconds, error: asset.error, started_at: asset.started_at, completed_at: asset.completed_at } : null,
+      evidence: {
+        local: observed ? { level: 'OBSERVED', state: task.runtime_state, source: 'Record Worker + filesystem', observed_at: task.last_growth_at, freshness: 'FRESH', bytes_written: task.bytes_written }
+          : workerEvidence(task, workspace.outputs?.record_worker, 'Record Worker heartbeat'),
+        remote: { state: 'UNAVAILABLE', source: null, observed_at: null, freshness: 'UNKNOWN' }
+      },
+      compatibility: { record_task_id: task.id, source_binding_id: task.source_binding_id || null, source_stream_name: task.source_stream_name }
+    });
+  }
+
   const serve = workspace.outputs?.out_pull;
   if (serve?.policy) {
     const endpoints = workspace.outputs?.pull_endpoints || {};
@@ -331,7 +353,8 @@ async function getWorkspace(roomValue) {
       workers: {
         pull: legacy.inputs?.managed_pull?.worker || null,
         push: legacy.outputs?.push_worker || null,
-        transcode: legacy.processing?.worker || null
+        transcode: legacy.processing?.worker || null,
+        record: legacy.outputs?.record_worker || null
       }
     },
     health: { status: 'UNKNOWN', reasons: [] },
@@ -376,8 +399,9 @@ async function listRooms() {
   const pullRows = db.prepare('SELECT stream_id, desired_state, runtime_state FROM pull_tasks').all();
   const pushRows = db.prepare("SELECT stream_id, desired_state, runtime_state FROM forward_tasks WHERE execution_mode = 'managed_worker'").all();
   const transcodeRows = db.prepare(`SELECT b.stream_id, b.desired_state, b.runtime_state, b.output_suffix, s.name AS stream_name FROM stream_transcode_bindings b JOIN streams s ON s.id = b.stream_id`).all();
+  const recordRows = db.prepare('SELECT stream_id, desired_state, runtime_state FROM record_tasks').all();
   const factsByStream = new Map();
-  for (const row of [...pullRows, ...pushRows, ...transcodeRows]) {
+  for (const row of [...pullRows, ...pushRows, ...transcodeRows, ...recordRows]) {
     const facts = factsByStream.get(Number(row.stream_id)) || [];
     facts.push({ desired_state: row.desired_state, runtime_state: row.runtime_state });
     factsByStream.set(Number(row.stream_id), facts);
@@ -414,9 +438,11 @@ async function listRooms() {
     const pushExpected = pushRows.some(row => Number(row.stream_id) === Number(stream.id) && row.desired_state === 'RUNNING');
     const pullExpected = pullRows.some(row => Number(row.stream_id) === Number(stream.id) && row.desired_state === 'RUNNING');
     const transcodeExpected = desiredTranscodes.length > 0;
+    const recordExpected = recordRows.some(row => Number(row.stream_id) === Number(stream.id) && row.desired_state === 'RUNNING');
     const workerUnavailable = (pushExpected && !workerCaps.push_worker?.available)
       || (pullExpected && !workerCaps.pull_worker?.available)
-      || (transcodeExpected && !workerCaps.transcode_worker?.available);
+      || (transcodeExpected && !workerCaps.transcode_worker?.available)
+      || (recordExpected && !workerCaps.record_worker?.available);
     const roomHealth = programState === 'UNKNOWN'
       ? { status: 'UNKNOWN', reasons: [{ code: 'PROGRAM_EVIDENCE_UNKNOWN', severity: 'INFO' }] }
       : programState === 'NO_PROGRAM' && desiredRunning
@@ -438,7 +464,7 @@ async function listRooms() {
         uptime_seconds: uptime,
         evidence: { source: 'SRS API', observed_at: nowIso(), freshness: srsAvailable ? 'FRESH' : 'UNKNOWN' }
       },
-      outputs: { required_total: 0, required_healthy: 0, record_state: null },
+      outputs: { required_total: 0, required_healthy: 0, record_state: recordRows.find(row => Number(row.stream_id) === Number(stream.id))?.runtime_state || null },
       health: roomHealth,
       active_incidents: 0,
       compatibility: { legacy_stream_status: stream.status || null }

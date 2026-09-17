@@ -5,6 +5,7 @@ const renditionService = require('./v3-rendition-service');
 const capabilityService = require('./v3-capability-service');
 const operationCore = require('./v3-operation-core');
 const outPullService = require('./out-pull-service');
+const recordTaskService = require('./record-task-service');
 
 const SCENES = Object.freeze({
   LIVE_PLATFORM_PUSH: { mode: 'PUSH', transports: ['rtmp', 'rtmps'], default_transport: 'rtmp', default_protection: 'none' },
@@ -13,6 +14,7 @@ const SCENES = Object.freeze({
   CDN_ORIGIN: { mode: 'SERVE', transports: ['rtmp', 'http-flv', 'hls'], endpoint_protections: { rtmp: 'none', 'http-flv': 'none', hls: 'external-proxy' } },
   PARTNER_PULL: { mode: 'SERVE', transports: ['rtmp', 'http-flv'], endpoint_protections: { rtmp: 'access-grant', 'http-flv': 'access-grant' } },
   PLAYBACK_ACCESS: { mode: 'SERVE', transports: ['http-flv', 'hls'], endpoint_protections: { 'http-flv': 'access-grant', hls: 'external-proxy' } },
+  LOCAL_RECORD: { mode: 'RECORD', formats: ['mp4', 'ts', 'audio'], default_format: 'mp4', default_protection: 'storage-policy' },
   PROFESSIONAL: { mode: null, transports: [], default_protection: null }
 });
 
@@ -249,6 +251,68 @@ function startOrStopServe(streamId, desiredState, { idempotency_key, requested_b
   }
 }
 
+
+function recordOutputId(taskId) { return `output:record:${Number(taskId)}`; }
+function parseRecordOutputId(value) {
+  const match = String(value || '').match(/^output:record:(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+function createRecordOutput(streamId, input = {}) {
+  const stream = requireStream(streamId);
+  const sceneName = String(input.scene || 'PROFESSIONAL').toUpperCase();
+  const scene = sceneDefinition(sceneName);
+  if (!scene) throw new Error('Unknown output scene');
+  if (scene.mode && scene.mode !== 'RECORD') throw new Error(`${sceneName} is not a RECORD scene`);
+  const format = String(input.format || scene.default_format || 'mp4').toLowerCase();
+  if (!capabilityService.PRODUCT.RECORD.formats.includes(format)) throw new Error(`Unsupported RECORD format: ${format}`);
+  const create = db.transaction(() => {
+    const rendition = processingBinding(stream.id, input.processing || {});
+    const task = recordTaskService.createTask({
+      stream_id: stream.id,
+      source_binding_id: rendition.binding?.id || null,
+      name: input.name || `Local ${format.toUpperCase()} recording`,
+      format,
+      audio_format: input.audio_format || null,
+      subdir: input.storage?.subdir || '',
+      filename_prefix: input.storage?.filename_prefix || null,
+      segment_seconds: input.storage?.segment_seconds ?? 6,
+      retention_days: input.storage?.retention_days ?? null
+    });
+    return { task, rendition };
+  });
+  return create.immediate();
+}
+function startOrStopRecord(taskId, desiredState, { idempotency_key, requested_by = null } = {}) {
+  const task = recordTaskService.getTask(taskId);
+  if (!task) throw new Error('Recording output not found');
+  const desired = String(desiredState || '').toUpperCase();
+  const type = desired === 'RUNNING' ? 'V3_RECORD_START' : desired === 'STOPPED' ? 'V3_RECORD_STOP' : null;
+  if (!type) throw new Error('Invalid recording desired state');
+  const created = operationCore.createOrReuse({ type, subject_type: 'record_task', subject_id: task.id, idempotency_key, requested_by, payload: { output_id: recordOutputId(task.id), desired_state: desired } });
+  if (created.conflict || created.reused) return created;
+  try {
+    recordTaskService.setDesiredState(task.id, desired);
+    return { operation: operationCore.transition(created.operation.id, 'VERIFYING'), reused: false };
+  } catch (error) {
+    return { operation: operationCore.transition(created.operation.id, 'FAILED', { error: error.message }), reused: false };
+  }
+}
+function reconcileRecordOperation(operation) {
+  if (!operation || operation.subject_type !== 'record_task') return operation;
+  if (!['V3_RECORD_START','V3_RECORD_STOP'].includes(operation.type)) return operation;
+  if (['SUCCEEDED','FAILED','CANCELLED'].includes(operation.phase)) return operation;
+  const task = recordTaskService.getTask(operation.subject_id);
+  if (!task) return operationCore.transition(operation.id, 'FAILED', { error: 'Recording output no longer exists' });
+  if (operation.type === 'V3_RECORD_START') {
+    if (task.runtime_state === 'RECORDING') return operationCore.transition(operation.id, 'SUCCEEDED', { result: { output_id: recordOutputId(task.id), runtime_state: task.runtime_state } });
+    if (task.runtime_state === 'FAILED') return operationCore.transition(operation.id, 'FAILED', { error: task.last_error || 'Recording failed to start' });
+    return operation;
+  }
+  if (['COMPLETE','STOPPED'].includes(task.runtime_state)) return operationCore.transition(operation.id, 'SUCCEEDED', { result: { output_id: recordOutputId(task.id), runtime_state: task.runtime_state } });
+  if (task.runtime_state === 'FAILED') return operationCore.transition(operation.id, 'FAILED', { error: task.last_error || 'Recording failed to stop cleanly' });
+  return operation;
+}
+
 function listScenes() {
   return Object.entries(SCENES).map(([id, value]) => ({ id, ...value }));
 }
@@ -267,5 +331,6 @@ module.exports = {
   parsePushOutputId,
   serveOutputId,
   parseServeOutputId,
-  startOrStopServe
+  startOrStopServe,
+  createRecordOutput, recordOutputId, parseRecordOutputId, startOrStopRecord, reconcileRecordOperation
 };
