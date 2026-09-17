@@ -54,7 +54,10 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
       kickClient: originals.kickClient
     });
     cdnService.getBatchState = originals.getBatchState;
-    db.close();
+    // better-sqlite3 11.x + Node 24 can assert if a Database is explicitly
+    // closed before all short-lived Statement wrappers have been finalized.
+    // node:test runs this file in an isolated process, so let process teardown
+    // release SQLite naturally and only remove the temporary files here.
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
