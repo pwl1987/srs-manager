@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CircleDot, Link2, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, CircleDot, Link2, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { getErrorCode } from '../../lib/error-mapper';
 import { btnDangerGhost, btnPrimary, btnSecondary, btnGhost, inputClass } from '../ui/styles';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 function RuntimeBadge({ state }) {
   const tones = {
@@ -23,8 +24,12 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
   const managed = workspace.inputs?.managed_pull || {};
   const task = managed.task;
   const worker = managed.worker || { available: false };
+  const activeOperation = managed.active_operation || null;
+  const latestOperation = managed.operations?.[0] || null;
   const [sources, setSources] = useState([]);
   const [sourceId, setSourceId] = useState('');
+  const [switchTargetId, setSwitchTargetId] = useState('');
+  const [confirmSwitch, setConfirmSwitch] = useState(false);
   const [working, setWorking] = useState(false);
 
   useEffect(() => {
@@ -38,6 +43,14 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
     const used = new Set(taskSources.map(source => Number(source.external_source_id)));
     return sources.filter(source => !used.has(Number(source.id)));
   }, [sources, taskSources]);
+  const switchCandidates = taskSources.filter(source =>
+    Number(source.external_source_id) !== Number(task?.active_source_id)
+      && source.enabled
+      && source.source_status === 'active'
+  );
+  const sourceName = sourceIdValue => taskSources.find(source => Number(source.external_source_id) === Number(sourceIdValue))?.source_name || `#${sourceIdValue}`;
+  const switchTarget = switchCandidates.find(source => Number(source.external_source_id) === Number(switchTargetId));
+  const configurationLocked = Boolean(activeOperation);
 
   async function post(path, body) {
     setWorking(true);
@@ -83,6 +96,22 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
 
   async function removeSource(source) {
     await runRequest('delete', `/pull-tasks/${task.id}/sources/${source.external_source_id}`);
+  }
+
+  async function requestSwitch() {
+    if (!task || !switchTargetId) return;
+    setWorking(true);
+    try {
+      await api.post(`/pull-tasks/${task.id}/switch-source`, { target_source_id: Number(switchTargetId) });
+      toast.success(t('streams:workspace.managedPull.switchQueued'));
+      setConfirmSwitch(false);
+      setSwitchTargetId('');
+      await onChanged?.();
+    } catch (error) {
+      toast.error(t(`common:errors.${getErrorCode(error)}`));
+    } finally {
+      setWorking(false);
+    }
   }
 
   async function deleteTask() {
@@ -161,6 +190,33 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
             </div>
           </div>
 
+          {activeOperation && (
+            <div className="rounded-lg border border-[var(--info)]/25 bg-[var(--info-soft)]/45 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft size={14} className="text-[var(--info)]" />
+                  <span className="text-xs font-semibold">{t('streams:workspace.managedPull.switchInProgress')}</span>
+                </div>
+                <span className="rounded-md bg-[var(--background)]/55 px-2 py-1 font-mono text-[10px] text-[var(--info)]">{activeOperation.state}</span>
+              </div>
+              <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                {sourceName(activeOperation.payload?.from_source_id)}
+                <span className="mx-2 text-[var(--text-faint)]">→</span>
+                <span className="font-medium text-[var(--foreground)]">{sourceName(activeOperation.payload?.target_source_id)}</span>
+              </div>
+              <div className="mt-1 text-[10px] leading-5 text-[var(--text-faint)]">
+                {t(`streams:workspace.managedPull.operationState.${activeOperation.state}`, activeOperation.state)}
+              </div>
+            </div>
+          )}
+
+          {!activeOperation && latestOperation?.state === 'FAILED' && (
+            <div className="rounded-lg border border-[var(--destructive)]/20 bg-[var(--destructive)]/5 p-3 text-xs text-[var(--destructive)]">
+              <div className="font-medium">{t('streams:workspace.managedPull.switchFailed')}</div>
+              <div className="mt-1 font-mono text-[10px] leading-5">{latestOperation.error || t('streams:workspace.managedPull.unknownSwitchError')}</div>
+            </div>
+          )}
+
           <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/25 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -173,7 +229,7 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
             <div className="mt-3 space-y-2">
               {taskSources.map(source => {
                 const active = Number(source.external_source_id) === Number(task.active_source_id);
-                const destructiveLocked = active && task.desired_state === 'RUNNING';
+                const destructiveLocked = configurationLocked || (active && task.desired_state === 'RUNNING');
                 return (
                   <div key={source.id} className={cn(
                     'grid gap-2 rounded-lg border px-3 py-2.5 sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:items-center',
@@ -216,6 +272,33 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
               })}
             </div>
 
+            {task.desired_state === 'RUNNING' && switchCandidates.length > 0 && (
+              <div className="mt-3 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning-soft)]/25 p-3">
+                <div className="text-xs font-semibold">{t('streams:workspace.managedPull.manualSwitch')}</div>
+                <div className="mt-1 text-[10px] leading-5 text-[var(--muted-foreground)]">{t('streams:workspace.managedPull.manualSwitchHint')}</div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <select
+                    className={inputClass}
+                    value={switchTargetId}
+                    disabled={working || configurationLocked || !worker.available}
+                    onChange={event => setSwitchTargetId(event.target.value)}
+                  >
+                    <option value="">{t('streams:workspace.managedPull.selectSwitchTarget')}</option>
+                    {switchCandidates.map(source => (
+                      <option key={source.id} value={source.external_source_id}>P{source.priority} · {source.source_name}</option>
+                    ))}
+                  </select>
+                  <button
+                    className={btnSecondary}
+                    disabled={!switchTargetId || working || configurationLocked || !worker.available}
+                    onClick={() => setConfirmSwitch(true)}
+                  >
+                    <ArrowRightLeft size={14} />{t('streams:workspace.managedPull.switchSource')}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {availableSources.length > 0 && (
               <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <select className={inputClass} value={sourceId} onChange={event => setSourceId(event.target.value)}>
@@ -224,7 +307,7 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
                     <option key={source.id} value={source.id}>{source.name} · {String(source.protocol || '').toUpperCase()}</option>
                   ))}
                 </select>
-                <button className={btnSecondary} disabled={!sourceId || working} onClick={addStandby}>
+                <button className={btnSecondary} disabled={!sourceId || working || configurationLocked} onClick={addStandby}>
                   <Plus size={14} />{t('streams:workspace.managedPull.addStandby')}
                 </button>
               </div>
@@ -277,6 +360,19 @@ export default function ManagedPullPanel({ workspace, stream, t, onChanged }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmSwitch}
+        onClose={() => setConfirmSwitch(false)}
+        onConfirm={requestSwitch}
+        confirming={working}
+        title={t('streams:workspace.managedPull.switchConfirmTitle')}
+        description={t('streams:workspace.managedPull.switchConfirmDescription', {
+          from: task?.source_name || '—',
+          to: switchTarget?.source_name || '—'
+        })}
+        confirmLabel={t('streams:workspace.managedPull.switchConfirmAction')}
+      />
     </section>
   );
 }

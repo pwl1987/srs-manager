@@ -125,7 +125,27 @@
       "removeSource": "Remove source",
       "selectStandby": "Select a standby external source…",
       "addStandby": "Add standby",
-      "lastSwitch": "Last input switch"
+      "lastSwitch": "Last input switch",
+      "switchQueued": "Source switch queued",
+      "switchInProgress": "Switching input",
+      "switchFailed": "Last source switch failed",
+      "unknownSwitchError": "The source switch failed without additional error details",
+      "manualSwitch": "Manual input switch",
+      "manualSwitchHint": "Uses break-before-make: stop the current Managed Pull, verify the old publisher is gone, then start the target source. A short interruption may occur.",
+      "selectSwitchTarget": "Select target standby source…",
+      "switchSource": "Switch input",
+      "switchConfirmTitle": "Switch the current input?",
+      "switchConfirmDescription": "Switch from {{from}} to {{to}}. The system will stop the current pull and verify the old publisher is gone before starting the target source. A short interruption may occur.",
+      "switchConfirmAction": "Confirm switch",
+      "operationState": {
+        "QUEUED": "Queued and waiting for the Worker",
+        "STOPPING": "Stopping the current pull and waiting for the old publisher to disappear",
+        "STARTING": "The old input is released; preparing the target source",
+        "VERIFYING": "The target pull has started; waiting for SRS publisher evidence",
+        "SUCCEEDED": "Source switch completed",
+        "FAILED": "Source switch failed",
+        "CANCELLED": "Source switch cancelled"
+      }
     },
     "core": {
       "protocol": "Registered protocol",

@@ -3,6 +3,7 @@ const srsService = require('./srs');
 const streamService = require('./stream-service');
 const cdnService = require('./cdn-service');
 const pullTaskService = require('./pull-task-service');
+const operationService = require('./operation-service');
 
 function isPublisher(client) {
   return String(client?.type || '').toLowerCase().includes('publish');
@@ -35,6 +36,8 @@ async function getWorkspace(streamId) {
 
   const pullTask = pullTaskService.getTaskByStream(id);
   const pullWorker = pullTaskService.getWorkerHealth();
+  const pullOperation = pullTask ? operationService.getActivePullSwitch(pullTask.id) : null;
+  const pullOperationHistory = pullTask ? operationService.listPullOperations(pullTask.id, 5) : [];
 
   const [srsStreamsResult, clientsResult, cdnStatesResult] = await Promise.allSettled([
     srsService.getStreams(),
@@ -92,7 +95,9 @@ async function getWorkspace(streamId) {
       managed_pull: {
         task: pullTask,
         worker: pullWorker,
-        observed_publisher: managedPullObserved
+        observed_publisher: managedPullObserved,
+        active_operation: pullOperation,
+        operations: pullOperationHistory
       }
     },
     observed: {

@@ -125,7 +125,27 @@
       "removeSource": "移除候选源",
       "selectStandby": "选择备用外部源…",
       "addStandby": "添加备用源",
-      "lastSwitch": "最近一次输入切换"
+      "lastSwitch": "最近一次输入切换",
+      "switchQueued": "切源任务已提交",
+      "switchInProgress": "正在切换输入",
+      "switchFailed": "最近一次切源失败",
+      "unknownSwitchError": "切源失败，暂无更多错误信息",
+      "manualSwitch": "人工切换输入",
+      "manualSwitchHint": "采用先断后建：先停止当前 Managed Pull，确认旧 publisher 消失后再启动目标源。切换期间可能出现短暂中断。",
+      "selectSwitchTarget": "选择目标备用源…",
+      "switchSource": "切换输入",
+      "switchConfirmTitle": "切换当前输入？",
+      "switchConfirmDescription": "将从 {{from}} 切换到 {{to}}。系统会先停止当前拉流并确认旧 publisher 消失，再启动目标源；切换期间可能出现短暂中断。",
+      "switchConfirmAction": "确认切换",
+      "operationState": {
+        "QUEUED": "已排队，等待 Worker 接管",
+        "STOPPING": "正在停止当前拉流并等待旧 publisher 消失",
+        "STARTING": "旧输入已释放，正在准备目标源",
+        "VERIFYING": "目标拉流已启动，正在等待 SRS publisher 证据",
+        "SUCCEEDED": "切源已完成",
+        "FAILED": "切源失败",
+        "CANCELLED": "切源已取消"
+      }
     },
     "core": {
       "protocol": "登记协议",

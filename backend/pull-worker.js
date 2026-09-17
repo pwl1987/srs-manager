@@ -2,6 +2,8 @@ const { spawn } = require('child_process');
 const { randomUUID } = require('crypto');
 const srsService = require('./services/srs');
 const pullTaskService = require('./services/pull-task-service');
+const operationService = require('./services/operation-service');
+const { decidePullSwitchStep } = require('./services/pull-switch-machine');
 const { decidePullFailure } = require('./services/pull-failover-policy');
 const { validateStreamUrl } = require('./utils/url-validation');
 
@@ -11,6 +13,7 @@ const SRS_PUBLISH_BASE = (process.env.SRS_RTMP_PUBLISH_BASE || 'rtmp://host.dock
 const POLL_MS = Math.max(500, Number(process.env.PULL_WORKER_POLL_MS || 2000));
 const STARTUP_TIMEOUT_MS = Math.max(5000, Number(process.env.PULL_STARTUP_TIMEOUT_MS || 15000));
 const STOP_GRACE_MS = Math.max(1000, Number(process.env.PULL_STOP_GRACE_MS || 5000));
+const SWITCH_STOP_TIMEOUT_MS = Math.max(STOP_GRACE_MS, Number(process.env.PULL_SWITCH_STOP_TIMEOUT_MS || 10000));
 const MAX_BACKOFF_MS = Math.max(5000, Number(process.env.PULL_MAX_BACKOFF_MS || 30000));
 const MAX_ATTEMPTS = Math.max(1, Number(process.env.PULL_MAX_ATTEMPTS || 8));
 const SOURCE_MAX_ATTEMPTS = Math.max(1, Number(process.env.PULL_SOURCE_MAX_ATTEMPTS || 3));
@@ -131,7 +134,7 @@ function finalizeShutdown(exitCode = 0) {
   process.exit(exitCode);
 }
 
-function spawnTask(task) {
+function spawnTask(task, switchOperationId = null) {
   if (!task.source_url) {
     pullTaskService.updateRuntime(task.id, {
       runtime_state: 'FAILED',
@@ -139,7 +142,8 @@ function spawnTask(task) {
       next_retry_at: null,
       worker_instance_id: null
     });
-    return;
+    if (switchOperationId) operationService.failOperation(switchOperationId, 'No usable active pull source');
+    return null;
   }
 
   const check = validateStreamUrl(task.source_url, ALLOWED_SOURCE_PROTOCOLS);
@@ -150,7 +154,8 @@ function spawnTask(task) {
       next_retry_at: null,
       worker_instance_id: null
     });
-    return;
+    if (switchOperationId) operationService.failOperation(switchOperationId, `Source validation failed: ${check.error}`);
+    return null;
   }
 
   const attempt = Number(task.attempt || 0) + 1;
@@ -178,7 +183,8 @@ function spawnTask(task) {
     stopping: false,
     stopReason: null,
     exited: false,
-    killTimer: null
+    killTimer: null,
+    switchOperationId
   };
   processes.set(task.id, state);
 
@@ -199,7 +205,7 @@ function spawnTask(task) {
     state.lastStderr = redactText(error.message);
   });
 
-  child.on('exit', (code, signal) => {
+  child.once('close', (code, signal) => {
     state.exited = true;
     if (state.killTimer) clearTimeout(state.killTimer);
     processes.delete(task.id);
@@ -239,14 +245,35 @@ function spawnTask(task) {
       return;
     }
 
+    if (state.stopReason === 'source switch') {
+      pullTaskService.updateRuntime(task.id, {
+        runtime_state: 'RETRYING',
+        last_error: null,
+        next_retry_at: new Date().toISOString(),
+        worker_instance_id: null
+      });
+      return;
+    }
+
+    if (state.stopReason === 'switch operation failed') {
+      return;
+    }
+
     const failure = state.lastStderr
       || (state.stopReason === 'startup timeout'
         ? 'Timed out waiting for SRS publisher observation'
         : `ffmpeg exited code=${code} signal=${signal || 'none'}`);
+    if (state.switchOperationId) {
+      operationService.failOperation(state.switchOperationId, failure, {
+        target_source_id: state.sourceId
+      });
+      state.switchOperationId = null;
+    }
     scheduleRetry(fresh, failure);
   });
 
   log(`starting task ${task.id} stream=${task.stream_name} source=${task.source_url_masked}`);
+  return state;
 }
 
 async function snapshotPublishers() {
@@ -257,6 +284,113 @@ async function snapshotPublishers() {
       .map(client => client.stream)
       .filter(Boolean)
   );
+}
+
+function reconcileSwitchOperation(task, state, publisherObserved) {
+  const operation = operationService.getActivePullSwitch(task.id);
+  if (!operation) return false;
+
+  const decision = decidePullSwitchStep({
+    operation,
+    processState: state,
+    publisherObserved,
+    stopTimeoutMs: SWITCH_STOP_TIMEOUT_MS
+  });
+
+  try {
+    switch (decision.action) {
+      case 'stop_current':
+        if (operation.state === 'QUEUED') operationService.transitionOperation(operation.id, 'STOPPING');
+        if (state && !state.stopping) stopProcess(task.id, 'source switch');
+        return true;
+
+      case 'begin_stop_wait':
+        if (operation.state === 'QUEUED') operationService.transitionOperation(operation.id, 'STOPPING');
+        return true;
+
+      case 'activate_target': {
+        let currentOperation = operation;
+        if (currentOperation.state === 'QUEUED') {
+          currentOperation = operationService.transitionOperation(currentOperation.id, 'STOPPING');
+        }
+        const targetId = Number(currentOperation.payload?.target_source_id);
+        pullTaskService.switchActiveSource(
+          task.id,
+          targetId,
+          `Manual source switch operation #${currentOperation.id}`,
+          'RETRYING'
+        );
+        operationService.transitionOperation(currentOperation.id, 'STARTING');
+        log(`switch operation ${currentOperation.id} activated target source=${targetId} stream=${task.stream_name}`);
+        return true;
+      }
+
+      case 'start_target': {
+        const fresh = pullTaskService.getTask(task.id, { includeSecret: true });
+        const targetId = Number(operation.payload?.target_source_id);
+        if (!fresh || Number(fresh.active_source_id) !== targetId) {
+          throw new Error('Pull task active source does not match switch target');
+        }
+        const started = spawnTask(fresh, operation.id);
+        if (started && operation.state === 'STARTING') {
+          operationService.transitionOperation(operation.id, 'VERIFYING');
+        }
+        return true;
+      }
+
+      case 'mark_verifying':
+        if (state) state.switchOperationId = operation.id;
+        if (operation.state === 'STARTING') operationService.transitionOperation(operation.id, 'VERIFYING');
+        return true;
+
+      case 'succeed':
+        pullTaskService.updateRuntime(task.id, {
+          runtime_state: 'RUNNING',
+          last_error: null,
+          next_retry_at: null,
+          worker_instance_id: INSTANCE_ID
+        });
+        operationService.transitionOperation(operation.id, 'SUCCEEDED', {
+          result: {
+            from_source_id: operation.payload?.from_source_id || null,
+            active_source_id: Number(operation.payload?.target_source_id)
+          }
+        });
+        if (state) state.switchOperationId = null;
+        log(`switch operation ${operation.id} succeeded stream=${task.stream_name} source=${operation.payload?.target_source_id}`);
+        return true;
+
+      case 'fail': {
+        const reason = decision.reason || 'Pull source switch failed';
+        operationService.failOperation(operation.id, reason);
+        pullTaskService.updateRuntime(task.id, {
+          runtime_state: publisherObserved && !state ? 'BLOCKED' : 'FAILED',
+          last_error: reason,
+          next_retry_at: null,
+          worker_instance_id: state ? INSTANCE_ID : null
+        });
+        if (state && !state.stopping) stopProcess(task.id, 'switch operation failed');
+        log(`switch operation ${operation.id} failed stream=${task.stream_name}`, reason);
+        return true;
+      }
+
+      case 'wait':
+      default:
+        return true;
+    }
+  } catch (error) {
+    const reason = redactText(error.message || error);
+    operationService.failOperation(operation.id, reason);
+    pullTaskService.updateRuntime(task.id, {
+      runtime_state: 'FAILED',
+      last_error: reason,
+      next_retry_at: null,
+      worker_instance_id: null
+    });
+    if (state && !state.stopping) stopProcess(task.id, 'switch operation failed');
+    log(`switch operation ${operation.id} exception stream=${task.stream_name}`, reason);
+    return true;
+  }
 }
 
 async function reconcile() {
@@ -285,8 +419,13 @@ async function reconcile() {
     const state = processes.get(task.id);
 
     if (task.desired_state === 'STOPPED') {
+      operationService.cancelActivePullSwitch(task.id, 'Pull task stopped while source switch was in progress');
       if (state) stopProcess(task.id, 'desired STOPPED');
       else if (task.runtime_state !== 'STOPPED') markStopped(task.id);
+      continue;
+    }
+
+    if (reconcileSwitchOperation(task, state, publisherNames.has(task.stream_name))) {
       continue;
     }
 

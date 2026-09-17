@@ -224,6 +224,28 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS operations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL,
+  subject_type TEXT NOT NULL,
+  subject_id INTEGER NOT NULL,
+  state TEXT NOT NULL DEFAULT 'QUEUED',
+  requested_by TEXT,
+  payload_json TEXT,
+  result_json TEXT,
+  error TEXT,
+  started_at TEXT,
+  completed_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_operations_subject ON operations(subject_type, subject_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_operations_active_pull_switch
+  ON operations(subject_type, subject_id, type)
+  WHERE type = 'PULL_SOURCE_SWITCH'
+    AND state IN ('QUEUED', 'STOPPING', 'STARTING', 'VERIFYING');
+
 INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   'admin',
   'default_change_me',

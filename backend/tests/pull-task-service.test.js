@@ -9,6 +9,7 @@ process.env.DATA_DIR = dataDir;
 
 const db = require('../database');
 const pullTaskService = require('../services/pull-task-service');
+const operationService = require('../services/operation-service');
 
 function seed() {
   const stream = db.prepare("INSERT INTO streams (name, protocol, status) VALUES ('pull-news', 'rtmp', 'offline')").run();
@@ -97,6 +98,27 @@ test('PullTask separates desired/runtime state, manages source sets, and enforce
   assert.equal(requested.runtime_state, 'RETRYING', 'switch state remains runtime evidence until worker reconciles');
   assert.throws(() => pullTaskService.updateTaskSource(task.id, backupId, { enabled: 0 }), /cannot be disabled/);
   assert.throws(() => pullTaskService.deleteTaskSource(task.id, backupId), /cannot be removed/);
+
+  const switchOperation = operationService.requestPullSourceSwitch(task.id, sourceId, 'tester');
+  assert.equal(switchOperation.type, 'PULL_SOURCE_SWITCH');
+  assert.equal(switchOperation.state, 'QUEUED');
+  assert.equal(switchOperation.payload.from_source_id, backupId);
+  assert.equal(switchOperation.payload.target_source_id, sourceId);
+  assert.throws(
+    () => operationService.requestPullSourceSwitch(task.id, sourceId, 'tester'),
+    /already in progress/,
+    'only one active switch operation is allowed per pull task'
+  );
+  assert.equal(operationService.transitionOperation(switchOperation.id, 'STOPPING').state, 'STOPPING');
+  assert.equal(operationService.transitionOperation(switchOperation.id, 'STARTING').state, 'STARTING');
+  assert.equal(operationService.transitionOperation(switchOperation.id, 'VERIFYING').state, 'VERIFYING');
+  assert.equal(operationService.transitionOperation(switchOperation.id, 'SUCCEEDED', { result: { active_source_id: sourceId } }).state, 'SUCCEEDED');
+  assert.equal(operationService.getActivePullSwitch(task.id), null);
+
+  const cancelledSwitch = operationService.requestPullSourceSwitch(task.id, sourceId, 'tester');
+  assert.equal(operationService.cancelActivePullSwitch(task.id, 'user stopped task').state, 'CANCELLED');
+  assert.equal(operationService.getOperation(cancelledSwitch.id).error, 'user stopped task');
+  assert.equal(operationService.getActivePullSwitch(task.id), null, 'cancelled switch must release the active-operation slot');
 
   pullTaskService.updateRuntime(task.id, { runtime_state: 'RUNNING', worker_instance_id: 'worker-a', attempt: 1 });
   assert.throws(() => pullTaskService.deleteTask(task.id), /must be stopped/);
