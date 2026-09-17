@@ -13,8 +13,10 @@ import {
   Cloud,
   Globe,
   Server,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { CURRENT_VERSION } from '../../lib/releases';
 
 export default function Sidebar({ onNavigate }) {
   const { t } = useTranslation(['common']);
@@ -25,6 +27,7 @@ export default function Sidebar({ onNavigate }) {
       items: [
         { path: '/', label: t('common:navigation.dashboard'), icon: LayoutDashboard },
         { path: '/monitor', label: t('common:navigation.monitor'), icon: Monitor },
+        { path: '/releases', label: t('common:navigation.releases'), icon: Sparkles },
       ],
     },
     {
@@ -109,7 +112,7 @@ export default function Sidebar({ onNavigate }) {
         ))}
       </nav>
 
-      <div className="mx-3 mb-3 rounded-xl border border-[var(--border-soft)] bg-[var(--card)]/45 px-3 py-3">
+      <div className="mx-3 mb-3 rounded-2xl border border-[var(--primary)]/16 bg-[linear-gradient(145deg,color-mix(in_oklab,var(--card),transparent_4%),color-mix(in_oklab,var(--primary),transparent_94%))] px-3.5 py-3.5 shadow-[inset_0_1px_0_rgb(255_255_255/0.035)]">
         <div className="flex items-center gap-2 text-xs font-medium">
           <Radio size={13} className="text-[var(--primary)]" />
           SRS Manager
@@ -117,6 +120,10 @@ export default function Sidebar({ onNavigate }) {
         <p className="text-[10px] leading-relaxed text-[var(--text-faint)] mt-1.5">
           {t('common:brand.subtitle')}
         </p>
+        <div className="mt-3 flex items-center justify-between border-t border-[var(--border-soft)] pt-2.5 text-[9px] font-medium">
+          <span className="text-[var(--text-faint)]">{t('common:brand.version')}</span>
+          <span className="rounded-md bg-[var(--primary)]/10 px-2 py-1 font-mono text-[var(--primary)]">v{CURRENT_VERSION} · MVP</span>
+        </div>
       </div>
     </aside>
   );

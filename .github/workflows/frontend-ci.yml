@@ -1,4 +1,4 @@
-name: Frontend CI
+name: 前端快速检查
 
 on:
   push:
@@ -11,6 +11,11 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -18,24 +23,24 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     defaults:
       run:
         working-directory: frontend
 
     steps:
-      - name: Checkout
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 准备 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: npm ci
 
-      - name: Build and validate i18n
+      - name: 校验多语言并构建前端
         run: npm run build

@@ -1,129 +1,121 @@
 # SRS Manager 整改状态
 
-> 本文件是 UI / 工作流 / 流控制整改的当前状态入口。后续新窗口应先核对 live `master` 与本文件，再决定是否推进下一任务；不要根据旧聊天猜进度。
+本文件是产品整改的阶段状态入口，用于跨窗口恢复真实进度。代码、测试、CI 和真实部署证据与本文件不一致时，以真实实现与验证结果为准并及时更新本文件。
 
-## Current Phase
+## 当前阶段
 
-P3-B — Managed Pull 主备输入与安全切换
+**v0.3.0 MVP 收口：先确保“能推、能拉、能看、能控”。**
 
-## Last Completed
+## 已完成
 
 ### P0 — 产品与四向流控制模型
 
 已完成：
 
-- IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 四类方向；
-- 主动/被动连接控制权；
-- “断开当前会话”与“禁止未来访问”分离；
-- Desired / Runtime / Observed State 分离；
-- Stream Graph / 联动基线。
+- IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 四向链路定义；
+- 输入所有权与输出控制边界；
+- 期望状态、运行状态、观测状态分离原则；
+- 业务流图与联动基线；
+- 危险操作进入 Operation 状态机的原则。
 
-### P1 — UI Shell / Operations Console 第一轮
+### P1 — 界面框架与运营中心第一轮
 
 已完成：
 
-- 专业直播运维控制台定位；
-- 分组导航、Header、宽屏工作区、Design Token；
-- 登录页与通用控件统一；
-- Dashboard → Operations Center 第一轮；
-- Frontend CI + i18n/build gate。
+- 分组导航、Header、宽屏工作区和设计变量；
+- 运营中心重构；
+- 通用面板、空状态、错误状态、搜索和确认组件；
+- v0.3.0 增加科技感背景、玻璃层次、版本标识和 MVP 快捷入口。
 
-### P2 — Stream Workspace
+### P2 — 单流工作台
 
 已完成：
 
 - `/streams/:id` 单流工作台；
-- Streams 主列表脱离传统宽 CRUD 表；
-- Signal Graph；
-- Observed / Configured / Unavailable 证据语义；
-- publisher / viewer 精确分离控制；
-- Workspace 聚合 API；
-- SRS streams/clients 分页，避免默认 10 条截断。
+- 输入、输出、CDN、分发、播放地址和活动记录聚合；
+- 真实观测、已配置、不可用三类证据语义；
+- 发布端/播放端精确控制；
+- 工作台聚合 API。
 
-### P3-A — Managed Pull 最小 Runtime
+### P3-A — Managed Pull 最小运行时
 
-代码 / CI / 容器闭环已完成：
+已完成：
 
-- PullTask Desired / Runtime 状态；
+- PullTask 期望状态与运行状态；
 - 独立 Pull Worker + FFmpeg；
-- retry / backoff / FAILED / BLOCKED；
-- SRS publisher 占用冲突不自动踢人；
-- Worker heartbeat + 单执行者 Lease；
+- 退避重试、启动超时和失败状态；
+- 输入所有权冲突检测；
+- Worker 心跳与单执行者 Lease；
 - Web 与 Pull Worker 双镜像；
-- ExternalSource URL 公共 API 脱敏；
-- Workspace Start / Stop / Retry / Unbind；
-- Node 24 兼容：`better-sqlite3` 升级至 13.x N-API 基线；
-- Backend / Frontend / Container CI 门禁。
+- 来源 URL 普通 API / 日志脱敏；
+- 工作台 Start / Stop / Retry / Unbind；
+- Node 24 + `better-sqlite3` N-API 兼容基线。
 
-### P3-B 第一阶段 — 自动主备 Failover
+### P3-B — 主备拉流与安全切源
 
-代码 / CI 闭环已完成：
+已完成：
 
-- 一个 PullTask 对多个候选 ExternalSource；
-- legacy 单源无损迁移为 priority=1；
-- `active_source_id` 与切源原因/时间；
-- 多源当前源连续失败达到门槛后向下一优先级 failover；
-- 单源保留原总重试预算；
-- 备用源接管后默认不自动 failback；
-- Source Set API；
-- Workspace 展示 Active / Standby / Priority / Enabled；
-- 新增/停用/移除备用源；
-- Active Source 删除原子化，失败不会留下半修改状态；
-- Backend / Container CI PASS。
+- 一个 PullTask 对应多个候选来源；
+- 来源优先级、启用状态和当前活动来源；
+- 旧单来源任务自动兼容为优先级 1；
+- 同一来源连续失败达到门槛后自动向后备来源切换；
+- 默认不自动回主源，避免直播期间抖动；
+- 来源集合 API；
+- 工作台展示活动源、备用源、优先级、启用状态与最近切换原因；
+- 活动来源删除事务化，失败不会留下半修改状态；
+- 人工安全切源 Operation：QUEUED → STOPPING → STARTING → VERIFYING → SUCCEEDED / FAILED；
+- 切源采用 break-before-make，旧 Publisher 未消失时不会启动新源；
+- Worker 重启后可安全恢复未完成切源；
+- 用户停止拉流会取消进行中的切源 Operation。
 
-## Current Task
+### 工程门禁
 
-P3-B 第二阶段 — 人工安全切源 Operation。
+已完成：
 
-目标不是直接修改 `active_source_id`，而是实现 break-before-make 的受控操作：
+- 后端回归测试当前 9/9 通过；
+- 前端生产构建与多语言 key 校验通过；
+- Web / Pull Worker 镜像及 FFmpeg 容器门禁此前已通过；
+- v0.3.0 起 CI 按变更范围触发，容器重任务只在关键变更、版本发布或人工触发时执行；
+- 同分支重复 CI 自动取消旧任务，降低 GitHub Actions 用量。
 
-```text
-请求切换目标 Source
-→ 校验候选源
-→ 记录 Pending Operation
-→ Worker 接管 Operation
-→ 停止当前 FFmpeg
-→ 等待当前 managed publisher 消失
-→ 切 active_source_id
-→ 启动目标 Source
-→ 等待 SRS publisher 重新出现
-→ Operation SUCCEEDED / FAILED
-```
+## 当前任务
 
-在该 Operation 完成前，UI 不提供会让用户误以为“已经安全切源”的直接按钮。
+### v0.3.0 MVP 可用性收口
 
-## Next Task
+优先把用户最常见操作压缩到最短路径：
 
-P3-C / 四向链路继续收敛：
+1. 运营中心直接提供「我要推流」与「我要拉流」入口；
+2. 推流：创建/选择流 → 复制 RTMP 推流地址 → 推入 SRS → 工作台观察；
+3. 拉流：创建外部来源 → 绑定 Managed Pull → 启动 → 工作台观察；
+4. 版本更新页面展示当前版本、能力亮点和迭代历史；
+5. README、产品设计文档与 CHANGELOG 全部使用中文说明；
+6. 最后补真实 SRS + FFmpeg 环境端到端证据。
 
-- Source priority 原子排序；
-- 可选稳定窗口自动 failback（默认关闭）；
-- OUT-PUSH Desired 与 Runtime/Observed 分离；
-- OUT-PULL Access Grant / 禁止新连接 / 断现有连接 / 撤销授权；
-- 链路异常联动与告警。
+## 下一任务
 
-随后进入：
+MVP 收口后进入 P3-C：
 
-- P4 — Live Event / Template / Preflight；
-- P5 — Operation / Reconciler / Alert / Audit；
-- P6 — Batch / Runbook / Automation；
-- 其余 CDN / DNS / Forwarding / Auth / Settings 页面按新工作流全面整改。
+- 来源优先级原子排序；
+- 可选自动回主策略（默认关闭，必须配置稳定窗口）；
+- OUT-PUSH 的期望状态 / 运行状态 / 观测状态分离；
+- OUT-PULL 的访问授权、禁止新连接、断开现有连接和吊销授权；
+- 四向链路联动策略；
+- 再进入直播任务、开播前检查、告警、状态协调器、审计和自动化。
 
-## Verification Debt
+## 验证债务
 
-以下不能用单元测试或 GitHub Actions 冒充完成：
+以下能力已有代码和自动测试，但仍需要真实部署环境证据后才能标记为“运行时验证完成”：
 
-1. 真实 SRS + FFmpeg：Managed Pull 首次启动并发布到 SRS；
-2. 主源真实断开 → 达到失败门槛 → 自动切备用源；
-3. 备用源接管后 SRS publisher / OUT-PUSH / OUT-PULL 联动恢复；
-4. Pull Worker 容器重启后的 Desired State 恢复；
-5. 双 Pull Worker 实机并存时只有 Lease owner 启动 FFmpeg；
-6. 用户主动 STOP 后不得自动复活。
+1. 真实 RTMP/SRT/RTSP 来源 → Pull Worker → SRS 的持续拉流；
+2. 主源断开 → 连续失败达到门槛 → 自动切备用源；
+3. 人工安全切源：旧 Publisher 消失 → 目标来源启动 → 新 Publisher 被确认；
+4. Pull Worker 容器重启后的期望状态恢复；
+5. 双 Pull Worker 同时存在时只有 Lease Owner 启动 FFmpeg；
+6. Web 重启不影响正在运行的 Pull Worker；
+7. 长时间运行下 SQLite WAL、心跳、Operation 和流状态保持一致。
 
-这些在真实部署环境取得证据后才能标记 Runtime Verification COMPLETE。
+## 当前完成度估计
 
-## Current Completion Estimate
+按阶段复杂度和风险权重估算，整体整改约完成 **60%**。
 
-按整改阶段与风险权重估算，而非按代码行数：约 **55%**。
-
-已完成的是基础产品模型、主要 UI Shell、Stream Workspace 和 IN-PULL Runtime/自动主备基础；剩余主要工作集中在安全 Operation、OUT-PUSH/OUT-PULL 完整控制、告警/审计/自动化、Live Event/Preflight，以及其余页面的深度工作流整改。
+v0.3.0 MVP 的“推 / 拉”输入闭环已经基本形成；剩余工作主要集中在真实部署验收、OUT-PUSH / OUT-PULL 完整控制、直播任务、开播前检查、告警/审计和 Runbook 自动化。

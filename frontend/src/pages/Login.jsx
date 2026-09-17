@@ -5,7 +5,8 @@ import { useAuth } from '../lib/auth.jsx';
 import { getErrorCode } from '../lib/error-mapper';
 import { setLanguage, getLanguage } from '../i18n';
 import { inputClass, labelClass, btnPrimary } from '../components/ui/styles';
-import { Radio, Globe, Loader2 } from 'lucide-react';
+import { Radio, Globe, Loader2, Sparkles } from 'lucide-react';
+import { CURRENT_VERSION } from '../lib/releases';
 
 export default function Login() {
   const { t, i18n } = useTranslation(['login', 'common']);
@@ -36,7 +37,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-5xl min-h-[610px] grid lg:grid-cols-[1.05fr_0.95fr] overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--card)]/82 shadow-[var(--shadow-elevated)] backdrop-blur-xl">
+      <div className="lux-panel w-full max-w-5xl min-h-[610px] grid lg:grid-cols-[1.05fr_0.95fr] overflow-hidden rounded-[28px]">
         <section className="hidden lg:flex relative overflow-hidden flex-col justify-between p-10 border-r border-[var(--border-soft)] bg-[var(--panel)]/72">
           <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-[var(--primary)]/10 blur-3xl pointer-events-none" />
           <div className="absolute bottom-6 -left-20 w-64 h-64 rounded-full bg-[var(--info)]/8 blur-3xl pointer-events-none" />
@@ -52,6 +53,9 @@ export default function Login() {
             <p className="text-sm leading-7 text-[var(--muted-foreground)] mt-4 max-w-sm">
               {t('common:brand.subtitle')}
             </p>
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[var(--primary)]/20 bg-[var(--primary)]/9 px-3 py-1.5 text-[10px] font-semibold text-[var(--primary)]">
+              <Sparkles size={12} />v{CURRENT_VERSION} · MVP
+            </div>
           </div>
 
           <div className="relative">

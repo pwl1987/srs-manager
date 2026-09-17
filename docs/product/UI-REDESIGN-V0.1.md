@@ -1,4 +1,4 @@
-# SRS Manager UI / UX 整改基线 v0.1
+# SRS Manager 界面与体验整改基线 v0.1
 
 > 状态：P1 实施基线  
 > 定位：从“功能型 CRUD 管理后台”升级为“直播运维控制台（Streaming Operations Console）”。
@@ -56,9 +56,9 @@ P1 原则：**先重构 Shell、信息架构、设计 Token 和运营中心，�
 
 注意：这是 P1 的导航收敛，不代表最终领域模型。后续 Stream Workspace 建立后，部分资源入口还会进一步降级为对象上下文操作。
 
-## 4. Shell 设计
+## 4. 界面框架设计
 
-### Sidebar
+### 侧边导航
 
 - 约 260px 宽；
 - 品牌区明确标识 `SRS Manager / Operations Console`；
@@ -66,7 +66,7 @@ P1 原则：**先重构 Shell、信息架构、设计 Token 和运营中心，�
 - 当前页面采用柔和高亮 + 左侧/局部状态强调，不再使用整块强色背景；
 - 高频工作域在上，基础设施配置在下。
 
-### Header
+### 顶部栏
 
 Header 不再只是页面标题，应承担运行上下文：
 
@@ -77,14 +77,14 @@ Header 不再只是页面标题，应承担运行上下文：
 
 后续可扩展全局搜索、Command Palette、告警中心，但 P1 不放置无功能的占位入口。
 
-### Main Workspace
+### 主工作区
 
 - 最大内容宽度从通用 `max-w-7xl` 放宽到约 1600px；
 - 列表页保留可扫描密度；
 - 运营中心采用卡片与运行态区域组合；
 - 高分辨率显示器优先利用横向空间。
 
-## 5. 设计 Token
+## 5. 设计变量
 
 在现有 Tailwind CSS v4 + CSS Variables 上继续演进，不引入第二套 UI 框架。
 
@@ -134,10 +134,10 @@ P1 不把“离线”直接定义为“告警”，因为永久配置但当前�
 
 P1 完成后按以下顺序继续：
 
-1. **P2 Stream Workspace**：一条流的输入、输出、分发、转发、转码、监看、权限、事件放到一个工作区；
-2. **P3 Flow Graph**：IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 图模型与联动操作；
+1. **P2 单流工作台**：一条流的输入、输出、分发、转发、转码、监看、权限、事件放到一个工作区；
+2. **P3 流向图**：IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 图模型与联动操作；
 3. **P4 Live Event / Template / Preflight**：将重复配置转换为模板化直播任务；
-4. **P5 Operation / Desired State / Reconciler / Alert**：从按钮式 CRUD 升级为可恢复运维机制；
+4. **P5 操作状态机 / 期望状态 / 状态协调器 / 告警**：从按钮式 CRUD 升级为可恢复运维机制；
 5. **P6 Batch / Runbook / Automation**：减少值班人员重复劳动。
 
 ## 9. P1 验收

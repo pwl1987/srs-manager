@@ -1,7 +1,8 @@
 {
   "brand": {
     "subtitle": "Streaming Operations Console",
-    "console": "Operations Console"
+    "console": "Operations Console",
+    "version": "Current Version"
   },
   "actions": {
     "save": "Save",
@@ -130,6 +131,16 @@
       "on_unpublish": "Stopped publishing",
       "on_play": "Started watching",
       "on_stop": "Stopped watching"
+    },
+    "mvp": {
+      "pushEyebrow": "MVP · PUSH",
+      "pushTitle": "Publish a Stream",
+      "pushDescription": "Create or select a stream, copy its RTMP publish URL, and send an encoder/OBS feed into SRS.",
+      "pullEyebrow": "MVP · PULL",
+      "pullTitle": "Pull an External Feed",
+      "pullDescription": "Add an RTMP/SRT/RTSP/HTTP source and let the Pull Worker ingest it into SRS with failover support.",
+      "release": "Release Notes",
+      "releaseHint": "See what changed and what is ready now"
     }
   },
   "navigationGroups": {
@@ -150,7 +161,8 @@
     "wangsuAuth": "Wangsu Integration",
     "aliyunDnsAuth": "Aliyun DNS",
     "dnsRecords": "Domains & DNS",
-    "settings": "System Settings"
+    "settings": "System Settings",
+    "releases": "Release Notes"
   },
   "labels": {
     "name": "Name",
@@ -186,5 +198,14 @@
     "emptyDescription": "No records yet. Click the button above to create the first one.",
     "loading": "Loading data...",
     "error": "Failed to load data. Please retry."
+  },
+  "releaseNotes": {
+    "eyebrow": "VERSION & CAPABILITY EVOLUTION",
+    "title": "Release Notes",
+    "subtitle": "A running record of what each version adds, what it fixes, and what is ready to use now.",
+    "current": "CURRENT RELEASE",
+    "milestone": "Current Milestone",
+    "mvpReady": "Push / Pull MVP is taking shape",
+    "mvpReadyHint": "Stabilize the most common live input paths first, then continue into automation, alerts and advanced distribution."
   }
 }

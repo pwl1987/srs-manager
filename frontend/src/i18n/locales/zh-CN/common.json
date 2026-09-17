@@ -1,7 +1,8 @@
 {
   "brand": {
     "subtitle": "直播运维控制台",
-    "console": "Operations Console"
+    "console": "运营控制台",
+    "version": "当前版本"
   },
   "actions": {
     "save": "保存",
@@ -130,6 +131,16 @@
       "on_unpublish": "停止推流",
       "on_play": "开始观看",
       "on_stop": "结束观看"
+    },
+    "mvp": {
+      "pushEyebrow": "MVP · 推流",
+      "pushTitle": "我要推流",
+      "pushDescription": "创建或选择直播流，直接复制 RTMP 推流地址，把编码器/OBS 信号推入 SRS。",
+      "pullEyebrow": "MVP · 拉流",
+      "pullTitle": "我要拉流",
+      "pullDescription": "添加外部 RTMP/SRT/RTSP/HTTP 源，由 Pull Worker 拉入 SRS，并支持主备切换。",
+      "release": "版本更新",
+      "releaseHint": "查看本版新增能力与迭代记录"
     }
   },
   "navigationGroups": {
@@ -150,7 +161,8 @@
     "wangsuAuth": "网宿集成",
     "aliyunDnsAuth": "阿里云 DNS",
     "dnsRecords": "域名与 DNS",
-    "settings": "系统设置"
+    "settings": "系统设置",
+    "releases": "版本更新"
   },
   "labels": {
     "name": "名称",
@@ -186,5 +198,14 @@
     "emptyDescription": "还没有任何记录，点击上方按钮创建第一条记录。",
     "loading": "正在加载数据...",
     "error": "数据加载失败，请重试。"
+  },
+  "releaseNotes": {
+    "eyebrow": "版本与能力演进",
+    "title": "版本更新",
+    "subtitle": "每个版本做了什么、解决了什么问题、当前已经能做到什么，都在这里持续记录。",
+    "current": "当前版本",
+    "milestone": "当前里程碑",
+    "mvpReady": "推流 / 拉流 MVP 已成型",
+    "mvpReadyHint": "先把最常用的直播输入链路做稳，再逐步补齐自动化、告警和分发高级能力。"
   }
 }

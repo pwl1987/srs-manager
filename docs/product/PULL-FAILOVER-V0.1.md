@@ -1,4 +1,4 @@
-# SRS Manager Pull Failover v0.1
+# SRS Manager 主备拉流与故障切换 v0.1
 
 > 状态：P3-B 设计基线
 > 前置：`PULL-RUNTIME-AND-FLOW-LINKAGE-V0.1.md`
@@ -46,7 +46,7 @@ last_source_switch_reason
 
 已有单源 PullTask 在轻量 migration 中自动写入一条 priority=1 的候选源记录。
 
-## 3. Source Selection
+## 3. 来源选择
 
 启动时：
 
@@ -55,7 +55,7 @@ last_source_switch_reason
 3. 否则选择 priority 最小的候选源；
 4. 没有候选源则 Runtime=FAILED。
 
-## 4. Failover
+## 4. 故障切换
 
 每个源维持“当前连续失败计数”，第一版先复用 PullTask `attempt` 作为当前 active source 的连续尝试次数。
 
@@ -89,7 +89,7 @@ last_error = all sources exhausted
 - 默认从当前 active source 重试；
 - 若当前源不存在/禁用，则选最高优先级 enabled 源。
 
-## 5. 不自动 Failback
+## 5. 不自动回切
 
 当备用源已经 RUNNING：
 
@@ -116,15 +116,15 @@ last_error = all sources exhausted
 
 第一版可以采用 break-before-make，避免同一 stream 两个 publisher 争抢；后续若要无缝切换需引入专门媒体切换层，不能用两个 FFmpeg 同推一个 SRS stream 冒充无缝。
 
-## 7. UI
+## 7. 界面
 
 Stream Workspace 的 Managed Pull 区域显示：
 
 ```text
 Managed Pull
-Desired: RUNNING
-Runtime: RUNNING
-Worker: healthy
+期望状态： RUNNING
+运行状态： RUNNING
+拉流执行器： healthy
 
 当前源
 ● 城市台主源     PRIMARY · RUNNING

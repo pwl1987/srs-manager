@@ -18,6 +18,7 @@ const ROUTE_TITLE_KEYS = {
   '/wangsu-auth': 'wangsuAuth',
   '/aliyun-dns-auth': 'aliyunDnsAuth',
   '/settings': 'settings',
+  '/releases': 'releases',
 };
 
 function ServerChip() {

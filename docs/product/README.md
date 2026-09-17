@@ -1,20 +1,40 @@
 # SRS Manager 产品与工作流设计
 
-本目录用于沉淀 SRS Manager 从“功能型 CRUD 管理后台”向“直播运维控制台（Streaming Operations Console）”演进过程中的产品、工作流、人因工程和领域设计基线。
+本目录沉淀 SRS Manager 从“功能型 CRUD 管理后台”向“直播运维控制台”演进过程中的产品、工作流、人因工程、流向模型和运行机制基线。
 
-当前基线：
+## 当前版本基线
 
-- [流向与控制模型 v0.1](./STREAM-FLOW-AND-CONTROL-MODEL.md) — 定义 IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 四类链路、控制权、停止语义、联动、Desired/Observed State、Access Grant 与 Operation。
-- [UI / UX 整改基线 v0.1](./UI-REDESIGN-V0.1.md) — 定义 P1 的专业播控台视觉方向、信息架构、Shell、设计 Token 与运营中心。
-- [Stream Workspace v0.1](./STREAM-WORKSPACE-V0.1.md) — 定义 P2 单流工作台、Observed / Configured / Unavailable 三类证据、精确连接控制、Workspace 聚合 API 与人因约束。
+当前产品版本为 **v0.3.0 MVP**，第一目标是把最常用的两条输入链路做成真正可用闭环：
 
-当前实施顺序：
+- **第三方推流到我方（IN-PUSH）**：生成推流地址、观察真实 Publisher、查看状态并进行精确控制；
+- **我方主动拉第三方（IN-PULL）**：外部来源、Pull Worker、FFmpeg、重试、主备切换和安全人工切源。
 
-1. P1 — UI Shell / 导航 / Design Token / 运营中心：已完成第一轮；
-2. P2 — Stream Workspace / 单流信号关系 / 精确连接控制：当前实施；
-3. P3 — 真正的 IN-PULL Runtime、可执行 Flow Graph 与四类流向联动；
-4. P4 — Live Event / Template / Preflight；
-5. P5 — Operation / Desired State / Reconciler / Alert；
-6. P6 — Batch / Runbook / Automation。
+## 设计文档
 
-后续设计继续坚持：运行态必须有真实证据来源；配置态不能冒充健康态；危险动作必须明确影响范围；没有 Runtime 支撑的能力不能在 UI 中伪造成“已运行”。
+- [流向与控制模型 v0.1](./STREAM-FLOW-AND-CONTROL-MODEL.md) — 定义 IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 四类链路、控制权、停止语义、联动、期望状态/观测状态、访问授权与操作状态机；
+- [界面与体验整改基线 v0.1](./UI-REDESIGN-V0.1.md) — 定义专业播控台视觉方向、信息架构、设计变量、Shell 与运营中心；
+- [单流工作台 v0.1](./STREAM-WORKSPACE-V0.1.md) — 定义单流工作台、真实观测/已配置/不可用三类证据、精确连接控制和聚合接口；
+- [拉流运行时与四向链路联动 v0.1](./PULL-RUNTIME-AND-FLOW-LINKAGE-V0.1.md) — 定义 Pull Worker、PullTask、FFmpeg、输入所有权和运行态；
+- [主备拉流与故障切换 v0.1](./PULL-FAILOVER-V0.1.md) — 定义候选源集合、自动切备、不自动回切和人工安全切源；
+- [整改状态](./REDESIGN-STATUS.md) — 当前阶段、已完成、当前任务、后续任务与验证债务。
+
+## 当前实施顺序
+
+1. P0 — 产品与四向流模型：已完成；
+2. P1 — UI Shell / 导航 / 设计变量 / 运营中心：第一轮已完成，v0.3.0 继续视觉增强；
+3. P2 — 单流工作台 / 单流信号关系 / 精确连接控制：已完成第一轮；
+4. P3 — IN-PULL 真实运行时、主备和安全切源：MVP 核心已完成；
+5. P3-C — OUT-PUSH / OUT-PULL 运行态与授权边界：下一阶段；
+6. P4 — 直播任务 / 模板 / 开播前检查；
+7. P5 — 操作状态机 / 状态协调器 / 告警 / 审计；
+8. P6 — 批量操作 / Runbook / 自动化。
+
+## 长期约束
+
+- 运行态必须有真实证据来源，配置存在不能冒充“正在运行”；
+- 危险动作必须说明影响范围，并允许追踪完整执行过程；
+- 我方主动建立的链路必须具有完整启停、重试与恢复机制；
+- 第三方主动建立的链路只能在我方控制边界内管理，不能伪造远端控制能力；
+- 日常值守优先减少页面跳转、重复输入和人工判断；
+- 界面保持“平时安静、异常醒目”，不使用无意义的高饱和装饰制造噪声；
+- 没有 Runtime 支撑的能力不能在 UI 中伪造成“已运行”。

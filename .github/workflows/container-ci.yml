@@ -1,22 +1,32 @@
-name: Container CI
+name: 容器发布检查
 
+# 容器构建属于重任务：普通业务代码 push 不自动执行。
+# 仅 Docker/Compose/依赖清单变化、版本标签发布，或人工触发时运行。
 on:
   push:
     branches: [master]
+    tags: ['v*']
     paths:
       - 'Dockerfile'
       - 'docker-compose.yml'
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/container-ci.yml'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
   pull_request:
     branches: [master]
     paths:
       - 'Dockerfile'
       - 'docker-compose.yml'
-      - 'backend/**'
-      - 'frontend/**'
-      - '.github/workflows/container-ci.yml'
+      - 'backend/package.json'
+      - 'backend/package-lock.json'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
+  workflow_dispatch:
+
+concurrency:
+  group: container-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -24,24 +34,24 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
 
     steps:
-      - name: Checkout
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: Validate compose model
+      - name: 校验 Compose 模型
         env:
           SRS_API_TOKEN: ci-token
           ADMIN_PASSWORD_HASH: ci-hash
           JWT_SECRET: ci-secret
         run: docker compose config --quiet
 
-      - name: Build web image
+      - name: 构建 Web 镜像
         run: docker build --target web -t srs-manager:web-ci .
 
-      - name: Build pull-worker image
+      - name: 构建 Pull Worker 镜像
         run: docker build --target pull-worker -t srs-manager:pull-worker-ci .
 
-      - name: Verify pull-worker FFmpeg
+      - name: 验证 Pull Worker 的 FFmpeg
         run: docker run --rm --entrypoint ffmpeg srs-manager:pull-worker-ci -version

@@ -1,4 +1,4 @@
-name: Backend CI
+name: 后端快速检查
 
 on:
   push:
@@ -11,6 +11,11 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -18,27 +23,27 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     defaults:
       run:
         working-directory: backend
 
     steps:
-      - name: Checkout
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 准备 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: npm ci
 
-      - name: Check backend JavaScript syntax
+      - name: 检查 JavaScript 语法
         run: find . -path './node_modules' -prune -o -name '*.js' -print0 | xargs -0 -n1 node --check
 
-      - name: Run backend regression tests
+      - name: 运行后端回归测试
         run: npm test

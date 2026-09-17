@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../lib/api';
 import { cn } from '../lib/utils';
@@ -9,6 +10,7 @@ import PageHeader from '../components/ui/PageHeader';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import EmptyState from '../components/ui/EmptyState';
 import { CardSkeleton } from '../components/ui/Skeleton';
+import { CURRENT_VERSION } from '../lib/releases';
 import {
   Radio,
   Activity,
@@ -21,6 +23,9 @@ import {
   Eye,
   EyeOff,
   Server,
+  ArrowUpFromLine,
+  ArrowDownToLine,
+  Sparkles,
 } from 'lucide-react';
 
 const ACTIVITY_ICONS = {
@@ -49,6 +54,35 @@ function Metric({ icon: Icon, label, value, detail, tone = 'primary' }) {
       <div className="text-2xl font-semibold tracking-[-0.03em] tabular-nums truncate">{value}</div>
       {detail && <div className="text-[11px] text-[var(--text-faint)] mt-1.5 truncate">{detail}</div>}
     </div>
+  );
+}
+
+function QuickAction({ to, icon: Icon, eyebrow, title, description, tone = 'primary' }) {
+  const tones = {
+    primary: 'from-[var(--primary)]/16 via-[var(--primary)]/6 to-transparent border-[var(--primary)]/22 text-[var(--primary)]',
+    info: 'from-[var(--info)]/16 via-[var(--info)]/6 to-transparent border-[var(--info)]/22 text-[var(--info)]',
+  };
+
+  return (
+    <Link
+      to={to}
+      className={cn(
+        'group relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 md:p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-elevated)]',
+        tones[tone] || tones.primary
+      )}
+    >
+      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-current opacity-[0.045] blur-2xl transition-opacity group-hover:opacity-[0.08]" />
+      <div className="relative z-10 flex items-start gap-3.5">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-current/20 bg-current/10 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]">
+          <Icon size={18} />
+        </span>
+        <div className="min-w-0">
+          <div className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-75">{eyebrow}</div>
+          <div className="mt-1 text-sm font-semibold text-[var(--foreground)]">{title}</div>
+          <div className="mt-1.5 text-[11px] leading-5 text-[var(--muted-foreground)]">{description}</div>
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -134,6 +168,36 @@ export default function Dashboard() {
       />
 
       {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => load()} />}
+
+      <section className="mb-5 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_280px]">
+        <QuickAction
+          to="/streams"
+          icon={ArrowUpFromLine}
+          eyebrow={t('common:dashboard.mvp.pushEyebrow')}
+          title={t('common:dashboard.mvp.pushTitle')}
+          description={t('common:dashboard.mvp.pushDescription')}
+          tone="primary"
+        />
+        <QuickAction
+          to="/forwarding"
+          icon={ArrowDownToLine}
+          eyebrow={t('common:dashboard.mvp.pullEyebrow')}
+          title={t('common:dashboard.mvp.pullTitle')}
+          description={t('common:dashboard.mvp.pullDescription')}
+          tone="info"
+        />
+        <Link to="/releases" className="lux-panel group flex min-h-[118px] items-center justify-between gap-4 rounded-2xl p-4 md:p-5">
+          <div>
+            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--text-faint)]">
+              <Sparkles size={12} className="text-[var(--primary)]" />
+              {t('common:dashboard.mvp.release')}
+            </div>
+            <div className="mt-2 text-xl font-semibold tracking-[-0.03em]">v{CURRENT_VERSION}</div>
+            <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">{t('common:dashboard.mvp.releaseHint')}</div>
+          </div>
+          <span className="rounded-xl border border-[var(--success)]/20 bg-[var(--success)]/10 px-2.5 py-1.5 text-[10px] font-semibold text-[var(--success)]">MVP</span>
+        </Link>
+      </section>
 
       <section className="relative overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--panel)]/88 shadow-[var(--shadow-panel)] mb-5">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--primary)]/55 to-transparent" />

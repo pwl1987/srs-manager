@@ -1,4 +1,4 @@
-# SRS Manager Pull Runtime 与四向链路联动 v0.1
+# SRS Manager 拉流运行时与四向链路联动 v0.1
 
 > 状态：P3 设计基线 / Draft  
 > 前置：`STREAM-FLOW-AND-CONTROL-MODEL.md`、`STREAM-WORKSPACE-V0.1.md`  
@@ -22,7 +22,7 @@ SRS 原生能力适合继续承担媒体核心，而不是业务控制器：
 
 因此 P3 选择：**独立 Pull Worker 管理 IN-PULL；SRS 继续作为汇聚、分发和实时观测核心。**
 
-## 2. 为什么不能继续复用当前 external_sources 假装“拉流已实现”
+## 2. 为什么不能继续复用当前 `external_sources` 假装“拉流已实现”
 
 当前 `external_sources` 只是来源配置，`forward_tasks` 是 SRS 流出现后的 OUT-PUSH 目标。二者之间没有一个真实的拉流进程生命周期。
 
@@ -79,7 +79,7 @@ updated_at
 
 不把 OS PID 当作系统事实长期持久化；PID 只在 Worker 内存中用于当前进程控制。数据库保存的是可恢复的业务状态。
 
-## 4. Pull Worker 定位
+## 4. 拉流执行器（Pull Worker）定位
 
 Pull Worker 是独立进程/容器，不与 Express Web 进程共用子进程生命周期。
 
@@ -98,7 +98,7 @@ SRS
 
 Web 与 Worker 可共享 SQLite WAL 数据卷，但 Worker 只负责 PullTask 生命周期，不处理 UI 请求。
 
-### 为什么不直接在 Express 中 spawn FFmpeg
+### 为什么不直接在 Express 中启动 FFmpeg
 
 - Web 进程重启会丢失子进程监督；
 - HTTP 请求生命周期不应等同于媒体任务生命周期；
@@ -125,30 +125,30 @@ rtmp://<srs-runtime>/live/<stream-name>
 
 后续如需 SRT publish，可作为 runtime adapter 增加，不改变 PullTask 契约。
 
-## 6. Desired / Runtime / Observed 三态分离
+## 6. 期望状态 / 运行状态 / 观测状态三态分离
 
 P3 开始不能再只有一个 status 字段。
 
 例如：
 
 ```text
-Desired: RUNNING
-Runtime: RUNNING
-Observed SRS publisher: ONLINE
+期望状态： RUNNING
+运行状态： RUNNING
+SRS Publisher 观测： ONLINE
 => HEALTHY
 ```
 
 ```text
-Desired: RUNNING
-Runtime: RETRYING
-Observed SRS publisher: OFFLINE
+期望状态： RUNNING
+运行状态： RETRYING
+SRS Publisher 观测： OFFLINE
 => DEGRADED
 ```
 
 ```text
-Desired: STOPPED
-Runtime: STOPPED
-Observed publisher: ONLINE (第三方仍在推)
+期望状态： STOPPED
+运行状态： STOPPED
+Publisher 观测： ONLINE (第三方仍在推)
 => OWNERSHIP CONFLICT
 ```
 

@@ -161,7 +161,7 @@ STOPPED
 
 1. 停止当前拉流连接；
 2. 关闭自动重试；
-3. 更新 Desired State 为 `STOPPED`；
+3. 更新 期望状态 为 `STOPPED`；
 4. 根据联动策略决定下游 OUT-PUSH / OUT-PULL 如何处理；
 5. 记录操作人与原因。
 
@@ -260,7 +260,7 @@ Session
 1. Stop Accepting New Sessions
    停止接受新的拉流连接
 
-2. Disconnect Current Sessions
+2. 断开现有会话
    断开当前已连接客户端
 
 3. Revoke Access
@@ -354,7 +354,7 @@ PLAY_BACKUP_STREAM
 需要定义一个真正的高级动作：
 
 ```text
-Stop Stream
+停止业务流
 ```
 
 它不是简单杀 publisher，而是执行一个受控 Operation：
@@ -375,7 +375,7 @@ Stop Stream
 
 ---
 
-## 9. Desired State / Observed State
+## 9. 期望状态 / 观测状态
 
 后续后端建议正式引入双状态模型。
 
@@ -384,12 +384,12 @@ Stop Stream
 ```text
 Stream: news01
 
-Desired State
+期望状态
   ingest.enabled        = true
   out_push.cdn.enabled  = true
   out_pull.hls.enabled  = true
 
-Observed State
+观测状态
   ingest                = LIVE
   out_push.cdn          = FAILED
   out_pull.hls          = HEALTHY
@@ -401,11 +401,11 @@ Observed State
 
 对于人工 `Stop`：
 
-必须修改 Desired State，防止后台自动恢复机制把它重新启动。
+必须修改 期望状态，防止后台自动恢复机制把它重新启动。
 
 ---
 
-## 10. Control Ownership：谁掌握主动权
+## 10. 控制权归属：谁掌握主动权
 
 建议每条 Connection / Endpoint 保存：
 
@@ -469,7 +469,7 @@ control_owner  = SHARED
 
 ---
 
-## 11. Access Grant：为 OUT-PULL 增加正式授权对象
+## 11. 访问授权：为 OUT-PULL 增加正式授权对象
 
 目前“分发申请”后续不建议继续只看成一张申请表。
 
@@ -478,12 +478,12 @@ control_owner  = SHARED
 ```text
 Distribution Request
         ↓ approved / created
-Access Grant
+访问授权
         ↓
 OUT-PULL Endpoint / Credential
 ```
 
-一个 `Access Grant` 至少包含：
+一个 `访问授权` 至少包含：
 
 ```text
 grant_id
@@ -507,7 +507,7 @@ revoked_by
 
 ---
 
-## 12. UI 初步表达
+## 12. 界面初步表达
 
 单路流工作区建议直接显示拓扑：
 
@@ -574,7 +574,7 @@ IN-PULL
   Stop Pull
   Restart Pull
   Retry Now
-  Switch Source
+  切换来源
 
 OUT-PUSH
   Start Push
@@ -595,7 +595,7 @@ OUT-PULL
 
 ---
 
-## 14. Operation 与审计
+## 14. 操作状态机与审计
 
 所有可能影响在线业务的动作统一生成 `Operation`：
 
@@ -644,8 +644,8 @@ FAILOVER_OUTPUT
 5. **远端主动建立的链路重点控制 Admission、Authorization、Session 和 Reconnect Policy。**
 6. **Stream 是业务主对象，输入和多个输出组成 Signal Graph。**
 7. **任何状态改变必须经过联动策略，而不是只改当前对象。**
-8. **人工 Stop 必须同步 Desired State，避免 watchdog/reconciler 自动复活。**
-9. **OUT-PULL 必须最终纳入 Access Grant 生命周期管理。**
+8. **人工 Stop 必须同步 期望状态，避免 watchdog/reconciler 自动复活。**
+9. **OUT-PULL 必须最终纳入 访问授权 生命周期管理。**
 10. **高风险操作必须提供 Impact Preview + Audit。**
 11. **复杂动作最终进入 Operation 状态机。**
 12. **后续 UI、工作流和自动化先围绕这套模型继续推演，再进入大规模实现。**
@@ -660,7 +660,7 @@ v0.1 暂不强行定死，下一轮重点继续收敛：
 - IN-PULL 与 IN-PUSH 的自动切换规则；
 - 输入断流后的 Slate / Backup / Black / Freeze Frame 策略；
 - OUT-PULL 已有客户端是否默认强制断开；
-- Distribution Request → Access Grant 的审批/授权模型；
+- Distribution Request → 访问授权 的审批/授权模型；
 - 临时直播和永久频道的生命周期差异；
 - CDN Channel 与 OUT-PUSH 的领域关系；
 - Forwarding 是否统一并入 Signal Graph；

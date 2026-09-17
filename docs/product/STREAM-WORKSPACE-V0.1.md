@@ -1,4 +1,4 @@
-# SRS Manager Stream Workspace v0.1
+# SRS Manager 单流工作台 v0.1
 
 > 状态：P2 实施基线  
 > 目标：把「流管理」从 CRUD 表格升级为围绕单路业务流的运维工作台，同时严格遵守 `STREAM-FLOW-AND-CONTROL-MODEL.md` 中的 IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 控制语义。
@@ -15,15 +15,15 @@ P2 **不**提前实现 Desired State / Reconciler，不做大规模数据库迁�
 
 ## 2. 核心原则
 
-### 2.1 Observed / Configured 分离
+### 2.1 观测状态 / 配置状态分离
 
 Workspace 中所有状态必须注明来源：
 
-- **Observed**：来自 SRS 当前 streams / clients / stats 的实时观测；
-- **Configured**：来自 SQLite 中 CDN、Forward、Distribution、Transcode 等配置；
-- **Unavailable**：当前系统尚无足够证据判断，禁止猜测。
+- **观测状态（Observed）**：来自 SRS 当前 streams / clients / stats 的实时观测；
+- **配置状态（Configured）**：来自 SQLite 中 CDN、Forward、Distribution、Transcode 等配置；
+- **不可用（Unavailable）**：当前系统尚无足够证据判断，禁止猜测。
 
-### 2.2 精确控制，不使用模糊 Stop
+### 2.2 精确控制，不使用模糊“停止”
 
 当前历史接口 `POST /streams/:id/stop` 会枚举并踢掉该流的 publisher 与 player，语义过宽。P2 新增精确动作：
 
@@ -33,7 +33,7 @@ Workspace 中所有状态必须注明来源：
 
 注意：断开 publisher 后，SRS 可能因为输入消失自然结束播放会话；这与管理端主动遍历、踢掉所有 player 是两回事，UI 必须明确区分。
 
-### 2.3 Stream 是工作上下文，不是数据库行
+### 2.3 直播流是工作上下文，不是数据库行
 
 `/streams/:id` 需要聚合：
 
@@ -47,7 +47,7 @@ Workspace 中所有状态必须注明来源：
 - 最近 SRS hook 事件；
 - 当前可执行的控制能力。
 
-## 3. P2 Workspace 信息结构
+## 3. P2 工作台信息结构
 
 ```text
 Stream Workspace
@@ -71,7 +71,7 @@ Stream Workspace
 └─ Advanced / Danger Zone
 ```
 
-## 4. Flow 判定规则
+## 4. 流向判定规则
 
 ### IN-PUSH
 
@@ -105,7 +105,7 @@ Stream Workspace
 
 CDN Channel 与 Stream 有明确 stream_id 关系，因此可作为输出资源展示。远端 live state 为 best-effort：第三方状态查询失败时必须显示 unknown，不能把 unknown 当 offline。
 
-## 5. Workspace 聚合 API
+## 5. 工作台聚合接口
 
 新增：
 
@@ -142,7 +142,7 @@ GET /api/streams/:id/workspace
 
 聚合接口以只读为主，第三方查询必须 best-effort，局部失败不能让整个 Workspace 不可用。
 
-## 6. Streams 列表重构
+## 6. 直播流列表重构
 
 Streams 首页不再以八列数据库表为默认界面，改为运行行 / 运维卡片：
 
