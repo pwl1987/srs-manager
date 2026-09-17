@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -26,6 +26,7 @@ import WorkspacePreviewPanel from '../components/streams/WorkspacePreviewPanel';
 import SourcePreviewPane from '../components/streams/SourcePreviewPane';
 import WorkspaceSignalPath from '../components/streams/WorkspaceSignalPath';
 import TranscodePipelinePanel from '../components/streams/TranscodePipelinePanel';
+import V3OutputRack from '../components/streams/V3OutputRack';
 import DistributionSection from './StreamsDistribution';
 import { btnSecondary, btnDangerGhost, btnGhost } from '../components/ui/styles';
 
@@ -92,21 +93,31 @@ export default function StreamWorkspace() {
   const [sourcePreview, setSourcePreview] = useState(null);
   const [sourcePreviewLoading, setSourcePreviewLoading] = useState(false);
   const [ingestCredentials, setIngestCredentials] = useState([]);
+  const [v3Workspace, setV3Workspace] = useState(null);
+  const [outputScenes, setOutputScenes] = useState([]);
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
     if (!silent) setError(null);
     try {
-      const [nextWorkspace, ingest] = await Promise.all([
+      const [nextWorkspace, ingest, nextV3Workspace] = await Promise.all([
         api.get(`/streams/${id}/workspace`),
-        api.get(`/v3/rooms/room:${id}/ingest-credentials`).catch(() => ({ credentials: [] }))
+        api.get(`/v3/rooms/room:${id}/ingest-credentials`).catch(() => ({ credentials: [] })),
+        api.get(`/v3/rooms/room:${id}/workspace`).catch(() => null)
       ]);
       setWorkspace(nextWorkspace);
       setIngestCredentials(ingest?.credentials || []);
+      setV3Workspace(nextV3Workspace);
     }
     catch (err) { if (!silent) setError({ code: getErrorCode(err) }); }
     finally { setLoading(false); }
   }
+
+  useEffect(() => {
+    let active = true;
+    api.get('/v3/output/scenes').then(data => { if (active) setOutputScenes(data?.scenes || []); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   usePolling(() => load(Boolean(workspace)), 2000, Boolean(id));
 
@@ -214,13 +225,23 @@ export default function StreamWorkspace() {
 
       <div className="mb-6"><WorkspaceSignalPath workspace={workspace} t={t} /></div>
 
+      <div className="mb-6">
+        <V3OutputRack roomId={`room:${stream.id}`} workspace={v3Workspace} scenes={outputScenes} onChanged={() => load(true)} />
+      </div>
+
+      <details className="mb-6 rounded-xl border border-[var(--border-soft)] bg-[var(--card)]">
+        <summary className="cursor-pointer px-4 py-3 text-xs font-semibold text-[var(--muted-foreground)]">兼容 / 高级 Runtime 控制（旧 Transcode / Forward / OUT-PULL）</summary>
+        <div className="grid gap-4 border-t border-[var(--border-soft)] p-4 xl:grid-cols-3">
+          <TranscodePipelinePanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
+          <ManagedPushPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
+          <OutPullAccessPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onDisconnectViewers={() => setConfirmViewers(true)} />
+        </div>
+      </details>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
         <div className="space-y-6">
           <IngestCredentialPanel stream={stream} credentials={ingestCredentials} onChanged={() => load(true)} />
           <ManagedPullPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onPreviewSource={previewSource} previewingSourceId={sourcePreview?.source_id} />
-          <TranscodePipelinePanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
-          <ManagedPushPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
-          <OutPullAccessPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onDisconnectViewers={() => setConfirmViewers(true)} />
           <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]"><DistributionSection stream={stream} /></section>
         </div>
 

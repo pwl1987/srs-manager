@@ -63,7 +63,7 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: res.statusText }));
-    const error = new Error(data.error || res.statusText);
+    const error = new Error(data.message || data.error || res.statusText);
     error.code = data.code;
     error.detail = data.detail;
     error.status = res.status;

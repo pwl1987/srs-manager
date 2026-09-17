@@ -252,11 +252,11 @@ function projectOutputs(workspace) {
       mode: 'SERVE',
       scene: serveMeta.scene || null,
       media_ref: originalRef,
-      runtime_state: serve.policy.endpoint_enabled ? 'AVAILABLE' : 'DISABLED',
+      runtime_state: serve.policy.endpoint_enabled ? 'AVAILABLE' : 'ADMISSION_DISABLED',
       endpoints: [
-        { transport: 'rtmp', url: endpoints.rtmp || null, available: Boolean(serve.policy.endpoint_enabled), runtime_exposed: true, advertised: advertised.has('rtmp'), protection: endpointProtections.rtmp || (serve.policy.require_grant ? 'access-grant' : 'none') },
-        { transport: 'http-flv', url: endpoints.flv || null, available: Boolean(serve.policy.endpoint_enabled), runtime_exposed: true, advertised: advertised.has('http-flv'), protection: endpointProtections['http-flv'] || (serve.policy.require_grant ? 'access-grant' : 'none') },
-        { transport: 'hls', url: endpoints.hls || null, available: Boolean(serve.policy.endpoint_enabled), runtime_exposed: true, advertised: advertised.has('hls'), protection: endpointProtections.hls || 'none', protection_boundary: 'reverse_proxy_or_cdn' }
+        { transport: 'rtmp', url: endpoints.rtmp || null, available: Boolean(serve.policy.endpoint_enabled), runtime_exposed: true, policy_controlled: true, advertised: advertised.has('rtmp'), protection: endpointProtections.rtmp || (serve.policy.require_grant ? 'access-grant' : 'none') },
+        { transport: 'http-flv', url: endpoints.flv || null, available: Boolean(serve.policy.endpoint_enabled), runtime_exposed: true, policy_controlled: true, advertised: advertised.has('http-flv'), protection: endpointProtections['http-flv'] || (serve.policy.require_grant ? 'access-grant' : 'none') },
+        { transport: 'hls', url: endpoints.hls || null, available: null, runtime_exposed: true, policy_controlled: false, advertised: advertised.has('hls'), protection: endpointProtections.hls || 'none', protection_boundary: 'reverse_proxy_or_cdn' }
       ],
       protection: {
         accepting_new_sessions: Boolean(serve.policy.accepting_new_sessions),

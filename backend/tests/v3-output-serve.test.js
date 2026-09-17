@@ -24,6 +24,7 @@ test('SERVE scenes persist truthful endpoint protection boundaries', (t) => {
   assert.equal(partner.endpoint_protections.rtmp, 'access-grant');
   assert.equal(partner.endpoint_protections['http-flv'], 'access-grant');
   assert.equal(partner.policy.require_grant, true);
+  assert.equal(partner.policy.endpoint_enabled, false);
   const policy = outPullService.getPolicy(streamId);
   assert.equal(policy.v3_metadata.name, 'Partner A');
   assert.deepEqual(policy.v3_metadata.advertised_transports, ['rtmp', 'http-flv']);

@@ -187,7 +187,7 @@ function configureServeOutput(streamId, input = {}) {
     warnings.push({ code: 'HLS_DIRECT_UNPROTECTED', message: 'Direct SRS HLS bypasses current on_play admission and is intentionally unprotected.' });
   }
   const policy = outPullService.updatePolicy(stream.id, {
-    endpoint_enabled: input.endpoint_enabled !== false,
+    endpoint_enabled: input.endpoint_enabled === true,
     accepting_new_sessions: input.accepting_new_sessions !== false,
     require_grant: usesGrant,
     v3_metadata: {
