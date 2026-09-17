@@ -1,6 +1,6 @@
 {
-  "title": "Streams",
-  "subtitle": "Manage and monitor all live streams",
+  "title": "Live Streams",
+  "subtitle": "Move from a running-state overview into a per-stream workspace for inputs, outputs, distribution and controls",
   "columns": {
     "name": "Stream Name",
     "status": "Status",
@@ -13,7 +13,7 @@
   },
   "status": {
     "online": "Live",
-    "offline": "Stopped",
+    "offline": "Idle",
     "streaming": "Streaming"
   },
   "actions": {
@@ -28,7 +28,15 @@
     "obsGuide": "OBS Setup Guide ↗",
     "qrcode": "QR Code",
     "more": "More",
-    "expand": "View URLs"
+    "expand": "View URLs",
+    "workspace": "Workspace"
+  },
+  "list": {
+    "eyebrow": "STREAM OPERATIONS",
+    "liveNow": "Live now",
+    "total": "Registered",
+    "unregistered": "Unregistered inputs",
+    "created": "Created"
   },
   "info": {
     "pushAddress": "Push Address",
@@ -53,9 +61,88 @@
     "create": "New Request"
   },
   "external": {
-    "title": "Unregistered live pushes detected",
-    "hint": "These publishes reached the SRS server but their names are not registered in the panel, so they never appear in the list. Register to manage them:",
+    "title": "Unregistered live inputs detected",
+    "hint": "These publishers have reached SRS but their stream names are not registered in the console. Register them before managing them in a workspace.",
     "register": "Register"
+  },
+  "workspace": {
+    "back": "Back to Live Streams",
+    "eyebrow": "STREAM WORKSPACE",
+    "subtitle": "Inspect the real input, configured outputs, access endpoints and distribution relationships in one stream context",
+    "state": {
+      "live": "LIVE",
+      "idle": "IDLE",
+      "unknown": "UNKNOWN"
+    },
+    "source": {
+      "observed": "Observed",
+      "configured": "Configured",
+      "unavailable": "Unavailable"
+    },
+    "signal": {
+      "title": "Signal Path",
+      "subtitle": "Green is reserved for state actually observed from the runtime; configured resources are not automatically treated as healthy."
+    },
+    "input": {
+      "publisher": "Current publisher",
+      "noPublisher": "No publisher observed",
+      "publisherIp": "Source IP",
+      "clientId": "Client ID",
+      "protocol": "Protocol",
+      "idleHint": "SRS currently reports no publishing connection for this stream. This may simply mean the stream has not started yet.",
+      "srsUnavailable": "SRS runtime state is currently unavailable, so input status cannot be determined.",
+      "inPullUnavailable": "IN-PULL (this system actively pulling a third-party source) currently has configuration foundations only. A verifiable and controllable pull runtime is not connected yet, so this workspace will not fabricate an active state."
+    },
+    "core": {
+      "protocol": "Registered protocol",
+      "transcode": "Transcode",
+      "players": "Current playback connections"
+    },
+    "outputs": {
+      "forwarding": "Active Push Targets",
+      "forwardHint": "Configured OUT-PUSH forwarding tasks associated with this stream",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "cdn": "CDN Outputs",
+      "cdnHint": "CDN channels bound to this stream; failed remote state queries are shown as unknown",
+      "pull": "Third-party Pull",
+      "pullHint": "Playback connections currently initiated by third parties",
+      "remote": {
+        "live": "LIVE",
+        "idle": "IDLE",
+        "unknown": "UNKNOWN"
+      }
+    },
+    "endpoints": {
+      "title": "Access Endpoints",
+      "subtitle": "Addresses are derived from the current stream configuration; copying an address does not change runtime state.",
+      "publish": "Publish input"
+    },
+    "activity": {
+      "title": "Recent Observed Events",
+      "empty": "No observed events available",
+      "note": "hook_events currently retains only the latest occurrence of each event type. This is an observation summary, not a complete audit trail."
+    },
+    "controls": {
+      "disconnectPublisher": "Disconnect Publisher",
+      "disconnectViewers": "Disconnect Playback Sessions"
+    },
+    "confirm": {
+      "publisherTitle": "Disconnect the current publisher?",
+      "publisherDescription": "This actively disconnects only publishing sessions for this stream. The console will not enumerate and kick playback sessions. SRS may naturally end playback when the source disappears, and the publisher may reconnect on its own.",
+      "publisherConfirm": "Disconnect Publisher",
+      "viewersTitle": "Disconnect current playback sessions?",
+      "viewersDescription": "This actively disconnects {{count}} playback session(s), but leaves the publisher connected and does not prevent clients from pulling the stream again.",
+      "viewersConfirm": "Disconnect Playback"
+    },
+    "toasts": {
+      "publisherDisconnected": "Disconnected {{count}} publisher session(s)",
+      "viewersDisconnected": "Disconnected {{count}} playback session(s)"
+    },
+    "danger": {
+      "title": "Connection Controls",
+      "description": "These actions control current SRS sessions only. They are not equivalent to banning access, revoking authorization or changing desired state. Persistent blocking and recovery policy will be implemented in a later control-mechanism phase."
+    }
   },
   "modal": {
     "create": "Create Stream",
@@ -70,8 +157,8 @@
     "pullUrlWebrtc": "WebRTC Pull URL"
   },
   "empty": {
-    "title": "No Streams",
-    "description": "No live streams created yet.",
+    "title": "No Live Streams",
+    "description": "No live streams have been registered yet.",
     "createButton": "Create Stream"
   },
   "preview": {
