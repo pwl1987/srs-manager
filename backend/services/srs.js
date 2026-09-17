@@ -18,9 +18,28 @@ function request(method, path, body) {
   });
 }
 
-async function getStreams() {
-  const data = await request('GET', '/streams');
-  return data.streams || [];
+async function listPaginated(path, field, { pageSize = 100, maxItems = 10000 } = {}) {
+  const items = [];
+  let start = 0;
+
+  while (items.length < maxItems) {
+    const remaining = maxItems - items.length;
+    const count = Math.min(pageSize, remaining);
+    const separator = path.includes('?') ? '&' : '?';
+    const data = await request('GET', `${path}${separator}start=${start}&count=${count}`);
+    const batch = Array.isArray(data?.[field]) ? data[field] : [];
+    if (batch.length === 0) break;
+
+    items.push(...batch);
+    start += batch.length;
+    if (batch.length < count) break;
+  }
+
+  return items;
+}
+
+async function getStreams(options) {
+  return listPaginated('/streams', 'streams', options);
 }
 
 // 流名称在创建时限定为 [a-zA-Z0-9_-]；出站请求前再做一次白名单变换，
@@ -44,9 +63,8 @@ async function getVersion() {
   return data;
 }
 
-async function listClients() {
-  const data = await request('GET', '/clients');
-  return data.clients || [];
+async function listClients(options) {
+  return listPaginated('/clients', 'clients', options);
 }
 
 async function kickClient(id) {
@@ -55,4 +73,11 @@ async function kickClient(id) {
   return request('DELETE', `/clients/${numeric}`);
 }
 
-module.exports = { getStreams, getStreamByName, getStreamStats, getVersion, listClients, kickClient };
+module.exports = {
+  getStreams,
+  getStreamByName,
+  getStreamStats,
+  getVersion,
+  listClients,
+  kickClient
+};
