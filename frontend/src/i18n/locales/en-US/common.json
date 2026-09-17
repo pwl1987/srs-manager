@@ -1,6 +1,7 @@
 {
   "brand": {
-    "subtitle": "Streaming Management"
+    "subtitle": "Streaming Operations Console",
+    "console": "Operations Console"
   },
   "actions": {
     "save": "Save",
@@ -60,14 +61,14 @@
     "VALIDATION_TEMPLATE_INVALID": "Invalid transcode template configuration. Please check and save again",
     "VALIDATION_ACCESSKEY_MISSING": "AccessKey ID and Secret are required",
     "VALIDATION_WANGSU_CREDENTIALS_MISSING": "Wangsu AccessKey ID and Secret are required",
-    "VALIDATION_WANGSU_AUTH_MISSING": "Wangsu CDN credentials are not configured. Set them up on the Wangsu Auth page before creating channels",
+    "VALIDATION_WANGSU_AUTH_MISSING": "Wangsu CDN credentials are not configured. Set them up under Wangsu Integration before creating channels",
     "CONFLICT_STREAM_EXISTS": "A stream with this name already exists. Please use a different name",
     "CONFLICT_STREAM_NAME_IN_USE": "This stream name is already in use. Please choose another",
     "CONFLICT_DNS_RECORD_EXISTS": "DNS record {{name}} already exists",
     "NOT_FOUND_STREAM": "Stream {{id}} not found",
     "NOT_FOUND_CHANNEL": "Channel {{id}} not found",
     "NOT_FOUND_TEMPLATE": "Transcode template {{id}} not found",
-    "NOT_FOUND_KEY": "Auth key {{id}} not found",
+    "NOT_FOUND_KEY": "Access credential {{id}} not found",
     "NOT_FOUND_DISTRIBUTION": "Distribution request {{id}} not found",
     "NOT_FOUND_FORWARD_TASK": "Forward task {{id}} not found",
     "NOT_FOUND_FORWARD_REQUEST": "Forward request {{id}} not found",
@@ -77,10 +78,10 @@
     "EXTERNAL_WANGSU_AUTH_FAILED": "Wangsu authentication failed. Please check your AccessKey",
     "EXTERNAL_WANGSU_CHANNEL_NOT_FOUND": "Wangsu channel not found. Please check your channel configuration",
     "EXTERNAL_ALIYUN_AUTH_FAILED": "Aliyun DNS authentication failed. Please check your AccessKey",
-    "EXTERNAL_ALIYUN_AUTH_MISSING": "Aliyun DNS credentials not configured. Please add them in Settings first",
+    "EXTERNAL_ALIYUN_AUTH_MISSING": "Aliyun DNS credentials not configured. Please add them in System Settings first",
     "EXTERNAL_ALIYUN_DOMAIN_EXISTS": "Domain {{domain}} already exists in Aliyun",
     "EXTERNAL_ALIYUN_DOMAIN_NOT_OWNED": "Domain {{domain}} is not in the current Aliyun account",
-    "EXTERNAL_DNS_DOMAIN_NOT_CONFIGURED": "DNS base domain not configured. Please add it in Settings first",
+    "EXTERNAL_DNS_DOMAIN_NOT_CONFIGURED": "DNS base domain not configured. Please add it in System Settings first",
     "EXTERNAL_CREDENTIAL_VERIFICATION_FAILED": "Credential verification failed. Please check your AccessKey",
     "INTERNAL_FETCH_STREAMS_FAILED": "Failed to fetch stream list. Please retry",
     "INTERNAL_CREATE_STREAM_FAILED": "Failed to create stream. Please retry",
@@ -107,10 +108,23 @@
     "stopped": "Stream stopped"
   },
   "dashboard": {
+    "eyebrow": "LIVE OPERATIONS",
+    "title": "Operations Center",
+    "subtitle": "See what is happening first, then decide what needs attention.",
     "online": "Online",
     "activeTotal": "Active/Total",
     "active": "Active",
-    "recentActivity": "Recent Activity",
+    "systemStatus": "System Status",
+    "connected": "Operational",
+    "degraded": "Connection Issue",
+    "liveNow": "Live Now",
+    "noLive": "No streams are currently live",
+    "distributionStatus": "Distribution & Routing",
+    "cdnActive": "CDN Active",
+    "distributions": "Distribution Requests",
+    "routes": "Forward Routes",
+    "configuredOffline": "{{count}} configured stream(s) currently offline",
+    "recentActivity": "Event Timeline",
     "activity": {
       "on_publish": "Started publishing",
       "on_unpublish": "Stopped publishing",
@@ -118,19 +132,25 @@
       "on_stop": "Stopped watching"
     }
   },
+  "navigationGroups": {
+    "operations": "OPERATIONS",
+    "streaming": "STREAMING",
+    "resources": "RESOURCES",
+    "system": "SYSTEM"
+  },
   "navigation": {
-    "dashboard": "Dashboard",
-    "streams": "Streams",
-    "cdnChannels": "CDN Channels",
-    "authKeys": "Auth Keys",
+    "dashboard": "Operations Center",
+    "streams": "Live Streams",
+    "cdnChannels": "CDN Distribution",
+    "authKeys": "Access Credentials",
     "distribution": "Distribution",
-    "forwarding": "Forwarding",
-    "monitor": "Monitor",
-    "transcode": "Transcode",
-    "wangsuAuth": "Wangsu Auth",
-    "aliyunDnsAuth": "Aliyun DNS Auth",
-    "dnsRecords": "DNS Records",
-    "settings": "Settings"
+    "forwarding": "Forward Routes",
+    "monitor": "Live Monitor",
+    "transcode": "Transcode Profiles",
+    "wangsuAuth": "Wangsu Integration",
+    "aliyunDnsAuth": "Aliyun DNS",
+    "dnsRecords": "Domains & DNS",
+    "settings": "System Settings"
   },
   "labels": {
     "name": "Name",
@@ -146,12 +166,14 @@
     "searchPlaceholder": "Search…"
   },
   "header": {
-    "server": "SRS Server"
+    "server": "SRS Node",
+    "connected": "Connected",
+    "console": "Operations Console"
   },
   "notFound": {
     "title": "Page Not Found",
     "description": "The address is incorrect or the page has moved.",
-    "back": "Back to Dashboard"
+    "back": "Back to Operations Center"
   },
   "language": {
     "switch": "Switch Language",
