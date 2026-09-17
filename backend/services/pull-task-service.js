@@ -146,44 +146,85 @@ function resetStaleRuntime() {
   `).run();
 }
 
-function writeWorkerHeartbeat(instanceId) {
+function parseHeartbeat(value) {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    const ts = Date.parse(parsed.ts);
+    if (!parsed.instance_id || !Number.isFinite(ts)) return null;
+    return { instance_id: String(parsed.instance_id), ts: parsed.ts, ts_ms: ts };
+  } catch {
+    return null;
+  }
+}
+
+function heartbeatPayload(instanceId, now = new Date()) {
+  return JSON.stringify({ instance_id: String(instanceId), ts: now.toISOString() });
+}
+
+function claimWorkerLease(instanceId, maxAgeMs = 10000) {
   if (!instanceId) throw new Error('Worker instance ID is required');
-  const payload = JSON.stringify({ instance_id: String(instanceId), ts: new Date().toISOString() });
-  db.prepare(`
-    INSERT INTO settings (key, value) VALUES (?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value
-  `).run(WORKER_HEARTBEAT_KEY, payload);
+  const owner = String(instanceId);
+  const claim = db.transaction(() => {
+    const now = new Date();
+    const nowMs = now.getTime();
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY);
+    const current = parseHeartbeat(row?.value);
+
+    if (current && current.instance_id !== owner) {
+      const age = Math.max(0, nowMs - current.ts_ms);
+      if (age <= maxAgeMs) {
+        return {
+          acquired: false,
+          instance_id: current.instance_id,
+          last_seen_at: current.ts,
+          age_ms: age
+        };
+      }
+    }
+
+    const payload = heartbeatPayload(owner, now);
+    db.prepare(`
+      INSERT INTO settings (key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `).run(WORKER_HEARTBEAT_KEY, payload);
+    return { acquired: true, instance_id: owner, last_seen_at: now.toISOString(), age_ms: 0 };
+  });
+  return claim.immediate();
+}
+
+function renewWorkerLease(instanceId) {
+  if (!instanceId) throw new Error('Worker instance ID is required');
+  const owner = String(instanceId);
+  const renew = db.transaction(() => {
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY);
+    const current = parseHeartbeat(row?.value);
+    if (!current || current.instance_id !== owner) return false;
+    db.prepare('UPDATE settings SET value = ? WHERE key = ?')
+      .run(heartbeatPayload(owner), WORKER_HEARTBEAT_KEY);
+    return true;
+  });
+  return renew.immediate();
 }
 
 function clearWorkerHeartbeat(instanceId) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY);
-  if (!row?.value) return;
-  try {
-    const parsed = JSON.parse(row.value);
-    if (parsed.instance_id !== String(instanceId)) return;
-  } catch {
-    // Corrupt heartbeat belongs to nobody; clearing is safe during shutdown.
-  }
+  const current = parseHeartbeat(row?.value);
+  if (!current || current.instance_id !== String(instanceId)) return;
   db.prepare('DELETE FROM settings WHERE key = ?').run(WORKER_HEARTBEAT_KEY);
 }
 
 function getWorkerHealth(maxAgeMs = 10000) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(WORKER_HEARTBEAT_KEY);
-  if (!row?.value) return { available: false, instance_id: null, last_seen_at: null, age_ms: null };
-  try {
-    const parsed = JSON.parse(row.value);
-    const ts = Date.parse(parsed.ts);
-    if (!parsed.instance_id || !Number.isFinite(ts)) throw new Error('invalid heartbeat');
-    const age = Math.max(0, Date.now() - ts);
-    return {
-      available: age <= maxAgeMs,
-      instance_id: parsed.instance_id,
-      last_seen_at: parsed.ts,
-      age_ms: age
-    };
-  } catch {
-    return { available: false, instance_id: null, last_seen_at: null, age_ms: null };
-  }
+  const current = parseHeartbeat(row?.value);
+  if (!current) return { available: false, instance_id: null, last_seen_at: null, age_ms: null };
+  const age = Math.max(0, Date.now() - current.ts_ms);
+  return {
+    available: age <= maxAgeMs,
+    instance_id: current.instance_id,
+    last_seen_at: current.ts,
+    age_ms: age
+  };
 }
 
 module.exports = {
@@ -199,7 +240,8 @@ module.exports = {
   updateRuntime,
   listWorkerTasks,
   resetStaleRuntime,
-  writeWorkerHeartbeat,
+  claimWorkerLease,
+  renewWorkerLease,
   clearWorkerHeartbeat,
   getWorkerHealth
 };
