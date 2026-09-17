@@ -91,7 +91,28 @@
       "protocol": "Protocol",
       "idleHint": "SRS currently reports no publishing connection for this stream. This may simply mean the stream has not started yet.",
       "srsUnavailable": "SRS runtime state is currently unavailable, so input status cannot be determined.",
-      "inPullUnavailable": "IN-PULL (this system actively pulling a third-party source) currently has configuration foundations only. A verifiable and controllable pull runtime is not connected yet, so this workspace will not fabricate an active state."
+      "inPullUnavailable": "IN-PULL runtime is not connected yet.",
+      "managedPullSummary": "Managed Pull: Desired={{desired}} · Runtime={{runtime}} · Worker={{worker}}"
+    },
+    "managedPull": {
+      "title": "Managed Pull · IN-PULL",
+      "subtitle": "An independent Pull Worker uses FFmpeg to fetch a registered third-party source and publish it back into the current SRS stream. Desired State and Runtime State remain separate.",
+      "workerOnline": "Worker online",
+      "workerOffline": "Worker unavailable",
+      "workerUnavailableHint": "The task still desires RUNNING, but the Pull Worker heartbeat is unavailable. The desired state is preserved and will reconcile when the Worker returns; the console will not pretend the task is currently running.",
+      "selectSource": "Select a registered external source…",
+      "bind": "Bind pull task",
+      "noSources": "No active external source is available.",
+      "manageSources": "Manage sources in Forwarding",
+      "source": "Source",
+      "state": "Control state",
+      "publisherObserved": "Publisher confirmed in SRS",
+      "start": "Start pull",
+      "stop": "Stop pull",
+      "retry": "Retry",
+      "unbind": "Unbind",
+      "updated": "Managed pull state updated",
+      "deleted": "Managed pull task removed"
     },
     "core": {
       "protocol": "Registered protocol",
@@ -141,7 +162,8 @@
     },
     "danger": {
       "title": "Connection Controls",
-      "description": "These actions control current SRS sessions only. They are not equivalent to banning access, revoking authorization or changing desired state. Persistent blocking and recovery policy will be implemented in a later control-mechanism phase."
+      "description": "These actions control current SRS sessions only. They are not equivalent to banning access, revoking authorization or changing desired state. Persistent blocking and recovery policy will be implemented in a later control-mechanism phase.",
+      "managedPullDescription": "This input is driven by Managed Pull Desired State. To actually stop the input, use Stop in Managed Pull. Kicking the current publisher would only cause the Worker to reconcile it back, so that misleading action is hidden here."
     }
   },
   "modal": {
