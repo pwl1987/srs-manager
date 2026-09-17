@@ -7,6 +7,7 @@ const evidenceService = require('./v3-evidence-service');
 const capabilityService = require('./v3-capability-service');
 const healthService = require('./v3-health-service');
 const ingestCredentialService = require('./ingest-credential-service');
+const sessionService = require('./session-service');
 
 const CONTRACT_VERSION = 'workspace-v3-phase00.1';
 const ACTIVE_PULL_STATES = new Set(['STARTING', 'RUNNING', 'RETRYING']);
@@ -320,6 +321,7 @@ async function getWorkspace(roomValue) {
   const legacy = await legacyWorkspaceService.getWorkspace(streamId);
   if (!legacy) return null;
   const { sources, programSourceId, attribution } = projectSources(legacy);
+  const activeSession = sessionService.getActiveSessionForStream(streamId);
   const operations = [legacy.inputs?.managed_pull?.active_operation, ...(legacy.inputs?.managed_pull?.operations || [])]
     .filter(Boolean).filter((op, index, all) => all.findIndex(x => x.id === op.id) === index).map(projectOperation);
 
@@ -330,7 +332,7 @@ async function getWorkspace(roomValue) {
       routing: { app: 'live', stream_name: legacy.stream.name },
       created_at: legacy.stream.created_at || null, updated_at: legacy.stream.updated_at || null
     },
-    session: null,
+    session: activeSession ? { id: `session:${activeSession.id}`, legacy_session_id: activeSession.id, title: activeSession.title, lifecycle_state: activeSession.lifecycle_state, run_plan_id: activeSession.run_plan_id, planned_program_source_id: activeSession.planned_program_source_id, failover_source_ids: activeSession.failover_source_ids, preflight_status: activeSession.preflight_status, preflight_at: activeSession.preflight_at, outputs: activeSession.outputs } : null,
     sources,
     program: {
       id: `program:${roomId(streamId)}`,

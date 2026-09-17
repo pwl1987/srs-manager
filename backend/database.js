@@ -353,6 +353,71 @@ CREATE TABLE IF NOT EXISTS record_assets (
 CREATE INDEX IF NOT EXISTS idx_record_assets_task_created ON record_assets(record_task_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_record_assets_state ON record_assets(state, updated_at);
 
+CREATE TABLE IF NOT EXISTS run_plans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  program_source_id TEXT,
+  failover_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK(status IN ('ACTIVE','ARCHIVED')),
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_run_plans_stream ON run_plans(stream_id, status, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS run_plan_outputs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_plan_id INTEGER NOT NULL,
+  output_ref TEXT NOT NULL,
+  importance TEXT NOT NULL DEFAULT 'REQUIRED' CHECK(importance IN ('REQUIRED','OPTIONAL')),
+  auto_start INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 100,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (run_plan_id) REFERENCES run_plans(id) ON DELETE CASCADE,
+  UNIQUE(run_plan_id, output_ref)
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  run_plan_id INTEGER,
+  title TEXT NOT NULL,
+  lifecycle_state TEXT NOT NULL DEFAULT 'PREP' CHECK(lifecycle_state IN ('PREP','READY','ON_AIR','CLOSING','ENDED')),
+  planned_program_source_id TEXT,
+  failover_json TEXT NOT NULL DEFAULT '[]',
+  plan_snapshot_json TEXT NOT NULL DEFAULT '{}',
+  preflight_status TEXT,
+  preflight_json TEXT,
+  preflight_at TEXT,
+  created_by TEXT,
+  ready_at TEXT,
+  started_at TEXT,
+  closing_at TEXT,
+  ended_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
+  FOREIGN KEY (run_plan_id) REFERENCES run_plans(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_stream_state ON sessions(stream_id, lifecycle_state, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS session_outputs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL,
+  output_ref TEXT NOT NULL,
+  importance TEXT NOT NULL CHECK(importance IN ('REQUIRED','OPTIONAL')),
+  auto_start INTEGER NOT NULL DEFAULT 1,
+  temporary INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 100,
+  source_plan_output_id INTEGER,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+  UNIQUE(session_id, output_ref)
+);
+CREATE INDEX IF NOT EXISTS idx_session_outputs_session ON session_outputs(session_id, importance, sort_order, id);
+
 CREATE TABLE IF NOT EXISTS operations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   type TEXT NOT NULL,

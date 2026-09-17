@@ -9,6 +9,9 @@ const db = require('../database');
 const previewAccessService = require('../services/preview-access-service');
 const sourcePreviewService = require('../services/source-preview-service');
 const outputService = require('../services/v3-output-service');
+const runPlanService = require('../services/run-plan-service');
+const sessionService = require('../services/session-service');
+const preflightService = require('../services/preflight-service');
 
 const router = express.Router();
 router.use(jwtAuth);
@@ -144,6 +147,48 @@ for (const [action, desired] of [['start', 'RUNNING'], ['stop', 'STOPPED']]) {
     }
   });
 }
+
+
+router.get('/rooms/:roomId/run-plans', (req, res) => {
+  const stream = requireRoomStream(req, res); if (!stream) return;
+  res.json({ room_id: workspaceV3.roomId(stream.id), run_plans: runPlanService.listPlansByStream(stream.id) });
+});
+router.post('/rooms/:roomId/run-plans', (req, res) => {
+  const stream = requireRoomStream(req, res); if (!stream) return;
+  try { return res.status(201).json({ run_plan: runPlanService.createPlan({ ...req.body, stream_id: stream.id }) }); }
+  catch (error) { return res.status(422).json({ code: 'V3_RUN_PLAN_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null }); }
+});
+router.put('/rooms/:roomId/run-plans/:planId', (req, res) => {
+  const stream = requireRoomStream(req, res); if (!stream) return;
+  try {
+    const existing = runPlanService.getPlan(req.params.planId);
+    if (!existing || Number(existing.stream_id) !== Number(stream.id)) return res.status(404).json({ code: 'V3_RUN_PLAN_NOT_FOUND', message: 'Run Plan not found in this Room.', detail: req.params.planId, retryable: false, correlation_id: null });
+    return res.json({ run_plan: runPlanService.updatePlan(existing.id, req.body || {}) });
+  } catch (error) { return res.status(422).json({ code: 'V3_RUN_PLAN_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null }); }
+});
+router.get('/rooms/:roomId/sessions', (req, res) => {
+  const stream = requireRoomStream(req, res); if (!stream) return;
+  res.json({ room_id: workspaceV3.roomId(stream.id), sessions: sessionService.listSessionsByStream(stream.id) });
+});
+router.post('/rooms/:roomId/sessions', (req, res) => {
+  const stream = requireRoomStream(req, res); if (!stream) return;
+  try { return res.status(201).json({ session: sessionService.createSession({ ...req.body, stream_id: stream.id, created_by: req.user?.username || req.user?.sub || null }) }); }
+  catch (error) { return res.status(409).json({ code: 'V3_SESSION_CREATE_CONFLICT', message: error.message, detail: null, retryable: false, correlation_id: null }); }
+});
+router.get('/sessions/:sessionId', (req, res) => {
+  const session = sessionService.getSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ code: 'V3_SESSION_NOT_FOUND', message: 'Session not found.', detail: req.params.sessionId, retryable: false, correlation_id: null });
+  res.json({ session });
+});
+router.post('/sessions/:sessionId/preflight', async (req, res) => {
+  try {
+    const result = await preflightService.evaluateSession(req.params.sessionId, { mark_ready: req.body?.mark_ready === true });
+    return res.status(result.status === 'BLOCKED' ? 409 : 200).json(result);
+  } catch (error) {
+    const missing = String(error.message).includes('not found');
+    return res.status(missing ? 404 : 500).json({ code: missing ? 'V3_SESSION_NOT_FOUND' : 'V3_PREFLIGHT_FAILED', message: error.message, detail: null, retryable: !missing, correlation_id: null });
+  }
+});
 
 router.get('/capabilities', async (req, res) => {
   try {
