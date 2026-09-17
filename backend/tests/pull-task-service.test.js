@@ -19,11 +19,10 @@ function seed() {
   return { streamId: Number(stream.lastInsertRowid), sourceId: Number(source.lastInsertRowid) };
 }
 
-test('PullTask separates desired/runtime state, masks secrets, and reports worker health', (t) => {
+test('PullTask separates desired/runtime state, masks secrets, and enforces worker lease ownership', (t) => {
   const { streamId, sourceId } = seed();
 
   t.after(() => {
-    db.close();
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
@@ -39,16 +38,31 @@ test('PullTask separates desired/runtime state, masks secrets, and reports worke
   assert.ok(internal.source_url.includes('super-secret'));
 
   assert.equal(pullTaskService.getWorkerHealth().available, false);
-  pullTaskService.writeWorkerHeartbeat('worker-a');
+
+  const firstLease = pullTaskService.claimWorkerLease('worker-a', 10000);
+  assert.equal(firstLease.acquired, true);
+  assert.equal(firstLease.instance_id, 'worker-a');
+
   const healthy = pullTaskService.getWorkerHealth(10000);
   assert.equal(healthy.available, true);
   assert.equal(healthy.instance_id, 'worker-a');
   assert.ok(healthy.last_seen_at);
 
+  const competingLease = pullTaskService.claimWorkerLease('worker-b', 10000);
+  assert.equal(competingLease.acquired, false);
+  assert.equal(competingLease.instance_id, 'worker-a');
+  assert.equal(pullTaskService.renewWorkerLease('worker-b'), false, 'non-owner must not renew the lease');
+  assert.equal(pullTaskService.renewWorkerLease('worker-a'), true, 'lease owner should renew successfully');
+
   pullTaskService.clearWorkerHeartbeat('worker-b');
-  assert.equal(pullTaskService.getWorkerHealth().available, true, 'another worker must not clear the active heartbeat');
+  assert.equal(pullTaskService.getWorkerHealth().available, true, 'another worker must not clear the active lease');
   pullTaskService.clearWorkerHeartbeat('worker-a');
   assert.equal(pullTaskService.getWorkerHealth().available, false);
+
+  const takeover = pullTaskService.claimWorkerLease('worker-b', 10000);
+  assert.equal(takeover.acquired, true, 'standby worker may acquire after the owner releases the lease');
+  assert.equal(takeover.instance_id, 'worker-b');
+  pullTaskService.clearWorkerHeartbeat('worker-b');
 
   const requested = pullTaskService.setDesiredState(task.id, 'RUNNING');
   assert.equal(requested.desired_state, 'RUNNING');
