@@ -1,6 +1,30 @@
-export const CURRENT_VERSION = '0.5.0';
+export const CURRENT_VERSION = '0.5.1';
 
 export const RELEASES = [
+  {
+    version: '0.5.1',
+    date: '2026-09-17',
+    stage: { zh: '安全收口', en: 'Security Hotfix' },
+    title: { zh: '预览代理安全加固', en: 'Preview Proxy Hardening' },
+    summary: {
+      zh: '在 Workspace V2 基线上进一步收紧管理员预览凭据与跨流资源边界，并补齐真实 Origin 代理回归。',
+      en: 'Tightens operator preview credentials and cross-stream resource isolation on top of Workspace V2, with stronger origin-proxy regression coverage.'
+    },
+    highlights: {
+      zh: [
+        '管理员 Preview Token 默认有效期收紧为 10 分钟。',
+        'Preview Proxy 继续严格绑定 stream id/name，只允许当前流 playlist 与同前缀分片。',
+        '代理测试改为真实本地 HLS Origin，覆盖两级 playlist、TS、无 Token、错流 Token 与跨流资源拒绝。',
+        '10.30.5.199 真实业务流 22 经 Manager:3001 代理被 ffprobe 识别为 1920×1080 H.264 + 48kHz 双声道 AAC。'
+      ],
+      en: [
+        'Reduced the default operator Preview Token lifetime to 10 minutes.',
+        'Preview Proxy remains bound to one stream id/name and only permits that stream playlist and segment namespace.',
+        'Replaced mocked proxy coverage with a real local HLS origin covering nested playlists, TS, missing token, wrong-stream token and cross-stream rejection.',
+        'Verified stream 22 through Manager:3001 with ffprobe as 1920×1080 H.264 plus 48 kHz stereo AAC.'
+      ]
+    }
+  },
   {
     version: '0.5.0',
     date: '2026-09-17',

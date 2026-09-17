@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.0 Workspace V2：COMPLETE，进入稳定维护 / 现场验收 / bugfix。**
+**v0.5.1 Workspace V2：COMPLETE，进入稳定维护 / 现场验收 / bugfix。**
 
 ## 已完成
 
