@@ -21,13 +21,46 @@ function maskSourceUrl(value) {
   }
 }
 
+function listTaskSources(taskId, { includeSecret = false } = {}) {
+  const rows = db.prepare(`
+    SELECT pts.id, pts.pull_task_id, pts.external_source_id, pts.priority, pts.enabled,
+           pts.created_at, pts.updated_at,
+           es.name AS source_name, es.protocol AS source_protocol, es.source_url, es.status AS source_status
+    FROM pull_task_sources pts
+    JOIN external_sources es ON es.id = pts.external_source_id
+    WHERE pts.pull_task_id = ?
+    ORDER BY pts.priority ASC, pts.id ASC
+  `).all(taskId);
+
+  return rows.map(row => {
+    const source = {
+      id: row.id,
+      pull_task_id: row.pull_task_id,
+      external_source_id: row.external_source_id,
+      priority: row.priority,
+      enabled: Boolean(row.enabled),
+      source_name: row.source_name,
+      source_protocol: row.source_protocol,
+      source_status: row.source_status,
+      source_url_masked: maskSourceUrl(row.source_url),
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+    if (includeSecret) source.source_url = row.source_url;
+    return source;
+  });
+}
+
 function hydrate(row, includeSecret = false) {
   if (!row) return null;
   const task = {
     id: row.id,
     stream_id: row.stream_id,
     stream_name: row.stream_name,
+    // Compatibility field: original/primary source. New code should use
+    // sources[] + active_source_id instead of treating this as the runtime source.
     external_source_id: row.external_source_id,
+    active_source_id: row.active_source_id || row.external_source_id || null,
     source_name: row.source_name,
     source_protocol: row.source_protocol,
     source_url_masked: maskSourceUrl(row.source_url),
@@ -39,10 +72,13 @@ function hydrate(row, includeSecret = false) {
     last_stopped_at: row.last_stopped_at,
     next_retry_at: row.next_retry_at,
     worker_instance_id: row.worker_instance_id,
+    last_source_switch_at: row.last_source_switch_at,
+    last_source_switch_reason: row.last_source_switch_reason,
     created_at: row.created_at,
     updated_at: row.updated_at
   };
   if (includeSecret) task.source_url = row.source_url;
+  task.sources = listTaskSources(task.id, { includeSecret });
   return task;
 }
 
@@ -51,7 +87,7 @@ const SELECT_TASK = `
          es.name AS source_name, es.protocol AS source_protocol, es.source_url
   FROM pull_tasks pt
   JOIN streams s ON s.id = pt.stream_id
-  JOIN external_sources es ON es.id = pt.external_source_id
+  LEFT JOIN external_sources es ON es.id = COALESCE(pt.active_source_id, pt.external_source_id)
 `;
 
 function listTasks() {
@@ -68,20 +104,174 @@ function getTaskByStream(streamId, { includeSecret = false } = {}) {
   return hydrate(row, includeSecret);
 }
 
+function requireActiveSource(sourceId) {
+  const source = db.prepare("SELECT id FROM external_sources WHERE id = ? AND status = 'active'").get(sourceId);
+  if (!source) throw new Error('Source not found or inactive');
+}
+
 function createTask({ stream_id, external_source_id }) {
   const streamId = Number(stream_id);
   const sourceId = Number(external_source_id);
   if (!Number.isInteger(streamId) || streamId <= 0) throw new Error('Invalid stream');
   if (!Number.isInteger(sourceId) || sourceId <= 0) throw new Error('Invalid source');
   if (!db.prepare('SELECT id FROM streams WHERE id = ?').get(streamId)) throw new Error('Stream not found');
-  if (!db.prepare("SELECT id FROM external_sources WHERE id = ? AND status = 'active'").get(sourceId)) throw new Error('Source not found or inactive');
+  requireActiveSource(sourceId);
   if (db.prepare('SELECT id FROM pull_tasks WHERE stream_id = ?').get(streamId)) throw new Error('Pull task already exists for stream');
 
-  const result = db.prepare(`
-    INSERT INTO pull_tasks (stream_id, external_source_id, desired_state, runtime_state)
-    VALUES (?, ?, 'STOPPED', 'STOPPED')
-  `).run(streamId, sourceId);
-  return getTask(Number(result.lastInsertRowid));
+  const create = db.transaction(() => {
+    const result = db.prepare(`
+      INSERT INTO pull_tasks (stream_id, external_source_id, active_source_id, desired_state, runtime_state)
+      VALUES (?, ?, ?, 'STOPPED', 'STOPPED')
+    `).run(streamId, sourceId, sourceId);
+    const taskId = Number(result.lastInsertRowid);
+    db.prepare(`
+      INSERT INTO pull_task_sources (pull_task_id, external_source_id, priority, enabled)
+      VALUES (?, ?, 1, 1)
+    `).run(taskId, sourceId);
+    return taskId;
+  });
+  return getTask(create.immediate());
+}
+
+function addTaskSource(taskId, externalSourceId, priority = null) {
+  const id = Number(taskId);
+  const sourceId = Number(externalSourceId);
+  if (!Number.isInteger(id) || id <= 0) throw new Error('Invalid pull task');
+  if (!Number.isInteger(sourceId) || sourceId <= 0) throw new Error('Invalid source');
+  const task = getTask(id);
+  if (!task) throw new Error('Pull task not found');
+  requireActiveSource(sourceId);
+  if (db.prepare('SELECT id FROM pull_task_sources WHERE pull_task_id = ? AND external_source_id = ?').get(id, sourceId)) {
+    throw new Error('Source already exists in pull task');
+  }
+
+  let targetPriority = Number(priority);
+  if (!Number.isInteger(targetPriority) || targetPriority <= 0) {
+    const row = db.prepare('SELECT COALESCE(MAX(priority), 0) AS max_priority FROM pull_task_sources WHERE pull_task_id = ?').get(id);
+    targetPriority = Number(row?.max_priority || 0) + 1;
+  }
+  if (db.prepare('SELECT id FROM pull_task_sources WHERE pull_task_id = ? AND priority = ?').get(id, targetPriority)) {
+    throw new Error('Pull source priority already exists');
+  }
+
+  db.prepare(`
+    INSERT INTO pull_task_sources (pull_task_id, external_source_id, priority, enabled)
+    VALUES (?, ?, ?, 1)
+  `).run(id, sourceId, targetPriority);
+  return getTask(id);
+}
+
+function updateTaskSource(taskId, externalSourceId, updates = {}) {
+  const id = Number(taskId);
+  const sourceId = Number(externalSourceId);
+  const task = getTask(id);
+  if (!task) throw new Error('Pull task not found');
+  const current = db.prepare('SELECT * FROM pull_task_sources WHERE pull_task_id = ? AND external_source_id = ?').get(id, sourceId);
+  if (!current) throw new Error('Pull task source not found');
+
+  const fields = {};
+  if (updates.priority !== undefined) {
+    const priority = Number(updates.priority);
+    if (!Number.isInteger(priority) || priority <= 0) throw new Error('Invalid source priority');
+    const conflict = db.prepare('SELECT id FROM pull_task_sources WHERE pull_task_id = ? AND priority = ? AND external_source_id != ?')
+      .get(id, priority, sourceId);
+    if (conflict) throw new Error('Pull source priority already exists');
+    fields.priority = priority;
+  }
+  if (updates.enabled !== undefined) {
+    const enabled = updates.enabled === true || Number(updates.enabled) === 1 ? 1 : 0;
+    if (!enabled && Number(task.active_source_id) === sourceId && task.desired_state === 'RUNNING') {
+      throw new Error('Active pull source cannot be disabled while task is running');
+    }
+    fields.enabled = enabled;
+  }
+  if (Object.keys(fields).length === 0) return task;
+  const sets = Object.keys(fields).map(key => `${key} = ?`).join(', ');
+  db.prepare(`UPDATE pull_task_sources SET ${sets}, updated_at = CURRENT_TIMESTAMP WHERE pull_task_id = ? AND external_source_id = ?`)
+    .run(...Object.values(fields), id, sourceId);
+  return getTask(id);
+}
+
+function deleteTaskSource(taskId, externalSourceId) {
+  const id = Number(taskId);
+  const sourceId = Number(externalSourceId);
+  const task = getTask(id);
+  if (!task) throw new Error('Pull task not found');
+  const sources = listTaskSources(id);
+  const current = sources.find(source => Number(source.external_source_id) === sourceId);
+  if (!current) throw new Error('Pull task source not found');
+  if (sources.length <= 1) throw new Error('Pull task must keep at least one source');
+  if (Number(task.active_source_id) === sourceId && task.desired_state === 'RUNNING') {
+    throw new Error('Active pull source cannot be removed while task is running');
+  }
+
+  db.prepare('DELETE FROM pull_task_sources WHERE pull_task_id = ? AND external_source_id = ?').run(id, sourceId);
+  if (Number(task.active_source_id) === sourceId) {
+    const next = listTaskSources(id).find(source => source.enabled && source.source_status === 'active');
+    if (!next) throw new Error('Pull task has no enabled source');
+    db.prepare(`
+      UPDATE pull_tasks
+      SET active_source_id = ?, attempt = 0,
+          last_source_switch_at = CURRENT_TIMESTAMP,
+          last_source_switch_reason = 'active source removed while stopped',
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(next.external_source_id, id);
+  }
+  return getTask(id);
+}
+
+function getNextEnabledSource(taskId, currentSourceId) {
+  const sources = listTaskSources(taskId, { includeSecret: true })
+    .filter(source => source.enabled && source.source_status === 'active');
+  if (!sources.length) return null;
+  const currentIndex = sources.findIndex(source => Number(source.external_source_id) === Number(currentSourceId));
+  if (currentIndex < 0) return sources[0];
+  return sources[currentIndex + 1] || null;
+}
+
+function ensureUsableActiveSource(taskId, { includeSecret = false } = {}) {
+  const task = getTask(taskId, { includeSecret });
+  if (!task) return null;
+  const active = task.sources.find(source =>
+    Number(source.external_source_id) === Number(task.active_source_id)
+      && source.enabled
+      && source.source_status === 'active'
+  );
+  if (active) return task;
+
+  const next = task.sources.find(source => source.enabled && source.source_status === 'active');
+  if (!next) return task;
+  db.prepare(`
+    UPDATE pull_tasks
+    SET active_source_id = ?, attempt = 0,
+        last_source_switch_at = CURRENT_TIMESTAMP,
+        last_source_switch_reason = 'selected first usable source',
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(next.external_source_id, task.id);
+  return getTask(task.id, { includeSecret });
+}
+
+function switchActiveSource(taskId, externalSourceId, reason, runtimeState = 'RETRYING') {
+  const id = Number(taskId);
+  const sourceId = Number(externalSourceId);
+  if (!RUNTIME_STATES.has(runtimeState)) throw new Error('Invalid runtime state');
+  const candidate = listTaskSources(id).find(source =>
+    Number(source.external_source_id) === sourceId
+      && source.enabled
+      && source.source_status === 'active'
+  );
+  if (!candidate) throw new Error('Pull task source not enabled or active');
+  db.prepare(`
+    UPDATE pull_tasks
+    SET active_source_id = ?, attempt = 0, runtime_state = ?,
+        last_error = ?, next_retry_at = CURRENT_TIMESTAMP, worker_instance_id = NULL,
+        last_source_switch_at = CURRENT_TIMESTAMP,
+        last_source_switch_reason = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(sourceId, runtimeState, reason || null, reason || null, id);
+  return getTask(id);
 }
 
 function deleteTask(id) {
@@ -112,7 +302,8 @@ function setDesiredState(id, state) {
 function updateRuntime(id, fields) {
   const allowed = [
     'runtime_state', 'attempt', 'last_error', 'last_started_at',
-    'last_stopped_at', 'next_retry_at', 'worker_instance_id'
+    'last_stopped_at', 'next_retry_at', 'worker_instance_id',
+    'active_source_id', 'last_source_switch_at', 'last_source_switch_reason'
   ];
   const updates = {};
   for (const key of allowed) {
@@ -131,7 +322,8 @@ function updateRuntime(id, fields) {
 function listWorkerTasks() {
   return db.prepare(`${SELECT_TASK} WHERE pt.desired_state = 'RUNNING' OR pt.runtime_state != 'STOPPED' ORDER BY pt.id`)
     .all()
-    .map(row => hydrate(row, true));
+    .map(row => hydrate(row, true))
+    .map(task => ensureUsableActiveSource(task.id, { includeSecret: true }));
 }
 
 function resetStaleRuntime() {
@@ -236,6 +428,13 @@ module.exports = {
   getTaskByStream,
   createTask,
   deleteTask,
+  listTaskSources,
+  addTaskSource,
+  updateTaskSource,
+  deleteTaskSource,
+  getNextEnabledSource,
+  ensureUsableActiveSource,
+  switchActiveSource,
   setDesiredState,
   updateRuntime,
   listWorkerTasks,
