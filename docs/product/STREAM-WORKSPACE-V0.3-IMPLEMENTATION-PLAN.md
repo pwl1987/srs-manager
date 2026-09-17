@@ -136,7 +136,7 @@ Gate：标准方案重复执行无重复任务；Required/Optional 影响 Health
 - CLOSING 编排和收播摘要：停止网络输出、Finalize 录制、停 Pull、释放 Program、检查残留；
 - 底部状态轨正常安静，异常时按需展开；资源指标翻译成业务后果。
 
-Gate：Program Source Lost、Single Output Failed、Rendition Failed、Disk Low、Worker Lost 等故障注入通过；3 秒扫描与 10 秒故障测试达到设计目标。
+Gate：**PASS（功能/影响链）**。真实 `live` 主机隔离 Candidate 已完成 Program Source Lost、Single Required Output Failed、Rendition Failed、Disk Low、Worker Lost 五类故障注入；ACK≠RECOVERED、影响链与 Closing 顺序均成立。最终 1920×1080 的 3 秒扫描 / 10 秒故障人工计时随 Phase 08 Cutover 再做终验。证据见 `contracts/workspace-v3/PHASE-07-FIELD-GATE.md`。
 
 ## Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate
 

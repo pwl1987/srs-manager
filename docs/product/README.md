@@ -23,6 +23,8 @@
 - [Phase 02 Evidence / Capability / Operation](./contracts/workspace-v3/PHASE-02-EVIDENCE-CAPABILITY-OPERATION.md) — 三层 Capability、Evidence freshness、Health 与持久化 Operation Core 实施边界；
 - [Phase 03 Sources / Program / Secure Monitor](./contracts/workspace-v3/PHASE-03-SOURCES-PROGRAM-MONITOR.md) — IN-PUSH 凭证、Program attribution/switch、HTTP-FLV-first PGM 与按需 PVW；
 - [Phase 03 Field Gate](./contracts/workspace-v3/PHASE-03-FIELD-GATE.md) — 真实 live 主机隔离 Candidate 的 PGM/PVW、成功切源、失败 rollback、Ingest Hook 与清理证据；
+- [Phase 07 Incident / Closing](./contracts/workspace-v3/PHASE-07-INCIDENT-CLOSING.md) — Incident 影响链、ACK/Recovered 与收播编排 Authority；
+- [Phase 07 Field Gate](./contracts/workspace-v3/PHASE-07-FIELD-GATE.md) — 五类真实故障注入、Closing、清理与生产复核证据；
 - [Phase 05 RECORD Runtime](./contracts/workspace-v3/PHASE-05-RECORD-RUNTIME.md) — Record Task/Asset、TS 安全分段、Finalize、RECOVERABLE、磁盘预算与 Shared Rendition 边界；
 - [Phase 05 Field Gate](./contracts/workspace-v3/PHASE-05-FIELD-GATE.md) — 真实 MP4/TS、Manager/Worker 重启、异常恢复与磁盘不足现场证据；
 - [Phase 06 Session / Run Plan](./contracts/workspace-v3/PHASE-06-SESSION-RUNPLAN.md) — Session 生命周期、Run Plan Snapshot、Preflight 与 Start 编排边界；

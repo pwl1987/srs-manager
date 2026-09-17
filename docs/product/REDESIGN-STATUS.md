@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00–06 均 COMPLETE；Current Task 已进入 Phase 07 Incident / Health / Closing Workflow，既有 Pull / Push / Transcode / Record Runtime ownership 继续兼容复用。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00–07 均 COMPLETE；Current Task 已进入 Phase 08 16:9 Cutover / Compatibility Cleanup / Release Gate，既有 Pull / Push / Transcode / Record Runtime ownership 继续兼容复用。**
 
 ## 已完成
 
@@ -148,11 +148,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase 06 — Session / Run Plan / Preflight**。Run Plan / Session Snapshot / Required-Optional / Preflight / Session Start Operation 与生产 `SessionCommandBar` 已完成。真实 `live` 主机隔离 Field Gate 验证：同一 Idempotency-Key 重放不重复创建 child Operation；Required RECORD 正常运行、Optional PUSH 真实失败时不回滚健康链路，Session 仍 `ON_AIR` 且 `degraded=true`；新 Node 进程重载后 Session/Plan Snapshot/Session Outputs 保持一致。最终 backend `64/64 PASS`、frontend i18n/build PASS；测试 Hook/Candidate 零残留，生产 DB integrity `ok`，五个正式服务全 active。
+Last Completed：**Phase 07 — Incident / Health / Closing Workflow**。Incident 统一从现有 Health Reasons 派生，完成影响链、Required severity 提升、ACK≠RECOVERED、Recovered Timeline 与 Session Closing 编排；生产 Workspace 已接 Operations Dock 和收播控制。真实 `live` 主机隔离 Field Gate 验证 Program Source Lost、Single Required Output Failed、Rendition Failed、Disk Low、Worker Lost 五类故障，Closing Gate `2/2 PASS`。最终 backend `69/69 PASS`、frontend i18n/build PASS；`p7_gate_*` 流与 Hook 零残留，生产 DB integrity `ok`，五个正式服务全 active。
 
-Current Task：**Phase 07 — Incident / Health / Closing Workflow**。在既有 Runtime facts 上建立影响链、Incident、Acknowledge/Recovered 与 CLOSING 收播编排，不引入第二套监控真相。
+Current Task：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。按 UI-00 Authority 完成最终生产 Workspace 16:9 主工作面切换、密度/响应式/状态五态验收、Legacy 入口使用审计、升级回退与最终发布门禁。
 
-Next Task：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。Phase 07 Gate 通过后进行最终主工作流切换、兼容清理与发布门禁。
+Next Task：**Phase 08 closure / release decision**。只有 1920×1080 3 秒扫描、10 秒故障识别、1366/1440P/4K 降级、真实全场回归和升级回退均通过后，才决定 V3 release 与 Legacy deprecation。
 
 ## 验证债务 / 已知边界
 
