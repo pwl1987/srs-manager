@@ -13,6 +13,14 @@
 - Configured、Desired、Runtime、Observed、Remote Verified 始终分离；
 - 每阶段只有通过 focused tests + backend regression + frontend build/i18n + 必要现场媒体证据后才能进入下一阶段。
 
+## Phase UI-00 — Product Design Lab / UI Freeze
+
+状态：**COMPLETE**。目标是在任何 V3 Runtime/Schema 迁移前先冻结完整产品 IA、Shell、Workspace 与外部资源页面，避免实现阶段由 Agent 临时设计 UI。
+
+Authority：`UI-V3-PRODUCT-DESIGN-LAB.md` + `frontend/src/design-lab/` + `docs/product/ui-v3/reference/`。Design Lab 仅使用 Mock 数据；开发环境可直接访问，production build 仍受认证保护。
+
+Gate 已满足：前端 i18n/build PASS；1920×1080 直播间总览、Workspace PREP/ON AIR/PVW/INCIDENT/CLOSING、媒体规格、开播方案、Provider/Session/状态样板完成实渲染校验；不得将 Mock 状态冒充 Runtime。
+
 ## Phase 00 — Design Freeze / Migration Contract
 
 目标：把口头设计转换为可实施 Contract，仍不改业务 Runtime。
@@ -138,7 +146,7 @@ Gate：真实部署主机完成整场 PREP → ON AIR → INCIDENT → RECOVERY 
 
 ## 阶段依赖与推进纪律
 
-推荐顺序固定为：`00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。Phase 03 与 Phase 04 的局部前端原型可以并行探索，但不得绕过 01/02 的 Domain/Evidence Authority 直接形成第二套状态逻辑。
+推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00 已 COMPLETE；Phase 03 与 Phase 04 的局部前端原型可以并行探索，但不得绕过 01/02 的 Domain/Evidence Authority 直接形成第二套状态逻辑。
 
 每阶段结尾必须同时更新：
 - `REDESIGN-STATUS.md` 的 Current Phase / Last Completed / Current Task / Next Task；

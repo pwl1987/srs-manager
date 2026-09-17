@@ -23,6 +23,7 @@ const AliyunDnsAuth = lazy(() => import('./pages/AliyunDnsAuth'));
 const DnsRecords = lazy(() => import('./pages/DnsRecords'));
 const Settings = lazy(() => import('./pages/Settings'));
 const ReleaseNotes = lazy(() => import('./pages/ReleaseNotes'));
+const DesignLab = lazy(() => import('./design-lab/DesignLab'));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -57,6 +58,7 @@ export default function App() {
       <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 size={24} className="animate-spin text-[var(--primary)]" /></div>}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/design-lab/*" element={import.meta.env.DEV ? <DesignLab /> : <ProtectedRoute><DesignLab /></ProtectedRoute>} />
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="streams" element={<Streams />} />

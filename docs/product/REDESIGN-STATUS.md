@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：DESIGN FREEZE；实施阶段已拆分为 Phase 00–08，业务代码尚未开始迁移。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：DESIGN FREEZE；Phase UI-00 高保真 Product Design Lab 已 COMPLETE，正式实施仍从 Phase 00 开始，业务 Runtime 尚未迁移。**
 
 ## 已完成
 
@@ -146,7 +146,9 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 ## 下一任务
 
-Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
+Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
+
+Last Completed：**Phase UI-00 — Product Design Lab / UI Freeze**。完整产品 IA、直播间列表、Workspace 五态、媒体规格、开播方案、Session 复盘、Provider/集成、凭据、系统页与异常状态样板已形成可运行 Mock 高保真基线；未接入真实 Runtime。
 
 Current Task：**Phase 00 — Design Freeze / Migration Contract**。先完成 V2→V3 全量映射、数据/API Contract、Capability Matrix、状态机和 acceptance fixtures；Phase 00 Gate 通过前不进入业务 Runtime 改造。
 
