@@ -10,6 +10,7 @@ const previewAccessService = require('../services/preview-access-service');
 const sourcePreviewService = require('../services/source-preview-service');
 const outputService = require('../services/v3-output-service');
 const incidentService = require('../services/incident-service');
+const closingService = require('../services/session-closing-service');
 const runPlanService = require('../services/run-plan-service');
 const sessionService = require('../services/session-service');
 const preflightService = require('../services/preflight-service');
@@ -207,6 +208,19 @@ router.post('/sessions/:sessionId/start', async (req, res) => {
 });
 
 
+
+router.post('/sessions/:sessionId/close', (req, res) => {
+  const idempotencyKey = String(req.get('Idempotency-Key') || '').trim();
+  if (!idempotencyKey) return res.status(400).json({ code: 'V3_IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key is required', detail: null, retryable: false, correlation_id: null });
+  try {
+    const result = closingService.closeSession(req.params.sessionId, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
+    if (result.conflict) return res.status(409).json({ code: 'V3_SESSION_CLOSE_CONFLICT', message: 'Another Session operation is active.', detail: result.operation, retryable: true, correlation_id: null });
+    return res.status(result.operation?.phase === 'SUCCEEDED' ? 200 : 202).json(result.operation);
+  } catch (error) {
+    return res.status(409).json({ code: 'V3_SESSION_CLOSE_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null });
+  }
+});
+
 router.get('/rooms/:roomId/incidents', async (req, res) => {
   const stream = requireRoomStream(req, res); if (!stream) return;
   try {
@@ -265,6 +279,7 @@ router.get('/operations/:operationId', (req, res) => {
     if (operation.subject_type === 'forward_task') operation = outputService.reconcilePushOperation(operation);
     if (operation.subject_type === 'record_task') operation = outputService.reconcileRecordOperation(operation);
     if (operation.subject_type === 'session' && operation.type === 'V3_SESSION_START') operation = sessionOrchestration.reconcileSessionStartOperation(operation);
+    if (operation.subject_type === 'session' && operation.type === 'V3_SESSION_CLOSE') operation = closingService.reconcileSessionCloseOperation(operation, { requested_by: req.user?.username || req.user?.sub || null });
     return res.json(operation);
   } catch (error) {
     internalError(res, error, 'V3_OPERATION_READ_FAILED');
