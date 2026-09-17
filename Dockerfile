@@ -8,12 +8,14 @@ RUN npm run build
 FROM node:24-alpine AS backend-base
 WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
-RUN npm ci --omit=dev
-COPY backend/ .
-COPY --from=frontend /app/frontend/dist ./public
-RUN apk add --no-cache curl \
+RUN apk add --no-cache libstdc++ curl \
+    && apk add --no-cache --virtual .build-deps python3 make g++ \
+    && npm ci --omit=dev \
+    && apk del .build-deps \
     && addgroup -S appgroup \
     && adduser -S appuser -G appgroup
+COPY backend/ .
+COPY --from=frontend /app/frontend/dist ./public
 
 FROM backend-base AS pull-worker
 USER root
