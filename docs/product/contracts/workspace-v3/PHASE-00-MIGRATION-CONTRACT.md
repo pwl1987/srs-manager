@@ -55,7 +55,7 @@ V2 没有持久化的多 PUSH Source 对象。Phase 01 为每个 legacy stream �
 
 ### Program
 
-Program 永远只有一个。状态词汇固定为 `NO_PROGRAM / READY / LIVE / SWITCHING / VERIFYING`。多 Source 可以同时 READY，但任意时刻只能有一个 `program.source_id`。
+Program 永远只有一个。状态词汇固定为 `NO_PROGRAM / READY / LIVE / SWITCHING / VERIFYING / UNKNOWN`；SRS observation 不可用时必须用 UNKNOWN，禁止用数据库历史 status 猜 LIVE/NO_PROGRAM。多 Source 可以同时 READY，但任意时刻只能有一个 `program.source_id`。
 
 如果 SRS 出现无法可靠归因的多 Publisher/冲突证据，Program 进入非健康状态并保留原始 evidence，不得随意挑一个来源显示正常。
 

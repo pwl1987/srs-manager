@@ -36,6 +36,7 @@ test('Workspace V3 Phase 00 contract versions and mandatory V2 mappings are froz
   ]) assert.ok(mapped.has(fact), `missing V2 mapping: ${fact}`);
 
   assert.ok(contract.v2_to_v3.every(item => item.lossless === true));
+  assert.ok(contract.source.program_states.includes('UNKNOWN'));
 });
 
 test('Output capability matrix rejects impossible V3 combinations', () => {

@@ -4,7 +4,7 @@
 
 ## 当前版本基线
 
-当前实现版本基线为 **v0.5.1 直播工作台 V2**；Workspace V3 已完成 UI Freeze 与 Phase 00 Contract Freeze，当前进入 Phase 01 只读 Domain Compatibility Foundation，尚未迁移既有 Runtime ownership。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
+当前实现版本基线为 **v0.5.1 直播工作台 V2**；Workspace V3 已完成 UI Freeze、Phase 00 Contract 与 Phase 01 只读 Domain Compatibility Foundation，当前进入 Phase 02 Capability / Evidence / Operation Core；既有 Runtime ownership 仍保持不变。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
 
 - **第三方推流到我方（IN-PUSH）**：生成推流地址、观察真实 Publisher、查看状态并进行精确控制；
 - **我方主动拉第三方（IN-PULL）**：外部来源、Pull Worker、FFmpeg、重试、主备切换和安全人工切源；
@@ -22,6 +22,7 @@
 - [Workspace V3 实施计划](./STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md) — UI-00 → Phase 00–08 增量迁移、阶段 Gate、真实媒体验收与最终切换计划；
 - [Workspace V3 Phase 00 Contract](./contracts/workspace-v3/PHASE-00-MIGRATION-CONTRACT.md) — V2→V3 无损映射、Aggregate、Capability/Evidence/Operation 词汇与迁移边界；
 - [Workspace V3 API Contract](./contracts/workspace-v3/API-CONTRACT.md) — V3 Read Model、Compatibility Explain、Operation/idempotency、错误与 secret 边界；
+- [Workspace V3 Phase 01 Adapter](./contracts/workspace-v3/PHASE-01-ADAPTER-NOTES.md) — 只读 Domain Adapter、Source/Program attribution、Rendition/Output reconciliation 与 no-mutation Gate；
 - [拉流运行时与四向链路联动 v0.1](./PULL-RUNTIME-AND-FLOW-LINKAGE-V0.1.md) — 定义 Pull Worker、PullTask、FFmpeg、输入所有权和运行态；
 - [主备拉流与故障切换 v0.1](./PULL-FAILOVER-V0.1.md) — 定义候选源集合、自动切备、不自动回切和人工安全切源；
 - [主动外推与拉流授权控制 v0.1](./OUT-PUSH-OUT-PULL-V0.1.md) — 定义 Managed OUT-PUSH、Push Worker、OUT-PULL 准入、Access Grant 与内部媒体凭证。
@@ -38,7 +39,8 @@
 7. W2-C — Manager 安全 HLS Preview Proxy、本地音频电平与观众语义：完成并通过真实媒体测试；
 8. Phase UI-00 Product Design Lab：完成；高保真 UI Authority 已冻结，仍未接入真实 Runtime；
 9. Phase 00 Migration/API Contract：完成；Contract tests 5/5、backend regression 32/32、frontend i18n/build PASS；
-10. v0.5.1 实现继续稳定维护；Workspace V3 当前进入 Phase 01，只做 Domain Adapter / Read Model，不直接重写 Runtime。
+10. Phase 01 Domain Compatibility Foundation：完成；`/api/v3/rooms` 与 V3 Workspace Aggregate 已建立，Read-only reconciliation Gate 通过；
+11. v0.5.1 实现继续稳定维护；Workspace V3 当前进入 Phase 02，继续在既有 Runtime 上增加统一 Capability/Evidence/Operation 解释层。
 
 ## 长期约束
 

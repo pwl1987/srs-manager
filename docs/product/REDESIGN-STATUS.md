@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00 + Phase 00 Contract 均 COMPLETE；Current Task 已进入 Phase 01 Domain Compatibility Foundation，业务 Runtime ownership 尚未迁移。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00、Phase 01 均 COMPLETE；Current Task 已进入 Phase 02 Capability / Evidence / Operation Core，既有 Runtime ownership 仍未迁移。**
 
 ## 已完成
 
@@ -88,7 +88,7 @@
 
 已完成：
 
-- 后端回归测试当前 32/32 通过（含 Workspace V3 Phase 00 Contract Gate 5/5）；
+- 后端回归测试当前 33/33 通过（含 Workspace V3 Contract Gate 5/5 + Phase 01 Adapter reconciliation 1/1）；
 - 前端生产构建与多语言 key 校验通过；
 - v0.3.0 Web / Pull Worker 镜像及 FFmpeg 发布门禁已通过；
 - v0.4.0 Compose 已包含 Web / Pull Worker / Push Worker 三服务并通过模型校验；
@@ -148,11 +148,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase 00 — Design Freeze / Migration Contract**。`contracts/workspace-v3/` 已冻结 V2→V3 无损映射、Aggregate/API Contract、PUSH/SERVE/RECORD Capability Matrix、Evidence/Health/Operation 状态词汇与 15 个 acceptance cases；纯 Contract tests 5/5、backend full regression 32/32、frontend i18n/build PASS。
+Last Completed：**Phase 01 — Domain Compatibility Foundation**。已新增只读 `/api/v3/rooms` 与 `/api/v3/rooms/:roomId/workspace`，以确定性 `room:<streams.id>` 投影 V2 Sources/Program/Renditions/PUSH/SERVE/Provider/Operation facts；Standby 未探测即 UNKNOWN、SRS 不可达即 Program UNKNOWN、legacy Dynamic 不冒充受管 Runtime；focused 6/6、backend 33/33、frontend build PASS，Read Model 不修改 Desired/Runtime。
 
-Current Task：**Phase 01 — Domain Compatibility Foundation**。建立只读 V3 Domain Adapter / Workspace Aggregate；先用确定性 `room:<streams.id>` 作为稳定 Room Domain ID，不新增第二套 Room SoR，不改变现有 Pull / Push / Transcode / Preview / Hook Runtime ownership。
+Current Task：**Phase 02 — Capability / Evidence / Operation Core**。将 Product/Runtime/Destination Capability Registry、Evidence provenance/freshness/LOCAL-REMOTE、Health evaluator 与通用 Operation projection 接入 V3 Read Model；继续复用现有 Worker，不重写 Pull/Push/Transcode Runtime。
 
-Next Task：**Phase 02 — Capability / Evidence / Operation Core**。Phase 01 Gate 通过后再把 Capability Registry、Evidence freshness/LOCAL-REMOTE、Health evaluator 与通用 Operation 基础设施接入真实 Read Model。
+Next Task：**Phase 03 — Sources / Program / Secure Monitor**。Phase 02 Gate 通过后再进入独立 PUSH Source credential、Source Selector 与 HTTP-FLV-first secure preview。
 
 ## 验证债务 / 已知边界
 

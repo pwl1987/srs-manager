@@ -38,6 +38,8 @@ Gate：**PASS**。V2 事实类均有 lossless mapping；Contract tests 5/5、bac
 
 ## Phase 01 — Domain Compatibility Foundation
 
+状态：**COMPLETE**。Authority：`contracts/workspace-v3/PHASE-01-ADAPTER-NOTES.md`。
+
 目标：在不改现有 Runtime ownership 的前提下建立 V3 领域兼容层。
 
 交付：
@@ -47,7 +49,7 @@ Gate：**PASS**。V2 事实类均有 lossless mapping；Contract tests 5/5、bac
 - 旧数据升级必须幂等，可重复启动，不自动改变 Desired State；
 - 增加 migration/reconciliation tests，保证历史数据不被重复制造或丢失。
 
-Gate：同一真实业务流在 V2 与 V3 Read Model 中的事实必须一致；无双启动、无重复 Output、无自动开播。
+Gate：**PASS**。V3 只读 Adapter 对 V2 facts 做无损 reconciliation；Read Model 前后 Runtime/Desired fingerprint 不变；Standby/Provider/legacy Dynamic 均无假绿；focused 6/6、backend 33/33、frontend i18n/build PASS。
 
 ## Phase 02 — Capability / Evidence / Operation Core
 
@@ -148,7 +150,7 @@ Gate：真实部署主机完成整场 PREP → ON AIR → INCIDENT → RECOVERY 
 
 ## 阶段依赖与推进纪律
 
-推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00 与 Phase 00 已 COMPLETE；Phase 03 与 Phase 04 的局部前端原型可以并行探索，但不得绕过 01/02 的 Domain/Evidence Authority 直接形成第二套状态逻辑。
+推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00、Phase 00 与 Phase 01 已 COMPLETE；Phase 03 与 Phase 04 的局部前端原型可以并行探索，但不得绕过 01/02 的 Domain/Evidence Authority 直接形成第二套状态逻辑。
 
 每阶段结尾必须同时更新：
 - `REDESIGN-STATUS.md` 的 Current Phase / Last Completed / Current Task / Next Task；

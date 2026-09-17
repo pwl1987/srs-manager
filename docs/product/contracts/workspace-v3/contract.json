@@ -179,7 +179,8 @@
       "READY",
       "LIVE",
       "SWITCHING",
-      "VERIFYING"
+      "VERIFYING",
+      "UNKNOWN"
     ]
   },
   "output": {
