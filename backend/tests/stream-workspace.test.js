@@ -11,6 +11,7 @@ const db = require('../database');
 const srsService = require('../services/srs');
 const cdnService = require('../services/cdn-service');
 const streamService = require('../services/stream-service');
+const pullTaskService = require('../services/pull-task-service');
 const workspaceService = require('../services/stream-workspace-service');
 
 const originals = {
@@ -24,12 +25,14 @@ function seedStream() {
   db.prepare('DELETE FROM forward_tasks').run();
   db.prepare('DELETE FROM distribution_requests').run();
   db.prepare('DELETE FROM cdn_channels').run();
+  db.prepare('DELETE FROM pull_tasks').run();
+  db.prepare('DELETE FROM external_sources').run();
   db.prepare('DELETE FROM streams').run();
   const result = db.prepare("INSERT INTO streams (name, protocol, status) VALUES ('news-main', 'rtmp', 'online')").run();
   return Number(result.lastInsertRowid);
 }
 
-test('scoped controls and workspace keep publisher/player semantics separate', async (t) => {
+test('scoped controls and workspace keep publisher/player and managed-pull semantics separate', async (t) => {
   const streamId = seedStream();
   const clients = [
     { id: 11, app: 'live', stream: 'news-main', type: 'fmle-publish', ip: '10.0.0.10', protocol: 'rtmp' },
@@ -73,6 +76,15 @@ test('scoped controls and workspace keep publisher/player semantics separate', a
   db.prepare(`INSERT INTO distribution_requests (stream_id, applicant, expires_at, status)
     VALUES (?, 'partner-a', '2099-01-01T00:00:00.000Z', 'active')`).run(streamId);
 
+  const source = db.prepare(`
+    INSERT INTO external_sources (name, source_url, protocol, pull_mode, status)
+    VALUES ('partner-ingest', 'rtmp://example.com/live/input', 'rtmp', 'pull', 'active')
+  `).run();
+  const pullTask = pullTaskService.createTask({ stream_id: streamId, external_source_id: Number(source.lastInsertRowid) });
+  pullTaskService.setDesiredState(pullTask.id, 'RUNNING');
+  pullTaskService.updateRuntime(pullTask.id, { runtime_state: 'RUNNING', worker_instance_id: 'worker-a', attempt: 1 });
+  pullTaskService.writeWorkerHeartbeat('worker-a');
+
   const workspace = await workspaceService.getWorkspace(streamId);
   assert.equal(workspace.observed.online, true);
   assert.equal(workspace.observed.publisher.id, 11);
@@ -82,5 +94,9 @@ test('scoped controls and workspace keep publisher/player semantics separate', a
   assert.equal(workspace.distribution.length, 1);
   assert.equal(workspace.capabilities.disconnect_publisher, true);
   assert.equal(workspace.capabilities.disconnect_viewers, true);
-  assert.equal(workspace.capabilities.in_pull_runtime, false, 'IN-PULL must not be presented as implemented runtime');
+  assert.equal(workspace.capabilities.in_pull_runtime, true);
+  assert.equal(workspace.inputs.managed_pull.worker.available, true);
+  assert.equal(workspace.inputs.managed_pull.task.id, pullTask.id);
+  assert.equal(workspace.inputs.managed_pull.task.source_url, undefined);
+  assert.equal(workspace.inputs.managed_pull.observed_publisher, true);
 });
