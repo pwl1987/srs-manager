@@ -12,11 +12,15 @@ const STARTUP_TIMEOUT_MS = Math.max(5000, Number(process.env.PULL_STARTUP_TIMEOU
 const STOP_GRACE_MS = Math.max(1000, Number(process.env.PULL_STOP_GRACE_MS || 5000));
 const MAX_BACKOFF_MS = Math.max(5000, Number(process.env.PULL_MAX_BACKOFF_MS || 30000));
 const MAX_ATTEMPTS = Math.max(1, Number(process.env.PULL_MAX_ATTEMPTS || 8));
+const LEASE_MAX_AGE_MS = Math.max(POLL_MS * 3, Number(process.env.PULL_WORKER_LEASE_MAX_AGE_MS || 10000));
+const STANDBY_RETRY_MS = Math.max(1000, Math.min(5000, Math.floor(LEASE_MAX_AGE_MS / 2)));
 const ALLOWED_SOURCE_PROTOCOLS = ['rtmp', 'rtmps', 'srt', 'rtsp', 'http', 'https'];
 
 const processes = new Map();
 let shuttingDown = false;
+let leaseHeld = false;
 let timer = null;
+let shutdownTimer = null;
 
 function log(message, extra = '') {
   const suffix = extra ? ` ${extra}` : '';
@@ -98,6 +102,15 @@ function stopProcess(taskId, reason = 'desired STOPPED') {
   }, STOP_GRACE_MS);
 }
 
+function finalizeShutdown(exitCode = 0) {
+  if (shutdownTimer) clearTimeout(shutdownTimer);
+  if (leaseHeld) {
+    pullTaskService.clearWorkerHeartbeat(INSTANCE_ID);
+    leaseHeld = false;
+  }
+  process.exit(exitCode);
+}
+
 function spawnTask(task) {
   const check = validateStreamUrl(task.source_url, ALLOWED_SOURCE_PROTOCOLS);
   if (!check.valid) {
@@ -160,8 +173,15 @@ function spawnTask(task) {
     if (state.killTimer) clearTimeout(state.killTimer);
     processes.delete(task.id);
 
+    // After lease loss another worker owns the control plane. Never overwrite
+    // its runtime state from this old instance while draining local FFmpeg.
+    if (state.stopReason === 'lease lost') return;
+
     const fresh = pullTaskService.getTask(task.id, { includeSecret: true });
-    if (!fresh) return;
+    if (!fresh) {
+      if (shuttingDown && processes.size === 0) finalizeShutdown(0);
+      return;
+    }
 
     if (shuttingDown) {
       if (fresh.desired_state === 'RUNNING') {
@@ -174,6 +194,7 @@ function spawnTask(task) {
       } else {
         markStopped(task.id);
       }
+      if (processes.size === 0) finalizeShutdown(0);
       return;
     }
 
@@ -203,7 +224,7 @@ async function snapshotPublishers() {
 }
 
 async function reconcile() {
-  if (shuttingDown) return;
+  if (shuttingDown || !leaseHeld) return;
 
   let publisherNames;
   try {
@@ -266,14 +287,45 @@ async function reconcile() {
   }
 }
 
+function handleLeaseLoss() {
+  if (!leaseHeld) return;
+  leaseHeld = false;
+  log(`lease lost; draining ${processes.size} managed process(es)`);
+  for (const taskId of processes.keys()) stopProcess(taskId, 'lease lost');
+  if (!shuttingDown) timer = setTimeout(bootstrap, STANDBY_RETRY_MS);
+}
+
 async function tick() {
+  if (shuttingDown || !leaseHeld) return;
   try {
-    pullTaskService.writeWorkerHeartbeat(INSTANCE_ID);
+    if (!pullTaskService.renewWorkerLease(INSTANCE_ID)) {
+      handleLeaseLoss();
+      return;
+    }
     await reconcile();
   } catch (error) {
     log('reconcile failed', redactText(error.stack || error.message));
   } finally {
-    if (!shuttingDown) timer = setTimeout(tick, POLL_MS);
+    if (!shuttingDown && leaseHeld) timer = setTimeout(tick, POLL_MS);
+  }
+}
+
+function bootstrap() {
+  if (shuttingDown || leaseHeld) return;
+  try {
+    const lease = pullTaskService.claimWorkerLease(INSTANCE_ID, LEASE_MAX_AGE_MS);
+    if (!lease.acquired) {
+      log(`standby; active worker=${String(lease.instance_id).slice(0, 8)} age=${lease.age_ms}ms`);
+      timer = setTimeout(bootstrap, STANDBY_RETRY_MS);
+      return;
+    }
+    leaseHeld = true;
+    pullTaskService.resetStaleRuntime();
+    log('lease acquired; started');
+    tick();
+  } catch (error) {
+    log('lease acquisition failed', redactText(error.stack || error.message));
+    timer = setTimeout(bootstrap, STANDBY_RETRY_MS);
   }
 }
 
@@ -281,17 +333,17 @@ function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   if (timer) clearTimeout(timer);
-  pullTaskService.clearWorkerHeartbeat(INSTANCE_ID);
   log(`received ${signal}; stopping ${processes.size} managed process(es)`);
   for (const taskId of processes.keys()) stopProcess(taskId, 'worker shutdown');
-  if (processes.size === 0) process.exit(0);
-  setTimeout(() => process.exit(0), STOP_GRACE_MS + 1000).unref();
+  if (processes.size === 0) {
+    finalizeShutdown(0);
+    return;
+  }
+  shutdownTimer = setTimeout(() => finalizeShutdown(0), STOP_GRACE_MS + 1000);
+  shutdownTimer.unref();
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-pullTaskService.resetStaleRuntime();
-pullTaskService.writeWorkerHeartbeat(INSTANCE_ID);
-log('started');
-tick();
+bootstrap();
