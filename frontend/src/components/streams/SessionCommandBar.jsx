@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CircleAlert, Clock3, Play, Plus, RefreshCw } from 'lucide-react';
+import { CheckCircle2, CircleAlert, Clock3, Play, Plus, RefreshCw, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
-import { btnPrimary, btnSecondary, inputClass, labelClass } from '../ui/styles';
+import { btnDangerGhost, btnPrimary, btnSecondary, inputClass, labelClass } from '../ui/styles';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 function opKey(prefix) {
   if (globalThis.crypto?.randomUUID) return `${prefix}-${globalThis.crypto.randomUUID()}`;
@@ -12,7 +13,7 @@ function opKey(prefix) {
 function stateTone(state) {
   if (state === 'ON_AIR') return 'text-[var(--success)]';
   if (state === 'READY') return 'text-[var(--primary)]';
-  if (state === 'PREP') return 'text-[var(--warning)]';
+  if (state === 'PREP' || state === 'CLOSING') return 'text-[var(--warning)]';
   return 'text-[var(--muted-foreground)]';
 }
 
@@ -31,6 +32,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged }) {
   const [quickName, setQuickName] = useState('标准开播方案');
   const [selectedOutputs, setSelectedOutputs] = useState({});
   const [optionalOutputs, setOptionalOutputs] = useState({});
+  const [confirmClose, setConfirmClose] = useState(false);
   const session = workspace?.session || null;
   const outputs = workspace?.outputs || [];
   const sourceId = workspace?.program?.source_id || null;
@@ -118,6 +120,38 @@ export default function SessionCommandBar({ roomId, workspace, onChanged }) {
     finally { setBusy(false); }
   }
 
+
+  async function pollClose(operation) {
+    let op = operation;
+    for (let i = 0; i < 75 && op && !['SUCCEEDED','FAILED','CANCELLED'].includes(op.phase); i += 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      op = await api.get(`/v3/operations/${encodeURIComponent(op.id)}`);
+      if (i % 2 === 0) await onChanged();
+    }
+    return op;
+  }
+
+  async function closeSession() {
+    if (!session) return;
+    setConfirmClose(false);
+    setBusy(true);
+    try {
+      let op;
+      try {
+        op = await api.post(`/v3/sessions/${session.legacy_session_id}/close`, {}, { headers: { 'Idempotency-Key': opKey(`session-close-${session.legacy_session_id}`) } });
+      } catch (error) {
+        if (error.status === 409 && error.detail?.id) op = error.detail;
+        else throw error;
+      }
+      op = await pollClose(op);
+      if (op?.phase === 'SUCCEEDED') toast.success('本场直播已结束');
+      else if (op?.phase === 'FAILED') toast.error(op.error || '收播存在未清理残留，Session 保持 CLOSING');
+      else toast.warning('收播仍在进行，请稍后继续检查');
+      await onChanged();
+    } catch (error) { toast.error(error.message || '结束本场直播失败'); }
+    finally { setBusy(false); }
+  }
+
   if (!session) return <section className="mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]">
     <div className="flex flex-wrap items-end gap-3">
       <div className="min-w-[220px] flex-1"><label className={labelClass}>开播方案</label><select className={inputClass} value={planId} onChange={event => setPlanId(event.target.value)}><option value="">选择 Run Plan</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></div>
@@ -143,7 +177,10 @@ export default function SessionCommandBar({ roomId, workspace, onChanged }) {
       {['PREP','READY'].includes(session.lifecycle_state) && <button className={btnSecondary} disabled={busy} onClick={runPreflight}><RefreshCw size={13}/>Preflight</button>}
       {session.lifecycle_state === 'READY' && <button className={btnPrimary} disabled={busy} onClick={startSession}><Play size={13}/>启动本场直播</button>}
       {session.lifecycle_state === 'ON_AIR' && <div className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--success-soft)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--success)]"><CheckCircle2 size={13}/>ON AIR</div>}
+      {session.lifecycle_state === 'ON_AIR' && <button className={btnDangerGhost} disabled={busy} onClick={() => setConfirmClose(true)}><Square size={12}/>结束本场直播</button>}
+      {session.lifecycle_state === 'CLOSING' && <button className={btnSecondary} disabled={busy} onClick={closeSession}><RefreshCw size={12}/>继续收播</button>}
       {session.preflight_status === 'BLOCKED' && <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-[var(--destructive)]"><CircleAlert size={13}/>存在阻断项</div>}
     </div>
+    <ConfirmDialog open={confirmClose} onClose={() => setConfirmClose(false)} onConfirm={closeSession} confirming={busy} title="结束本场直播" description="将按顺序停止本 Session 的网络输出，等待录像 Finalize，再停止 Managed Pull。外部 IN-PUSH Publisher 不会被自动断开；任何残留都会保持 CLOSING，而不会假装结束成功。" confirmLabel="确认收播" />
   </section>;
 }

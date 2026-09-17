@@ -28,6 +28,7 @@ import WorkspaceSignalPath from '../components/streams/WorkspaceSignalPath';
 import TranscodePipelinePanel from '../components/streams/TranscodePipelinePanel';
 import V3OutputRack from '../components/streams/V3OutputRack';
 import SessionCommandBar from '../components/streams/SessionCommandBar';
+import OperationsDock from '../components/streams/OperationsDock';
 import DistributionSection from './StreamsDistribution';
 import { btnSecondary, btnDangerGhost, btnGhost } from '../components/ui/styles';
 
@@ -96,19 +97,22 @@ export default function StreamWorkspace() {
   const [ingestCredentials, setIngestCredentials] = useState([]);
   const [v3Workspace, setV3Workspace] = useState(null);
   const [outputScenes, setOutputScenes] = useState([]);
+  const [incidentState, setIncidentState] = useState({ active: [], recent: [] });
 
   async function load(silent = false) {
     if (!silent) setLoading(true);
     if (!silent) setError(null);
     try {
-      const [nextWorkspace, ingest, nextV3Workspace] = await Promise.all([
+      const [nextWorkspace, ingest, nextV3Workspace, nextIncidents] = await Promise.all([
         api.get(`/streams/${id}/workspace`),
         api.get(`/v3/rooms/room:${id}/ingest-credentials`).catch(() => ({ credentials: [] })),
-        api.get(`/v3/rooms/room:${id}/workspace`).catch(() => null)
+        api.get(`/v3/rooms/room:${id}/workspace`).catch(() => null),
+        api.get(`/v3/rooms/room:${id}/incidents`).catch(() => ({ active: [], recent: [] }))
       ]);
       setWorkspace(nextWorkspace);
       setIngestCredentials(ingest?.credentials || []);
       setV3Workspace(nextV3Workspace);
+      setIncidentState(nextIncidents || { active: [], recent: [] });
     }
     catch (err) { if (!silent) setError({ code: getErrorCode(err) }); }
     finally { setLoading(false); }
@@ -228,8 +232,12 @@ export default function StreamWorkspace() {
 
       <div className="mb-6"><WorkspaceSignalPath workspace={workspace} t={t} /></div>
 
-      <div className="mb-6">
+      <div className="mb-4">
         <V3OutputRack roomId={`room:${stream.id}`} workspace={v3Workspace} scenes={outputScenes} onChanged={() => load(true)} />
+      </div>
+
+      <div className="mb-6">
+        <OperationsDock roomId={`room:${stream.id}`} workspace={v3Workspace} incidentState={incidentState} onChanged={() => load(true)} />
       </div>
 
       <details className="mb-6 rounded-xl border border-[var(--border-soft)] bg-[var(--card)]">
