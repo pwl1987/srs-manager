@@ -4,7 +4,7 @@
 
 ## 当前版本基线
 
-当前产品版本基线为 **v0.5.0 直播工作台 V2**。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
+当前实现版本基线为 **v0.5.1 直播工作台 V2**；Workspace V3 已进入产品模型讨论阶段，尚未实施业务代码。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
 
 - **第三方推流到我方（IN-PUSH）**：生成推流地址、观察真实 Publisher、查看状态并进行精确控制；
 - **我方主动拉第三方（IN-PULL）**：外部来源、Pull Worker、FFmpeg、重试、主备切换和安全人工切源；
@@ -15,7 +15,8 @@
 
 - [流向与控制模型 v0.1](./STREAM-FLOW-AND-CONTROL-MODEL.md) — 定义 IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 四类链路、控制权、停止语义、联动、期望状态/观测状态、访问授权与操作状态机；
 - [界面与体验整改基线 v0.1](./UI-REDESIGN-V0.1.md) — 定义专业播控台视觉方向、信息架构、设计变量、Shell 与运营中心；
-- [直播工作台 v0.2](./STREAM-WORKSPACE-V0.2.md) — 定义采集 → SRS → 多转码 → 输出分发的业务工作站、低疲劳灰阶视觉、实时监看与安全预览；
+- [直播工作台 v0.2](./STREAM-WORKSPACE-V0.2.md) — 当前已实现基线：采集 → SRS → 多转码 → 输出分发、实时监看与安全预览；
+- [直播工作台 v0.3](./STREAM-WORKSPACE-V0.3.md) — 下一代产品设计基线：Room → Sources → Program → Renditions → Outputs，场景/专业双模式、PUSH/SERVE/RECORD 与 16:9 一屏值守；
 - [拉流运行时与四向链路联动 v0.1](./PULL-RUNTIME-AND-FLOW-LINKAGE-V0.1.md) — 定义 Pull Worker、PullTask、FFmpeg、输入所有权和运行态；
 - [主备拉流与故障切换 v0.1](./PULL-FAILOVER-V0.1.md) — 定义候选源集合、自动切备、不自动回切和人工安全切源；
 - [主动外推与拉流授权控制 v0.1](./OUT-PUSH-OUT-PULL-V0.1.md) — 定义 Managed OUT-PUSH、Push Worker、OUT-PULL 准入、Access Grant 与内部媒体凭证。
@@ -30,7 +31,7 @@
 5. P3-C — Managed OUT-PUSH、OUT-PULL Hook 准入与授权边界：完成；
 6. W2-B — 多转码 Transcode Worker、GOP/keyint、多派生流：完成并通过真实媒体测试；
 7. W2-C — Manager 安全 HLS Preview Proxy、本地音频电平与观众语义：完成并通过真实媒体测试；
-8. 当前进入稳定维护：现场回归、bugfix 和必要的小型体验优化。
+8. v0.5.1 实现继续稳定维护；Workspace V3 仅进行产品/交互设计，完成实施 Gate 前不改业务 Runtime。
 
 ## 长期约束
 

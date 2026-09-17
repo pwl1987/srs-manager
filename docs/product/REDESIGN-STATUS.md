@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE，进入稳定维护 / 现场验收 / bugfix。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：DESIGN DISCOVERY，仅做产品/交互设计，尚未进入业务代码实施。**
 
 ## 已完成
 
@@ -146,7 +146,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 ## 下一任务
 
-默认不再扩展大功能。进入稳定维护：现场使用、bugfix、供应商/CDN 接入细节与必要的小型体验改进。新的大型能力（Live Event、复杂告警、Runbook 等）只有在出现明确业务需求后再立项。
+Workspace V3 进入设计收敛，不立即改业务代码。设计 Authority：`STREAM-WORKSPACE-V0.3.md`。
+
+当前先完成：Source / Program / Rendition / Output 数据契约、Output 能力矩阵、首批场景预设、16:9 信息架构，以及 PREP / ON AIR / INCIDENT / CLOSING 四阶段交互。全部 Gate 收敛后，再决定是否进入实施。
+
+现有 v0.5.1 Runtime 继续稳定维护；V3 设计不得破坏已经验证的 Pull / Push / Transcode / Preview 能力。
 
 ## 验证债务 / 已知边界
 
