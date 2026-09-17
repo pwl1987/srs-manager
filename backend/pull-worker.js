@@ -268,6 +268,7 @@ async function reconcile() {
 
 async function tick() {
   try {
+    pullTaskService.writeWorkerHeartbeat(INSTANCE_ID);
     await reconcile();
   } catch (error) {
     log('reconcile failed', redactText(error.stack || error.message));
@@ -280,6 +281,7 @@ function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   if (timer) clearTimeout(timer);
+  pullTaskService.clearWorkerHeartbeat(INSTANCE_ID);
   log(`received ${signal}; stopping ${processes.size} managed process(es)`);
   for (const taskId of processes.keys()) stopProcess(taskId, 'worker shutdown');
   if (processes.size === 0) process.exit(0);
@@ -290,5 +292,6 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 pullTaskService.resetStaleRuntime();
+pullTaskService.writeWorkerHeartbeat(INSTANCE_ID);
 log('started');
 tick();
