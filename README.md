@@ -109,42 +109,40 @@ flowchart LR
 - SRS HTTP API 端口默认 `1985`；
 - 如使用 CDN / DNS 功能，需要对应的网宿和阿里云凭据。
 
-### 1. 准备环境变量
+### 1. 推荐：一键部署
+
+首次部署直接执行：
 
 ```bash
-cp .env.example .env
+ADMIN_PASSWORD='请设置一个强密码' ./scripts/deploy.sh
 ```
 
-核心配置：
+如果不传 `ADMIN_PASSWORD`，脚本会生成一次性随机管理员密码并只在本次终端输出。脚本会自动：
 
-```bash
-SRS_API_URL=http://host.docker.internal:1985/api/v1
-SRS_API_TOKEN=<SRS_API_TOKEN>
-ADMIN_USER=admin
-ADMIN_PASSWORD_HASH=<BCRYPT_HASH>
-JWT_SECRET=<RANDOM_SECRET>
-ACCESS_TOKEN_TTL=7200
-REFRESH_TOKEN_TTL=604800
-CORS_ALLOWED_ORIGINS=http://localhost:3001
-```
+- 创建权限为 `0600` 的 `.env`；
+- 生成 `JWT_SECRET`；
+- 使用项目镜像内的 `bcryptjs` 生成管理员密码哈希，无需宿主机安装 Node/npm；
+- 构建并启动 Web、Pull Worker、Push Worker；
+- 等待 `/api/health` 健康检查通过；
+- 启动失败时打印最近 Compose 日志。
 
-生成管理员密码哈希：
-
-```bash
-node -e "require('bcryptjs').hash('your-password', 10).then(h => console.log(h))"
-```
+需要手工部署时，可复制 `.env.example` 并填写 SRS 地址、Token、管理员哈希等配置。
 
 ### 2. 配置 SRS Hooks
 
-将 `srs-hooks-config.conf` 中的 Hooks / Forward 配置合并进 SRS 配置，并确保 SRS 可以访问 Manager API。
+将 `srs-hooks-config.conf` 中的 `http_hooks` 合并进 SRS 配置，并确保 SRS 可以访问 Manager API。
 
-### 3. 启动
+> v0.4 起 OUT-PUSH 默认由 Push Worker 管理，**不需要开启 SRS Dynamic Forward**。配置文件中的 `forward` 段仅供仍保留 `srs_dynamic` 历史任务的兼容场景。
+
+### 3. 启动 / 升级
+
+推荐始终使用：
 
 ```bash
 ./scripts/deploy.sh
 ```
 
-或：
+也可以在已经准备好 `.env` 的情况下直接执行：
 
 ```bash
 docker compose up -d --build
@@ -156,7 +154,7 @@ docker compose up -d --build
 http://<服务器IP>:3001
 ```
 
-### 4. 健康检查
+### 4. 健康检查与控制面验收
 
 ```bash
 curl http://localhost:3001/api/health
@@ -167,6 +165,16 @@ curl http://localhost:3001/api/health
 ```json
 {"status":"ok","uptime":123}
 ```
+
+然后执行当前 API 契约的控制面冒烟测试：
+
+```bash
+ADMIN_PASSWORD='管理员密码' node scripts/e2e-test.js
+```
+
+该脚本会自动创建并清理临时测试数据，验证登录、建流、密钥脱敏、IN-PULL 绑定、OUT-PUSH 配置、Workspace、OUT-PULL Grant 授权/吊销。它不要求真实媒体源，因此适合作为每次部署后的第一道验收。
+
+真实 RTMP/SRT 媒体链路再按部署现场执行推流、拉流、故障切换和外推验收。
 
 ## CI 使用策略
 
@@ -188,6 +196,7 @@ curl http://localhost:3001/api/health
 - [单流工作台设计](./docs/product/STREAM-WORKSPACE-V0.1.md)
 - [拉流运行时与四向链路](./docs/product/PULL-RUNTIME-AND-FLOW-LINKAGE-V0.1.md)
 - [主备拉流与故障切换](./docs/product/PULL-FAILOVER-V0.1.md)
+- [主动外推与第三方拉流控制](./docs/product/OUT-PUSH-OUT-PULL-V0.1.md)
 - [主动外推与拉流授权控制](./docs/product/OUT-PUSH-OUT-PULL-V0.1.md)
 - [界面与体验整改基线](./docs/product/UI-REDESIGN-V0.1.md)
 - [版本更新记录](./CHANGELOG.md)

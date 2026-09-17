@@ -39,7 +39,9 @@
 - SRS Dynamic Forward POST 兼容与防双推测试：通过；
 - on_play 授权拒绝/放行测试：通过；
 - 前端生产构建与中英文 key 校验：通过；
-- 真实媒体环境的 OUT-PUSH 与 OUT-PULL 端到端证据仍需继续补齐。
+- Web / Pull Worker / Push Worker 容器发布检查：通过；
+- 当前 API 契约控制面冒烟：9/9 通过（登录、建流、密钥脱敏、IN-PULL、OUT-PUSH、Workspace、OUT-PULL 授权/吊销与策略恢复）；
+- 真实媒体环境的 OUT-PUSH 与 OUT-PULL 端到端证据仍作为部署现场验收项。
 
 ## v0.3.0 — 推拉流 MVP
 

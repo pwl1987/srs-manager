@@ -92,7 +92,7 @@
       "protocol": "Protocol",
       "idleHint": "SRS currently reports no publishing connection for this stream. This may simply mean the stream has not started yet.",
       "srsUnavailable": "SRS runtime state is currently unavailable, so input status cannot be determined.",
-      "inPullUnavailable": "IN-PULL runtime is not connected yet.",
+      "inPullUnavailable": "The IN-PULL Worker is currently unavailable, so managed pull runtime cannot be verified.",
       "managedPullSummary": "Managed Pull: Desired={{desired}} · Runtime={{runtime}} · Worker={{worker}}"
     },
     "managedPull": {
@@ -196,7 +196,7 @@
     },
     "danger": {
       "title": "Connection Controls",
-      "description": "These actions control current SRS sessions only. They are not equivalent to banning access, revoking authorization or changing desired state. Persistent blocking and recovery policy will be implemented in a later control-mechanism phase.",
+      "description": "These actions control current SRS sessions only. Use Third-party Pull Access for new-session admission and grants; disconnecting current sessions, pausing new sessions, and revoking grants remain separate operations.",
       "managedPullDescription": "This input is driven by Managed Pull Desired State. To actually stop the input, use Stop in Managed Pull. Kicking the current publisher would only cause the Worker to reconcile it back, so that misleading action is hidden here."
     },
     "managedPush": {

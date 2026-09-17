@@ -92,7 +92,7 @@
       "protocol": "协议",
       "idleHint": "SRS 当前没有观测到该流的发布连接。这不等同于故障，可能只是尚未开播。",
       "srsUnavailable": "当前无法读取 SRS 实时状态，因此不能判断输入是否在线。",
-      "inPullUnavailable": "IN-PULL 尚未接入可验证运行时。",
+      "inPullUnavailable": "当前 IN-PULL Worker 不可用，无法确认受管拉流运行状态。",
       "managedPullSummary": "Managed Pull：Desired={{desired}} · Runtime={{runtime}} · Worker={{worker}}"
     },
     "managedPull": {
@@ -196,7 +196,7 @@
     },
     "danger": {
       "title": "连接控制",
-      "description": "这里的动作只控制当前 SRS 会话，不等于禁播、吊销授权或修改期望状态。永久阻断与自动恢复策略将在后续控制机制阶段实现。",
+      "description": "这里的动作只控制当前 SRS 会话。OUT-PULL 的新连接准入与授权请在“第三方拉流访问”中控制；断开当前会话、暂停新连接和吊销授权保持独立语义。",
       "managedPullDescription": "当前输入由 Managed Pull 的 Desired State 驱动。要真正停止输入，请在“主动拉流”中执行停止；直接踢 publisher 只会触发 Worker 再次 reconciliation，因此这里不提供该误导性动作。"
     },
     "managedPush": {
