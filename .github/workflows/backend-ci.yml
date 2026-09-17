@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  syntax:
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -39,3 +39,6 @@ jobs:
 
       - name: Check backend JavaScript syntax
         run: find . -path './node_modules' -prune -o -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Run backend regression tests
+        run: npm test
