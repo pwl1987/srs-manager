@@ -66,7 +66,7 @@ async function listExternalStreams() {
   return srsStreams
     .filter(s => (s.app || 'live') === 'live' && !known.has(s.name))
     .map(s => {
-      const publisher = clients.find(c => (c.app || 'live') === 'live' && c.stream === s.name && isPublisher(c));
+      const publisher = clients.find(c => srsService.clientMatchesStream(c, s.name, 'live') && isPublisher(c));
       const stats = extractLiveStats(s);
       return { name: s.name, kbps: stats.kbps, viewers: stats.viewers, publish_ip: publisher?.ip || null };
     });
@@ -131,7 +131,7 @@ async function disconnectMatchingClients(id, predicate) {
 
   const clients = await srsService.listClients();
   const targets = clients.filter(client =>
-    (client.app || 'live') === 'live' && client.stream === stream.name && predicate(client)
+    srsService.clientMatchesStream(client, stream.name, 'live') && predicate(client)
   );
 
   let disconnected = 0;
@@ -168,7 +168,7 @@ async function stopStream(id) {
   if (!stream) return null;
 
   const clients = await srsService.listClients();
-  const targets = clients.filter(c => (c.app || 'live') === 'live' && c.stream === stream.name);
+  const targets = clients.filter(c => srsService.clientMatchesStream(c, stream.name, 'live'));
 
   let kicked = 0;
   const errors = [];

@@ -280,8 +280,8 @@ async function snapshotPublishers() {
   const clients = await srsService.listClients({ pageSize: 100, maxItems: 10000 });
   return new Set(
     clients
-      .filter(client => (client.app || 'live') === 'live' && isPublisher(client))
-      .map(client => client.stream)
+      .filter(client => (srsService.clientAppName(client) || 'live') === 'live' && isPublisher(client))
+      .map(client => srsService.clientStreamName(client))
       .filter(Boolean)
   );
 }

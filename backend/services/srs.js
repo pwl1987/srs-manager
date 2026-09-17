@@ -67,10 +67,50 @@ async function listClients(options) {
   return listPaginated('/clients', 'clients', options);
 }
 
+
+function clientUrlIdentity(client) {
+  const raw = String(client?.url || client?.stream_url || '').trim();
+  if (!raw) return { app: null, stream: null };
+  let pathname = raw.split(/[?#]/, 1)[0];
+  try {
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) pathname = new URL(raw).pathname;
+  } catch {}
+  const parts = pathname.split('/').filter(Boolean).map(part => {
+    try { return decodeURIComponent(part); } catch { return part; }
+  });
+  if (parts.length < 2) return { app: null, stream: null };
+  const app = parts[0];
+  const stream = parts.slice(1).join('/').replace(/\.(?:m3u8|flv)$/i, '');
+  return { app, stream };
+}
+
+function clientAppName(client) {
+  return client?.app ? String(client.app) : clientUrlIdentity(client).app;
+}
+
+function clientStreamName(client) {
+  const explicit = client?.stream_name ?? client?.streamName;
+  if (explicit) return String(explicit);
+  const fromUrl = clientUrlIdentity(client).stream;
+  if (fromUrl) return fromUrl;
+  const fallback = client?.stream;
+  return fallback ? String(fallback) : null;
+}
+
+function clientMatchesStream(client, streamName, app = 'live') {
+  const expected = String(streamName || '');
+  if (!expected) return false;
+  const identity = clientUrlIdentity(client);
+  const clientApp = client?.app || identity.app;
+  if (clientApp && app && clientApp !== app) return false;
+  if (client?.stream_name === expected || client?.streamName === expected || client?.stream === expected) return true;
+  return identity.stream === expected;
+}
+
 async function kickClient(id) {
-  const numeric = parseInt(id, 10);
-  if (!Number.isInteger(numeric) || numeric <= 0) throw new Error('Invalid client ID');
-  return request('DELETE', `/clients/${numeric}`);
+  const value = String(id ?? '').trim();
+  if (!value || value.length > 128 || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error('Invalid client ID');
+  return request('DELETE', `/clients/${encodeURIComponent(value)}`);
 }
 
 module.exports = {
@@ -79,5 +119,8 @@ module.exports = {
   getStreamStats,
   getVersion,
   listClients,
-  kickClient
+  kickClient,
+  clientAppName,
+  clientStreamName,
+  clientMatchesStream
 };

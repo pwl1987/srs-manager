@@ -54,7 +54,7 @@ async function getWorkspace(streamId) {
   const srsStreams = srsAvailable ? srsStreamsResult.value : [];
   const clients = clientsAvailable ? clientsResult.value : [];
   const srsStream = srsStreams.find(item => item.name === stream.name && (item.app || 'live') === 'live');
-  const relatedClients = clients.filter(client => (client.app || 'live') === 'live' && client.stream === stream.name);
+  const relatedClients = clients.filter(client => srsService.clientMatchesStream(client, stream.name, 'live'));
   const publishers = relatedClients.filter(isPublisher);
   const players = relatedClients.filter(client => !isPublisher(client));
   const stats = liveStats(srsStream);

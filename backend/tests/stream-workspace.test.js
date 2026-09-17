@@ -39,11 +39,13 @@ function seedStream() {
 
 test('scoped controls and workspace keep publisher/player and managed-pull semantics separate', async (t) => {
   const streamId = seedStream();
+  // Current SRS client API returns an internal stream id in `stream` and the
+  // business app/name in `url`. Keep this fixture aligned with real SRS output.
   const clients = [
-    { id: 11, app: 'live', stream: 'news-main', type: 'fmle-publish', ip: '10.0.0.10', protocol: 'rtmp' },
-    { id: 12, app: 'live', stream: 'news-main', type: 'play', ip: '10.0.0.20' },
-    { id: 13, app: 'live', stream: 'news-main', type: 'hls-play', ip: '10.0.0.21' },
-    { id: 99, app: 'live', stream: 'other-stream', type: 'play', ip: '10.0.0.99' }
+    { id: 11, stream: 'vid-publisher', url: '/live/news-main', type: 'fmle-publish', ip: '10.0.0.10', protocol: 'rtmp' },
+    { id: 12, stream: 'vid-news', url: '/live/news-main', type: 'play', ip: '10.0.0.20' },
+    { id: 13, stream: 'vid-news', url: '/live/news-main.flv', type: 'hls-play', ip: '10.0.0.21' },
+    { id: 99, stream: 'vid-other', url: '/live/other-stream', type: 'play', ip: '10.0.0.99' }
   ];
 
   const kicked = [];

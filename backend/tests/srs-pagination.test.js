@@ -43,8 +43,6 @@ test('SRS list APIs paginate instead of silently truncating at the default 10', 
 
   t.after(() => {
     global.fetch = originalFetch;
-    db.close();
-    fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
   const clients = await srsService.listClients();
@@ -60,4 +58,40 @@ test('SRS list APIs paginate instead of silently truncating at the default 10', 
     calls.filter(call => call.pathname.endsWith('/streams')).map(call => call.start),
     [0, 100]
   );
+});
+
+
+test('SRS client helpers understand opaque stream/client ids from current SRS API', async (t) => {
+  const originalFetch = global.fetch;
+  let deletedPath = null;
+  global.fetch = async (url, init = {}) => {
+    const parsed = new URL(url);
+    if (init.method === 'DELETE') {
+      deletedPath = parsed.pathname;
+      return { ok: true, json: async () => ({ code: 0 }) };
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  };
+
+  t.after(() => {
+    global.fetch = originalFetch;
+    db.close();
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  });
+
+  const publisher = {
+    id: 'h0i75x23',
+    type: 'fmle-publish',
+    stream: 'vid-8a69um9',
+    url: '/live/news-main',
+    ip: '10.30.5.199'
+  };
+  assert.equal(srsService.clientAppName(publisher), 'live');
+  assert.equal(srsService.clientStreamName(publisher), 'news-main');
+  assert.equal(srsService.clientMatchesStream(publisher, 'news-main', 'live'), true);
+  assert.equal(srsService.clientMatchesStream(publisher, 'other', 'live'), false);
+
+  await srsService.kickClient('h0i75x23');
+  assert.ok(deletedPath.endsWith('/clients/h0i75x23'));
+  await assert.rejects(() => srsService.kickClient('../bad'), /Invalid client ID/);
 });
