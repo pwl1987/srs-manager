@@ -17,6 +17,8 @@
 - [界面与体验整改基线 v0.1](./UI-REDESIGN-V0.1.md) — 定义专业播控台视觉方向、信息架构、设计变量、Shell 与运营中心；
 - [直播工作台 v0.2](./STREAM-WORKSPACE-V0.2.md) — 当前已实现基线：采集 → SRS → 多转码 → 输出分发、实时监看与安全预览；
 - [直播工作台 v0.3](./STREAM-WORKSPACE-V0.3.md) — 下一代产品设计基线：Room → Sources → Program → Renditions → Outputs，场景/专业双模式、PUSH/SERVE/RECORD 与 16:9 一屏值守；
+- [Workspace V3 设计冻结](./STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md) — 冻结 Room/Session/Run Plan、Evidence、Capability、状态机、PGM/PVW 与人因交互边界；
+- [Workspace V3 实施计划](./STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md) — Phase 00–08 增量迁移、阶段 Gate、真实媒体验收与最终切换计划；
 - [拉流运行时与四向链路联动 v0.1](./PULL-RUNTIME-AND-FLOW-LINKAGE-V0.1.md) — 定义 Pull Worker、PullTask、FFmpeg、输入所有权和运行态；
 - [主备拉流与故障切换 v0.1](./PULL-FAILOVER-V0.1.md) — 定义候选源集合、自动切备、不自动回切和人工安全切源；
 - [主动外推与拉流授权控制 v0.1](./OUT-PUSH-OUT-PULL-V0.1.md) — 定义 Managed OUT-PUSH、Push Worker、OUT-PULL 准入、Access Grant 与内部媒体凭证。
