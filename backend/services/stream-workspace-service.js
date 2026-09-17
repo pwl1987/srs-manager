@@ -2,6 +2,7 @@ const db = require('../database');
 const srsService = require('./srs');
 const streamService = require('./stream-service');
 const cdnService = require('./cdn-service');
+const pullTaskService = require('./pull-task-service');
 
 function isPublisher(client) {
   return String(client?.type || '').toLowerCase().includes('publish');
@@ -31,6 +32,9 @@ async function getWorkspace(streamId) {
 
   const stream = await streamService.getStream(id);
   if (!stream) return null;
+
+  const pullTask = pullTaskService.getTaskByStream(id);
+  const pullWorker = pullTaskService.getWorkerHealth();
 
   const [srsStreamsResult, clientsResult, cdnStatesResult] = await Promise.allSettled([
     srsService.getStreams(),
@@ -73,9 +77,24 @@ async function getWorkspace(streamId) {
 
   const publisher = publishers[0] || null;
   const online = srsAvailable ? Boolean(srsStream) : null;
+  const managedPullObserved = Boolean(
+    pullTask
+      && pullTask.runtime_state === 'RUNNING'
+      && publisher
+      && pullTask.worker_instance_id
+      && pullTask.worker_instance_id === pullWorker.instance_id
+      && pullWorker.available
+  );
 
   return {
     stream,
+    inputs: {
+      managed_pull: {
+        task: pullTask,
+        worker: pullWorker,
+        observed_publisher: managedPullObserved
+      }
+    },
     observed: {
       srs_available: srsAvailable,
       clients_available: clientsAvailable,
@@ -108,7 +127,7 @@ async function getWorkspace(streamId) {
     capabilities: {
       disconnect_publisher: clientsAvailable && publishers.length > 0,
       disconnect_viewers: clientsAvailable && players.length > 0,
-      in_pull_runtime: false
+      in_pull_runtime: pullWorker.available
     }
   };
 }
