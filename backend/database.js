@@ -357,7 +357,11 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   ensureColumn('forward_tasks', 'last_started_at', 'last_started_at TEXT');
   ensureColumn('forward_tasks', 'last_stopped_at', 'last_stopped_at TEXT');
   ensureColumn('forward_tasks', 'updated_at', 'updated_at TEXT');
+  ensureColumn('operations', 'idempotency_key', 'idempotency_key TEXT');
   conn.exec('CREATE INDEX IF NOT EXISTS idx_forward_tasks_desired_runtime ON forward_tasks(desired_state, runtime_state)');
+  conn.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_operations_idempotency
+    ON operations(type, subject_type, subject_id, idempotency_key)
+    WHERE idempotency_key IS NOT NULL`);
 
   // v0.4: rows from the pre-v0.4 schema remain SRS Dynamic Forward tasks.
   // An already-live SRS Forward cannot be observed or safely terminated by the

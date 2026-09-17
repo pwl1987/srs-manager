@@ -53,6 +53,8 @@ Gate：**PASS**。V3 只读 Adapter 对 V2 facts 做无损 reconciliation；Read
 
 ## Phase 02 — Capability / Evidence / Operation Core
 
+状态：**COMPLETE**。
+
 目标：先统一“系统知道什么、能做什么、动作进行到哪一步”，不急着换 UI。
 
 交付：
@@ -62,7 +64,7 @@ Gate：**PASS**。V3 只读 Adapter 对 V2 facts 做无损 reconciliation；Read
 - Operation 基础设施：Start/Stop/Retry/Switch 等幂等 operation 和冲突控制；
 - 对现有 Pull/Push/Transcode runtime 增加 V3 状态投影，而不是重写 worker。
 
-Gate：现有 Runtime 状态经新 Evidence/Health 层解释后不能出现“假绿”；刷新/重启后 Operation 与事实能 reconciliation。
+Gate：**PASS**。现有 Runtime 状态经新 Evidence/Health 层解释后不出现“假绿”；Operation idempotency migration 无损；focused 11/11、backend 38/38、frontend i18n/build PASS。新的 V3 Runtime mutation public API 仍关闭，按后续领域 Phase 开放。
 
 ## Phase 03 — Sources / Program / Secure Monitor
 

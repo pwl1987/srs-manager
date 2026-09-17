@@ -96,3 +96,9 @@ Evidence 必须带 provenance 与 freshness；Remote evidence 如无可靠 Provi
 所有 V3 Aggregate 返回 `contract_version=workspace-v3-phase00.1`。破坏字段语义才允许提升 major contract；新增向后兼容字段使用同一 major 并同步本目录 Authority、fixtures 与 tests。
 
 Phase 01 首个实现只允许提供 Read Model / Adapter；Runtime mutation API 可以保持 `capability=false`，直到对应后续 Phase 真正接管 Runtime。
+
+## 8. Phase 02 实现状态
+
+Phase 02 已实现 `GET /api/v3/capabilities`、`POST /api/v3/output/validate`、`GET /api/v3/operations/:operationId`，并建立持久化 Operation idempotency core。
+
+新的 Runtime mutation endpoint 仍保持关闭；Capability 明确返回 `runtime_mutation.public_api=false`。Program Switch / Unified Output / Recording / Session mutation 分别由后续 Phase 03/04/05/06 在对应 Runtime ownership 收敛后开放。

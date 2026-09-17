@@ -79,8 +79,9 @@ test('V3 read adapter reconciles current V2 facts without changing runtime owner
   assert.equal(aggregate.program.attribution, 'EXTERNAL_PUSH_OBSERVED');
   assert.equal(aggregate.program.source_id, `source:in_push:legacy-${streamId}`);
   assert.equal(aggregate.sources.find(x => x.kind === 'IN_PUSH').role, 'PROGRAM');
-  assert.equal(aggregate.health.status, 'UNKNOWN');
-  assert.equal(aggregate.capabilities.record, false);
+  assert.equal(aggregate.health.status, 'NORMAL');
+  assert.equal(aggregate.capabilities.phase, '02');
+  assert.equal(aggregate.capabilities.runtime.record.available, false);
   assert.equal(aggregate.outputs.find(x => x.mode === 'SERVE').runtime_state, 'AVAILABLE');
 
   resetData();
@@ -169,7 +170,8 @@ test('V3 read adapter reconciles current V2 facts without changing runtime owner
   const rooms = await v3.listRooms();
   assert.equal(rooms.length, 1);
   assert.equal(rooms[0].room.id, `room:${streamId}`);
-  assert.equal(rooms[0].health.status, 'UNKNOWN');
+  assert.equal(rooms[0].health.status, 'DEGRADED');
+  assert.ok(rooms[0].health.reasons.some(x => x.code === 'RENDITION_MEDIA_NOT_OBSERVED'));
 
   // Room overview must use fresh SRS observation, never the historical DB status.
   db.prepare("UPDATE streams SET status = 'online' WHERE id = ?").run(streamId);
@@ -178,9 +180,16 @@ test('V3 read adapter reconciles current V2 facts without changing runtime owner
   let reconciledRooms = await v3.listRooms();
   assert.equal(reconciledRooms[0].compatibility.legacy_stream_status, 'online');
   assert.equal(reconciledRooms[0].program.state, 'NO_PROGRAM');
+  assert.equal(reconciledRooms[0].health.status, 'CRITICAL');
 
   srsService.getStreams = async () => { throw new Error('SRS unavailable'); };
   reconciledRooms = await v3.listRooms();
   assert.equal(reconciledRooms[0].program.state, 'UNKNOWN');
   assert.equal(reconciledRooms[0].program.evidence.freshness, 'UNKNOWN');
+  assert.equal(reconciledRooms[0].health.status, 'UNKNOWN');
+  aggregate = await v3.getWorkspace(streamId);
+  assert.equal(aggregate.program.state, 'UNKNOWN');
+  assert.equal(aggregate.program.evidence.freshness, 'UNKNOWN');
+  assert.equal(aggregate.program.evidence.observed_at, null);
+  assert.equal(aggregate.evidence.srs.freshness, 'UNKNOWN');
 });

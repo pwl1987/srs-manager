@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00、Phase 01 均 COMPLETE；Current Task 已进入 Phase 02 Capability / Evidence / Operation Core，既有 Runtime ownership 仍未迁移。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00、Phase 01、Phase 02 均 COMPLETE；Current Task 已进入 Phase 03 Sources / Program / Secure Monitor，既有 Pull / Push / Transcode Runtime ownership 仍保持兼容。**
 
 ## 已完成
 
@@ -148,11 +148,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase 01 — Domain Compatibility Foundation**。已新增只读 `/api/v3/rooms` 与 `/api/v3/rooms/:roomId/workspace`，以确定性 `room:<streams.id>` 投影 V2 Sources/Program/Renditions/PUSH/SERVE/Provider/Operation facts；Standby 未探测即 UNKNOWN、SRS 不可达即 Program UNKNOWN、legacy Dynamic 不冒充受管 Runtime；focused 6/6、backend 33/33、frontend build PASS，Read Model 不修改 Desired/Runtime。
+Last Completed：**Phase 02 — Capability / Evidence / Operation Core**。已接入 Product/Runtime/Destination Capability Registry、Evidence provenance/TTL/freshness、Expected-vs-Actual Health evaluator、持久化 Idempotency Operation Core，以及 `/api/v3/capabilities`、`/api/v3/output/validate`、`/api/v3/operations/:id`；Remote UNKNOWN 不冒充失败，SRS 不可达不伪造观测时间。Phase 02 focused 11/11、backend full regression 38/38、frontend i18n/build PASS。
 
-Current Task：**Phase 02 — Capability / Evidence / Operation Core**。将 Product/Runtime/Destination Capability Registry、Evidence provenance/freshness/LOCAL-REMOTE、Health evaluator 与通用 Operation projection 接入 V3 Read Model；继续复用现有 Worker，不重写 Pull/Push/Transcode Runtime。
+Current Task：**Phase 03 — Sources / Program / Secure Monitor**。先建立独立 IN-PUSH Source/Ingest Credential 与 Program selector 的兼容数据面，再把安全预览切为 HTTP-FLV-first / HLS fallback；切源继续复用既有 Pull Source Switch Operation，不重写 Pull Worker。
 
-Next Task：**Phase 03 — Sources / Program / Secure Monitor**。Phase 02 Gate 通过后再进入独立 PUSH Source credential、Source Selector 与 HTTP-FLV-first secure preview。
+Next Task：**Phase 04 — Unified Output / Rendition / Scene Builder**。Phase 03 Gate 通过后再开放 V3 Unified Output mutation 与 Scene/Professional Builder，不提前把 Phase 02 Operation Core 暴露成假 Runtime 能力。
 
 ## 验证债务 / 已知边界
 

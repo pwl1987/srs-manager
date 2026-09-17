@@ -3,6 +3,9 @@ const db = require('../database');
 const srsService = require('./srs');
 const outPullService = require('./out-pull-service');
 const legacyWorkspaceService = require('./stream-workspace-service');
+const evidenceService = require('./v3-evidence-service');
+const capabilityService = require('./v3-capability-service');
+const healthService = require('./v3-health-service');
 
 const CONTRACT_VERSION = 'workspace-v3-phase00.1';
 const ACTIVE_PULL_STATES = new Set(['STARTING', 'RUNNING', 'RETRYING']);
@@ -141,7 +144,9 @@ function projectSources(workspace) {
         pull_task_id: task.id,
         external_source_id: source.external_source_id,
         priority: source.priority,
-        enabled: Boolean(source.enabled)
+        enabled: Boolean(source.enabled),
+        desired_state: task.desired_state,
+        runtime_state: task.runtime_state
       }
     });
   }
@@ -247,7 +252,10 @@ function projectProviderChannels(workspace) {
     remote_state: channel.remote_state || 'unknown',
     remote_bitrate: channel.remote_bitrate ?? null,
     remote_viewers: channel.remote_viewers ?? null,
-    runtime_claim: false
+    runtime_claim: false,
+    evidence: channel.remote_state && channel.remote_state !== 'unknown'
+      ? evidenceService.remoteVerified(channel.remote_state.toUpperCase(), 'Wangsu API', nowIso())
+      : evidenceService.normalize({ level: 'CONFIGURED', state: 'UNKNOWN', source: 'Wangsu channel configuration', observed_at: null, freshness: 'UNKNOWN' })
   }));
 }
 
@@ -260,7 +268,7 @@ async function getWorkspace(roomValue) {
   const operations = [legacy.inputs?.managed_pull?.active_operation, ...(legacy.inputs?.managed_pull?.operations || [])]
     .filter(Boolean).filter((op, index, all) => all.findIndex(x => x.id === op.id) === index).map(projectOperation);
 
-  return {
+  const aggregate = {
     contract_version: CONTRACT_VERSION,
     room: {
       id: roomId(streamId), legacy_stream_id: streamId, name: legacy.stream.name,
@@ -271,7 +279,7 @@ async function getWorkspace(roomValue) {
     sources,
     program: {
       id: `program:${roomId(streamId)}`,
-      state: legacy.observed?.online ? 'LIVE' : 'NO_PROGRAM',
+      state: legacy.observed?.online === null ? 'UNKNOWN' : (legacy.observed?.online ? 'LIVE' : 'NO_PROGRAM'),
       source_id: programSourceId,
       attribution,
       media: legacy.observed?.media || null,
@@ -279,30 +287,22 @@ async function getWorkspace(roomValue) {
       viewers: legacy.observed?.viewers ?? null,
       uptime_seconds: legacy.observed?.uptime_seconds ?? null,
       evidence: {
-        source: 'SRS API', observed_at: nowIso(), freshness: freshness(legacy.observed?.srs_available),
+        source: 'SRS API', observed_at: legacy.observed?.srs_available ? nowIso() : null, freshness: freshness(legacy.observed?.srs_available),
         publisher_count: legacy.observed?.publishers_count ?? null
       }
     },
     renditions: projectRenditions(legacy),
     outputs: projectOutputs(legacy),
     evidence: {
-      srs: { available: Boolean(legacy.observed?.srs_available), source: 'SRS API', observed_at: nowIso(), freshness: freshness(legacy.observed?.srs_available) },
+      srs: { available: Boolean(legacy.observed?.srs_available), source: 'SRS API', observed_at: legacy.observed?.srs_available ? nowIso() : null, freshness: freshness(legacy.observed?.srs_available) },
       workers: {
         pull: legacy.inputs?.managed_pull?.worker || null,
         push: legacy.outputs?.push_worker || null,
         transcode: legacy.processing?.worker || null
       }
     },
-    health: { status: 'UNKNOWN', reasons: ['Phase 02 health evaluator not active'] },
-    capabilities: {
-      phase: '01',
-      program_preview: { hls_secure_proxy: true, http_flv_secure_proxy: false },
-      source_preview: false,
-      output_push: { transports: ['rtmp', 'rtmps', 'srt'], runtime_available: Boolean(legacy.outputs?.push_worker?.available) },
-      output_serve: { transports: ['rtmp', 'http-flv', 'hls'], policy_available: Boolean(legacy.outputs?.out_pull) },
-      transcode: { runtime_available: Boolean(legacy.processing?.worker?.available) },
-      record: false
-    },
+    health: { status: 'UNKNOWN', reasons: [] },
+    capabilities: null,
     operations,
     incidents: [],
     timeline: (legacy.activity || []).map(event => ({
@@ -313,10 +313,43 @@ async function getWorkspace(roomValue) {
       provider_channels: projectProviderChannels(legacy)
     }
   };
+
+  aggregate.program.evidence = evidenceService.normalize(aggregate.program.evidence);
+  aggregate.evidence.srs = evidenceService.normalize(aggregate.evidence.srs);
+  for (const source of aggregate.sources) source.evidence = evidenceService.normalize(source.evidence || {});
+  for (const output of aggregate.outputs) {
+    if (output.evidence?.local) output.evidence.local = evidenceService.normalize(output.evidence.local);
+    if (output.evidence?.remote) output.evidence.remote = evidenceService.normalize(output.evidence.remote);
+  }
+  for (const rendition of aggregate.renditions) {
+    const isObserved = rendition.observed?.online === true;
+    rendition.evidence = isObserved
+      ? evidenceService.observed('ONLINE', 'SRS API', nowIso())
+      : evidenceService.normalize({
+        level: rendition.runtime_state === 'RUNNING' ? 'RUNTIME' : 'CONFIGURED',
+        state: rendition.runtime_state || 'UNKNOWN',
+        source: rendition.kind === 'TRANSCODE' ? 'Transcode binding' : 'Program projection',
+        observed_at: null,
+        freshness: 'UNKNOWN'
+      });
+  }
+  aggregate.capabilities = { phase: '02', ...capabilityService.getCapabilities(aggregate), runtime_mutation: { core_available: true, public_api: false } };
+  aggregate.health = healthService.evaluateWorkspace(aggregate);
+  return aggregate;
 }
 
 async function listRooms() {
   const localStreams = db.prepare('SELECT id, name, status FROM streams ORDER BY created_at DESC').all();
+  const pullRows = db.prepare('SELECT stream_id, desired_state, runtime_state FROM pull_tasks').all();
+  const pushRows = db.prepare("SELECT stream_id, desired_state, runtime_state FROM forward_tasks WHERE execution_mode = 'managed_worker'").all();
+  const transcodeRows = db.prepare(`SELECT b.stream_id, b.desired_state, b.runtime_state, b.output_suffix, s.name AS stream_name FROM stream_transcode_bindings b JOIN streams s ON s.id = b.stream_id`).all();
+  const factsByStream = new Map();
+  for (const row of [...pullRows, ...pushRows, ...transcodeRows]) {
+    const facts = factsByStream.get(Number(row.stream_id)) || [];
+    facts.push({ desired_state: row.desired_state, runtime_state: row.runtime_state });
+    factsByStream.set(Number(row.stream_id), facts);
+  }
+  const workerCaps = capabilityService.runtimeSnapshot();
   const [streamsResult, clientsResult] = await Promise.allSettled([
     srsService.getStreams(),
     srsService.listClients()
@@ -340,6 +373,24 @@ async function listRooms() {
     const uptime = observed && Number.isFinite(liveMs) && liveMs > 0 && liveMs <= Date.now()
       ? Math.max(0, Math.floor((Date.now() - liveMs) / 1000)) : null;
     const programState = !srsAvailable ? 'UNKNOWN' : observed ? 'LIVE' : 'NO_PROGRAM';
+    const facts = factsByStream.get(Number(stream.id)) || [];
+    const desiredRunning = facts.some(fact => fact.desired_state === 'RUNNING');
+    const anyFailed = facts.some(fact => fact.desired_state === 'RUNNING' && fact.runtime_state === 'FAILED');
+    const desiredTranscodes = transcodeRows.filter(row => Number(row.stream_id) === Number(stream.id) && row.desired_state === 'RUNNING');
+    const missingDerived = srsAvailable && desiredTranscodes.some(row => row.runtime_state === 'RUNNING' && !liveByName.has(`${row.stream_name}__${row.output_suffix}`));
+    const pushExpected = pushRows.some(row => Number(row.stream_id) === Number(stream.id) && row.desired_state === 'RUNNING');
+    const pullExpected = pullRows.some(row => Number(row.stream_id) === Number(stream.id) && row.desired_state === 'RUNNING');
+    const transcodeExpected = desiredTranscodes.length > 0;
+    const workerUnavailable = (pushExpected && !workerCaps.push_worker?.available)
+      || (pullExpected && !workerCaps.pull_worker?.available)
+      || (transcodeExpected && !workerCaps.transcode_worker?.available);
+    const roomHealth = programState === 'UNKNOWN'
+      ? { status: 'UNKNOWN', reasons: [{ code: 'PROGRAM_EVIDENCE_UNKNOWN', severity: 'INFO' }] }
+      : programState === 'NO_PROGRAM' && desiredRunning
+        ? { status: 'CRITICAL', reasons: [{ code: 'PROGRAM_EXPECTED_NOT_OBSERVED', severity: 'CRITICAL' }] }
+        : anyFailed || missingDerived || workerUnavailable
+          ? { status: 'DEGRADED', reasons: [{ code: anyFailed ? 'REQUESTED_RUNTIME_FAILED' : missingDerived ? 'RENDITION_MEDIA_NOT_OBSERVED' : 'RUNTIME_WORKER_UNAVAILABLE', severity: 'WARNING' }] }
+          : { status: 'NORMAL', reasons: programState === 'NO_PROGRAM' ? [{ code: 'OFF_AIR_EXPECTED', severity: 'INFO' }] : [] };
     return {
       contract_version: CONTRACT_VERSION,
       room: {
@@ -355,7 +406,7 @@ async function listRooms() {
         evidence: { source: 'SRS API', observed_at: nowIso(), freshness: srsAvailable ? 'FRESH' : 'UNKNOWN' }
       },
       outputs: { required_total: 0, required_healthy: 0, record_state: null },
-      health: { status: 'UNKNOWN', reasons: ['Phase 02 health evaluator not active'] },
+      health: roomHealth,
       active_incidents: 0,
       compatibility: { legacy_stream_status: stream.status || null }
     };
