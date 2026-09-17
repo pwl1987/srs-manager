@@ -77,7 +77,8 @@
     "source": {
       "observed": "实时观测",
       "configured": "已配置",
-      "unavailable": "无法观测"
+      "unavailable": "无法观测",
+      "runtime": "受管运行"
     },
     "signal": {
       "title": "信号路径",
@@ -154,7 +155,7 @@
     },
     "outputs": {
       "forwarding": "主动外推",
-      "forwardHint": "与该流关联的 OUT-PUSH 转发任务",
+      "forwardHint": "由 Push Worker 管理的 OUT-PUSH；运行状态不等同于远端平台播放健康",
       "enabled": "启用",
       "disabled": "停用",
       "cdn": "CDN 输出",
@@ -197,6 +198,49 @@
       "title": "连接控制",
       "description": "这里的动作只控制当前 SRS 会话，不等于禁播、吊销授权或修改期望状态。永久阻断与自动恢复策略将在后续控制机制阶段实现。",
       "managedPullDescription": "当前输入由 Managed Pull 的 Desired State 驱动。要真正停止输入，请在“主动拉流”中执行停止；直接踢 publisher 只会触发 Worker 再次 reconciliation，因此这里不提供该误导性动作。"
+    },
+    "managedPush": {
+      "title": "主动外推 · OUT-PUSH",
+      "subtitle": "由独立 Push Worker 从当前 SRS 流取流并通过 FFmpeg 主动推送到第三方目标。停止会真正终止本地外推进程。",
+      "workerOnline": "Push Worker 在线",
+      "workerOffline": "Push Worker 不可用",
+      "workerUnavailableHint": "存在期望 RUNNING 的外推任务，但 Push Worker 当前没有有效心跳；系统保留期望状态，不伪报运行成功。",
+      "empty": "当前流尚未配置主动外推目标。",
+      "configure": "配置外推目标",
+      "start": "启动外推",
+      "stop": "停止外推",
+      "retry": "重新尝试",
+      "updated": "主动外推状态已更新",
+      "evidenceHint": "RUNNING 只证明本地受管 FFmpeg 进程持续工作且输入在线；第三方平台是否真正播放仍需平台侧或 CDN 侧独立证据。",
+      "legacyHint": "历史任务保持 SRS Dynamic Forward 兼容模式以避免升级期间双推；请在“来源与外推”页面查看其兼容启停语义。"
+    },
+    "outPull": {
+      "title": "第三方拉流 · OUT-PULL",
+      "subtitle": "分别控制 SRS Origin 的端点可用性、新连接准入、访问授权和当前会话；这些动作互不混淆。",
+      "currentSessions": "个当前连接",
+      "endpointEnabled": "端点可用",
+      "endpointDisabled": "端点已关闭",
+      "accepting": "允许新连接",
+      "paused": "已暂停新连接",
+      "grantRequired": "需要访问授权",
+      "openAccess": "开放访问",
+      "sessionControl": "当前会话控制",
+      "sessionControlHint": "暂停新连接或吊销授权不会自动踢掉已经建立的播放会话；断开当前连接是独立动作。",
+      "disconnectCurrent": "断开当前播放连接",
+      "createGrant": "创建访问授权",
+      "grantLabel": "授权名称",
+      "grantLabelPlaceholder": "例如：融媒体合作方",
+      "validFor": "有效期",
+      "hours": "小时",
+      "days": "天",
+      "issueGrant": "签发授权",
+      "tokenOnce": "访问 token 仅本次显示，请立即复制保存。",
+      "grants": "访问授权",
+      "revoke": "吊销授权",
+      "updated": "拉流访问策略已更新",
+      "grantCreated": "访问授权已创建",
+      "grantRevoked": "访问授权已吊销",
+      "originOnlyHint": "本策略只对 SRS Origin 直连播放入口做控制承诺。若使用第三方 CDN 域名，CDN 鉴权仍需在对应供应商侧单独配置和验证。"
     }
   },
   "modal": {

@@ -12,6 +12,8 @@ const srsService = require('../services/srs');
 const cdnService = require('../services/cdn-service');
 const streamService = require('../services/stream-service');
 const pullTaskService = require('../services/pull-task-service');
+const pushTaskService = require('../services/push-task-service');
+const outPullService = require('../services/out-pull-service');
 const workspaceService = require('../services/stream-workspace-service');
 
 const originals = {
@@ -22,6 +24,9 @@ const originals = {
 };
 
 function seedStream() {
+  db.prepare('DELETE FROM out_pull_sessions').run();
+  db.prepare('DELETE FROM access_grants').run();
+  db.prepare('DELETE FROM out_pull_policies').run();
   db.prepare('DELETE FROM forward_tasks').run();
   db.prepare('DELETE FROM distribution_requests').run();
   db.prepare('DELETE FROM cdn_channels').run();
@@ -68,8 +73,15 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
   assert.equal(viewersResult.scope, 'viewers');
   assert.equal(viewersResult.disconnected, 2);
 
-  db.prepare(`INSERT INTO forward_tasks (stream_id, target_type, target_url, enabled, status)
-    VALUES (?, 'custom', 'rtmp://partner/live/news-main', 1, 'idle')`).run(streamId);
+  const pushTask = pushTaskService.createTask({
+    stream_id: streamId,
+    target_type: 'custom_rtmp',
+    target_url: 'rtmp://partner.example.org/live/news-main?token=hidden',
+    enabled: 1
+  });
+  pushTaskService.updateRuntime(pushTask.id, { runtime_state: 'RUNNING', worker_instance_id: 'push-worker-a', attempt: 1 });
+  assert.equal(pushTaskService.claimWorkerLease('push-worker-a', 10000).acquired, true);
+  outPullService.updatePolicy(streamId, { require_grant: true });
   db.prepare(`INSERT INTO cdn_channels (stream_id, channel_name, channel_id, push_domain)
     VALUES (?, 'news-main-cdn', 'cdn-1', 'push.example.test')`).run(streamId);
   db.prepare(`INSERT INTO distribution_requests (stream_id, applicant, expires_at, status)
@@ -89,13 +101,21 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
   assert.equal(workspace.observed.publisher.id, 11);
   assert.equal(workspace.observed.players.count, 2);
   assert.equal(workspace.outputs.forwards.length, 1);
+  assert.equal(workspace.outputs.forwards[0].runtime_state, 'RUNNING');
+  assert.equal(workspace.outputs.forwards[0].target_url, undefined);
+  assert.ok(!workspace.outputs.forwards[0].target_url_masked.includes('hidden'));
+  assert.equal(workspace.outputs.push_worker.available, true);
+  assert.equal(workspace.outputs.out_pull.policy.require_grant, true);
   assert.equal(workspace.outputs.cdn_channels[0].remote_state, 'live');
   assert.equal(workspace.distribution.length, 1);
   assert.equal(workspace.capabilities.disconnect_publisher, true);
   assert.equal(workspace.capabilities.disconnect_viewers, true);
   assert.equal(workspace.capabilities.in_pull_runtime, true);
+  assert.equal(workspace.capabilities.out_push_runtime, true);
+  assert.equal(workspace.capabilities.out_pull_policy, true);
   assert.equal(workspace.inputs.managed_pull.worker.available, true);
   assert.equal(workspace.inputs.managed_pull.task.id, pullTask.id);
   assert.equal(workspace.inputs.managed_pull.task.source_url, undefined);
   assert.equal(workspace.inputs.managed_pull.observed_publisher, true);
+  pushTaskService.clearWorkerHeartbeat('push-worker-a');
 });

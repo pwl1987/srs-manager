@@ -21,6 +21,8 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StreamPreviewModal from '../components/streams/StreamPreviewModal';
 import StreamQrModal from '../components/streams/StreamQrModal';
 import ManagedPullPanel from '../components/streams/ManagedPullPanel';
+import ManagedPushPanel from '../components/streams/ManagedPushPanel';
+import OutPullAccessPanel from '../components/streams/OutPullAccessPanel';
 import DistributionSection from './StreamsDistribution';
 import { btnSecondary, btnDangerGhost, btnGhost } from '../components/ui/styles';
 
@@ -95,6 +97,9 @@ function OutputSummary({ workspace, t }) {
   const forwards = workspace.outputs?.forwards || [];
   const cdn = workspace.outputs?.cdn_channels || [];
   const players = workspace.observed?.players?.count;
+  const pushWorker = workspace.outputs?.push_worker || {};
+  const runningPushes = forwards.filter(task => task.runtime_state === 'RUNNING').length;
+  const outPullPolicy = workspace.outputs?.out_pull?.policy || {};
 
   return (
     <div className="grid gap-3 lg:grid-cols-3">
@@ -102,17 +107,19 @@ function OutputSummary({ workspace, t }) {
         icon={ArrowUpRight}
         eyebrow="OUT-PUSH"
         title={t('streams:workspace.outputs.forwarding')}
-        state={<SourceTag kind="configured">{t('streams:workspace.source.configured')}</SourceTag>}
+        state={pushWorker.available
+          ? <SourceTag>{t('streams:workspace.source.runtime')}</SourceTag>
+          : <SourceTag kind="unavailable">{t('streams:workspace.source.unavailable')}</SourceTag>}
       >
-        <div className="text-2xl font-semibold tabular-nums">{forwards.length}</div>
+        <div className="text-2xl font-semibold tabular-nums">{runningPushes}<span className="ml-1 text-sm font-normal text-[var(--text-faint)]">/ {forwards.length}</span></div>
         <div className="mt-1 text-xs text-[var(--muted-foreground)]">{t('streams:workspace.outputs.forwardHint')}</div>
         {forwards.length > 0 && (
           <div className="mt-3 space-y-2">
             {forwards.slice(0, 3).map(task => (
               <div key={task.id} className="flex items-center justify-between gap-3 text-xs">
                 <span className="min-w-0 truncate font-mono text-[var(--muted-foreground)]" title={task.target_url}>{task.target_url}</span>
-                <span className={cn('shrink-0', task.enabled ? 'text-[var(--success)]' : 'text-[var(--text-faint)]')}>
-                  {task.enabled ? t('streams:workspace.outputs.enabled') : t('streams:workspace.outputs.disabled')}
+                <span className={cn('shrink-0', task.runtime_state === 'RUNNING' ? 'text-[var(--success)]' : task.runtime_state === 'FAILED' ? 'text-[var(--destructive)]' : 'text-[var(--text-faint)]')}>
+                  {task.runtime_state}
                 </span>
               </div>
             ))}
@@ -148,12 +155,14 @@ function OutputSummary({ workspace, t }) {
         icon={Eye}
         eyebrow="OUT-PULL"
         title={t('streams:workspace.outputs.pull')}
-        state={workspace.observed?.clients_available
-          ? <SourceTag>{t('streams:workspace.source.observed')}</SourceTag>
-          : <SourceTag kind="unavailable">{t('streams:workspace.source.unavailable')}</SourceTag>}
+        state={outPullPolicy.endpoint_enabled === false
+          ? <SourceTag kind="unavailable">{t('streams:workspace.outPull.endpointDisabled')}</SourceTag>
+          : workspace.observed?.clients_available
+            ? <SourceTag>{t('streams:workspace.source.observed')}</SourceTag>
+            : <SourceTag kind="unavailable">{t('streams:workspace.source.unavailable')}</SourceTag>}
       >
         <div className="text-2xl font-semibold tabular-nums">{players ?? '—'}</div>
-        <div className="mt-1 text-xs text-[var(--muted-foreground)]">{t('streams:workspace.outputs.pullHint')}</div>
+        <div className="mt-1 text-xs text-[var(--muted-foreground)]">{outPullPolicy.require_grant ? t('streams:workspace.outPull.grantRequired') : t('streams:workspace.outputs.pullHint')}</div>
         <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-[var(--muted-foreground)]">
           <span className="rounded-md bg-[var(--secondary)] px-2 py-1">HLS</span>
           <span className="rounded-md bg-[var(--secondary)] px-2 py-1">FLV</span>
@@ -377,6 +386,14 @@ export default function StreamWorkspace() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <div className="space-y-6">
           <ManagedPullPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
+          <ManagedPushPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
+          <OutPullAccessPanel
+            workspace={workspace}
+            stream={stream}
+            t={t}
+            onChanged={() => load(true)}
+            onDisconnectViewers={() => setConfirmViewers(true)}
+          />
 
           <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
             <div className="mb-2 flex items-center gap-2">

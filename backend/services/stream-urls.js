@@ -19,7 +19,8 @@ function buildUrls(streamName) {
     pull_url_flv: cdnConfigured ? `https://${cdnDomain}/${streamName}.flv` : null,
     pull_url_rtmp: cdnConfigured ? `rtmp://${cdnDomain}/live/${streamName}` : null,
     cdn_configured: cdnConfigured,
-    http_port: settingsService.getSrsHttpPort()
+    http_port: settingsService.getSrsHttpPort(),
+    rtmp_port: rtmpPort
   };
 }
 

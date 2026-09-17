@@ -1,8 +1,8 @@
 {
-  "title": "Stream Forwarding",
-  "subtitle": "Manage external pull sources and forwarding tasks",
+  "title": "Sources & Outbound Push",
+  "subtitle": "Manage external input sources and managed OUT-PUSH tasks",
   "sources": {
-    "title": "External Pull Sources",
+    "title": "External Inputs · IN-PULL",
     "columns": {
       "name": "Name",
       "url": "URL",
@@ -30,36 +30,46 @@
     "empty": "No pull sources"
   },
   "tasks": {
-    "title": "Forwarding Tasks",
+    "title": "Managed Outbound Push · OUT-PUSH",
     "columns": {
-      "runtimeStatus": "Runtime status",
+      "runtimeStatus": "Runtime State",
       "error": "Error",
       "stream": "Stream",
       "source": "Source",
       "targetType": "Target Type",
       "targetUrl": "Target URL",
       "status": "Status",
-      "actions": "Actions"
+      "actions": "Actions",
+      "desiredStatus": "Desired State"
     },
     "modal": {
-      "create": "Create Task",
-      "edit": "Edit Task",
+      "create": "Create OUT-PUSH",
+      "edit": "Edit OUT-PUSH",
       "stream": "Stream",
       "source": "Source",
       "targetType": "Target Type",
       "targetUrl": "Target URL",
       "enabled": "Enabled",
       "save": "Save",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "urlKeepPlaceholder": "Leave blank to keep the current target URL",
+      "urlKeepHint": "Target URLs may contain stream keys. The console shows only a masked value; leave blank to preserve it.",
+      "createStoppedHint": "New tasks are saved stopped. Start explicitly after verifying the target to avoid accidental publishing."
     },
     "actions": {
       "create": "Create",
       "toggle": "Toggle",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "start": "Start Push",
+      "stop": "Stop Push",
+      "retry": "Retry",
+      "legacyEnable": "Enable legacy forward (takes effect on the next publisher session)",
+      "legacyDisable": "Disable legacy forward (does not guarantee immediate termination of an existing Forward)"
     },
     "empty": "No forwarding tasks",
-    "note": "Enabled tasks are eligible OUT-PUSH targets returned to SRS Dynamic Forward when the stream publishes. Enabled/configured does not by itself prove that the remote destination is receiving media."
+    "note": "OUT-PUSH is executed by the managed Push Worker and FFmpeg. RUNNING means the managed process is alive while the local input remains online; it does not prove the remote platform is playing successfully. Stop terminates the local outbound process.",
+    "legacyHint": "Legacy tasks remain on SRS Dynamic Forward to avoid double-pushing during upgrades. Configuration changes primarily affect subsequent publisher sessions."
   },
   "protocol": {
     "rtmp": "RTMP",
@@ -73,7 +83,10 @@
   "targetType": {
     "cdnChannel": "CDN Channel",
     "srsEdge": "SRS Edge Node",
-    "customRtmp": "Custom RTMP"
+    "customRtmp": "Custom RTMP",
+    "cdn_channel": "CDN Target",
+    "srs_edge": "SRS Edge Node",
+    "custom_rtmp": "Custom Push Target"
   },
   "status": {
     "enabled": "Enabled",
@@ -83,5 +96,19 @@
     "idle": "Idle",
     "running": "Running",
     "error": "Error"
+  },
+  "desiredState": {
+    "RUNNING": "RUNNING",
+    "STOPPED": "STOPPED"
+  },
+  "runtimeState": {
+    "STOPPED": "Stopped",
+    "WAITING_INPUT": "Waiting for Input",
+    "STARTING": "Starting",
+    "RUNNING": "Process Running",
+    "RETRYING": "Retrying",
+    "FAILED": "Failed",
+    "STOPPING": "Stopping",
+    "LEGACY_DYNAMIC": "Legacy SRS Dynamic Forward"
   }
 }

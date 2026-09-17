@@ -1,6 +1,36 @@
-export const CURRENT_VERSION = '0.3.0';
+export const CURRENT_VERSION = '0.4.0';
 
 export const RELEASES = [
+  {
+    version: '0.4.0',
+    date: '2026-09-17',
+    stage: { zh: '四向链路控制', en: 'Four-way Flow Control' },
+    title: { zh: '主动外推与拉流授权', en: 'Managed Push & Pull Access' },
+    summary: {
+      zh: '补齐输出方向的真实控制面：主动外推由 Push Worker 管理，第三方拉流可分别控制端点、新连接、授权和当前会话。',
+      en: 'Completes the output-side control plane with a managed Push Worker and independent endpoint, session-admission and access-grant controls.'
+    },
+    highlights: {
+      zh: [
+        '新增独立 Push Worker + FFmpeg，OUT-PUSH 可以真正启动、停止、重试。',
+        '没有输入时进入 WAITING_INPUT，输入消失会主动停止外推进程。',
+        '新增独立 Push Worker Lease，防止多个执行器重复外推。',
+        '新增 OUT-PULL Endpoint / Accept New Sessions / Require Grant 三类策略。',
+        'Access Grant 只存 token 哈希，明文只在创建时返回一次。',
+        'SRS on_play Hook 已接入真实播放准入，吊销授权与断当前会话保持独立。',
+        'v0.3 旧 Forward 数据可无损迁移，Managed Worker 与 Dynamic Forward 不会双推。'
+      ],
+      en: [
+        'Added a dedicated Push Worker + FFmpeg runtime with real start, stop and retry controls.',
+        'OUT-PUSH waits for local input and stops the outbound process when input disappears.',
+        'Added an independent Push Worker lease to prevent duplicate execution.',
+        'Added OUT-PULL endpoint, new-session admission and grant-required policies.',
+        'Access grants store only token hashes; plaintext is returned once at creation.',
+        'SRS on_play now enforces playback admission while grant revocation and current-session disconnect remain separate actions.',
+        'v0.3 Forward rows migrate safely and managed tasks cannot be duplicated by Dynamic Forward.'
+      ]
+    }
+  },
   {
     version: '0.3.0',
     date: '2026-09-17',

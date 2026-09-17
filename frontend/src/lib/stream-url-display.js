@@ -16,9 +16,10 @@ export function directFlvUrl(name, httpPort = 8080) {
   return `http://${window.location.hostname}:${httpPort}/live/${name}.flv`;
 }
 
-export function directRtmpUrl(name) {
-  return `rtmp://${window.location.hostname}:1935/live/${name}`;
+export function directRtmpUrl(name, rtmpPort = 1935) {
+  return `rtmp://${window.location.hostname}:${rtmpPort}/live/${name}`;
 }
+
 
 export function displayUrl(url) {
   if (!url) return '';

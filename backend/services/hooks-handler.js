@@ -1,4 +1,5 @@
 const db = require('../database');
+const outPullService = require('./out-pull-service');
 
 function recordEvent(eventType, streamName) {
   try {
@@ -45,19 +46,24 @@ function handleOnUnpublish(data) {
 }
 
 function handleOnPlay(data) {
-  // SRS sends the stream name as "stream"; "stream_name" is kept for older callers.
   const streamName = data.stream || data.stream_name || data.params?.stream;
-  if (!streamName) return;
+  if (!streamName) return { allowed: true, reason: 'missing_stream' };
+
+  const authorization = outPullService.authorizePlay(data);
+  if (!authorization.allowed) {
+    console.log(`[Hooks] Viewer rejected for "${streamName}": ${authorization.reason}`);
+    return authorization;
+  }
 
   recordEvent('on_play', streamName);
-
   const stream = db.prepare('SELECT viewers FROM streams WHERE name = ?').get(streamName);
   if (stream) {
     db.prepare('UPDATE streams SET viewers = viewers + 1, updated_at = CURRENT_TIMESTAMP WHERE name = ?')
       .run(streamName);
   }
-
+  outPullService.recordPlaySession(data, authorization);
   console.log(`[Hooks] Viewer started playing "${streamName}"`);
+  return authorization;
 }
 
 function handleOnStop(data) {
@@ -73,6 +79,7 @@ function handleOnStop(data) {
       .run(streamName);
   }
 
+  outPullService.recordStopSession(data);
   console.log(`[Hooks] Viewer stopped playing "${streamName}"`);
 }
 

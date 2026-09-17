@@ -1,5 +1,6 @@
 const db = require('../database');
 const { validateStreamUrl } = require('../utils/url-validation');
+const pushTaskService = require('./push-task-service');
 
 const STREAM_PROTOCOLS = ['rtmp', 'rtmps', 'srt', 'rtsp', 'http', 'https'];
 
@@ -47,58 +48,18 @@ function deleteSource(id) {
   return { name: source.name };
 }
 
-// Forward tasks
-function listTasks() {
-  return db.prepare('SELECT * FROM forward_tasks ORDER BY created_at DESC').all();
-}
+// OUT-PUSH tasks are now controlled by the managed Push Worker.
+// Keep this module as the compatibility facade used by the existing routes.
+function listTasks() { return pushTaskService.listTasks(); }
+function getTask(id) { return pushTaskService.getTask(id); }
+function createTask(input) { return pushTaskService.createTask(input); }
+function updateTask(id, updates) { return pushTaskService.updateTask(id, updates); }
+function deleteTask(id) { return pushTaskService.deleteTask(id); }
 
-function getTask(id) {
-  return db.prepare('SELECT * FROM forward_tasks WHERE id = ?').get(id) || null;
-}
-
-function createTask({ stream_id, external_source_id, target_type, target_url, enabled }) {
-  if (!target_type || !target_url) throw new Error('Target type and URL are required');
-  const check = validateStreamUrl(target_url, STREAM_PROTOCOLS);
-  if (!check.valid) throw new Error(`Invalid target URL: ${check.error}`);
-  db.prepare('INSERT INTO forward_tasks (stream_id, external_source_id, target_type, target_url, enabled) VALUES (?, ?, ?, ?, ?)')
-    .run(stream_id, external_source_id, target_type, target_url, enabled !== undefined ? enabled : 1);
-  return db.prepare('SELECT * FROM forward_tasks WHERE target_url = ? AND target_type = ?').get(target_url, target_type);
-}
-
-function updateTask(id, updates) {
-  const task = db.prepare('SELECT * FROM forward_tasks WHERE id = ?').get(id);
-  if (!task) return null;
-  // Whitelist: never build SET clauses from raw request keys.
-  const allowed = ['stream_id', 'external_source_id', 'target_type', 'target_url', 'enabled'];
-  const fields = {};
-  for (const key of allowed) {
-    if (updates[key] !== undefined) fields[key] = updates[key];
-  }
-  if (fields.target_url !== undefined) {
-    const check = validateStreamUrl(fields.target_url, STREAM_PROTOCOLS);
-    if (!check.valid) throw new Error(`Invalid target URL: ${check.error}`);
-  }
-  if (Object.keys(fields).length === 0) return task;
-  const setClauses = Object.keys(fields).map(k => `${k} = ?`).join(', ');
-  db.prepare(`UPDATE forward_tasks SET ${setClauses} WHERE id = ?`).run(...Object.values(fields), id);
-  return db.prepare('SELECT * FROM forward_tasks WHERE id = ?').get(id);
-}
-
-function deleteTask(id) {
-  const task = db.prepare('SELECT * FROM forward_tasks WHERE id = ?').get(id);
-  if (!task) return null;
-  db.prepare('DELETE FROM forward_tasks WHERE id = ?').run(id);
-  return { id: task.id };
-}
-
-// SRS Forward backend: returns forward targets for a stream
+// Legacy SRS Dynamic Forward compatibility. Managed-worker tasks are
+// intentionally excluded so the same target cannot be pushed twice.
 function getForwardTargets(streamName) {
-  const tasks = db.prepare('SELECT * FROM forward_tasks WHERE enabled = 1 AND status != \'error\'').all();
-  const stream = db.prepare('SELECT id FROM streams WHERE name = ?').get(streamName);
-
-  return tasks
-    .filter(t => t.stream_id === stream?.id || !t.stream_id)
-    .map(t => t.target_url);
+  return pushTaskService.listLegacyDynamicTargets(streamName);
 }
 
 module.exports = {

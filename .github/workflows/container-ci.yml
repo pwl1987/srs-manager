@@ -53,5 +53,8 @@ jobs:
       - name: 构建 Pull Worker 镜像
         run: docker build --target pull-worker -t srs-manager:pull-worker-ci .
 
-      - name: 验证 Pull Worker 的 FFmpeg
+      - name: 验证媒体 Worker 的 FFmpeg
         run: docker run --rm --entrypoint ffmpeg srs-manager:pull-worker-ci -version
+
+      - name: 验证 Push Worker 入口
+        run: docker run --rm --entrypoint node srs-manager:pull-worker-ci --check push-worker.js

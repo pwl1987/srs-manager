@@ -1,8 +1,8 @@
 {
-  "title": "拉流转发",
-  "subtitle": "管理外部拉流源和转发任务",
+  "title": "来源与外推",
+  "subtitle": "管理外部输入源和受管 OUT-PUSH 任务",
   "sources": {
-    "title": "外部拉流源",
+    "title": "外部输入源 · IN-PULL",
     "columns": {
       "name": "名称",
       "url": "地址",
@@ -30,7 +30,7 @@
     "empty": "暂无拉流源"
   },
   "tasks": {
-    "title": "转发任务",
+    "title": "主动外推 · OUT-PUSH",
     "columns": {
       "runtimeStatus": "运行状态",
       "error": "错误信息",
@@ -39,27 +39,37 @@
       "targetType": "目标类型",
       "targetUrl": "目标地址",
       "status": "状态",
-      "actions": "操作"
+      "actions": "操作",
+      "desiredStatus": "期望状态"
     },
     "modal": {
-      "create": "新建转发任务",
-      "edit": "编辑转发任务",
+      "create": "新建主动外推",
+      "edit": "编辑主动外推",
       "stream": "流",
       "source": "拉流源",
       "targetType": "目标类型",
       "targetUrl": "目标地址",
       "enabled": "启用",
       "save": "保存",
-      "cancel": "取消"
+      "cancel": "取消",
+      "urlKeepPlaceholder": "留空则保留当前目标地址",
+      "urlKeepHint": "目标地址可能包含推流密钥，控制台只显示脱敏值；留空不会覆盖原地址。",
+      "createStoppedHint": "新任务先以停止状态保存，确认目标后再显式启动，避免创建即误推。"
     },
     "actions": {
       "create": "新建",
       "toggle": "启停",
       "edit": "编辑",
-      "delete": "删除"
+      "delete": "删除",
+      "start": "启动外推",
+      "stop": "停止外推",
+      "retry": "重新尝试",
+      "legacyEnable": "启用兼容转推（下次 Publisher 建立后生效）",
+      "legacyDisable": "禁用兼容转推（不会保证立即终止已建立 Forward）"
     },
     "empty": "暂无转发任务",
-    "note": "启用的任务会在源流发布时作为 OUT-PUSH 目标返回给 SRS Dynamic Forward。启用/已配置只代表目标可被使用，并不等同于远端已经健康收流。"
+    "note": "OUT-PUSH 由独立 Push Worker + FFmpeg 执行。RUNNING 表示受管进程正在工作且本地输入仍在线，不代表第三方平台已经成功播放；停止会真正终止本地外推进程。",
+    "legacyHint": "历史任务为安全起见保持 SRS Dynamic Forward 兼容模式，避免升级时与 Push Worker 双推。配置启停主要影响后续 Publisher 会话。"
   },
   "protocol": {
     "rtmp": "RTMP",
@@ -73,7 +83,10 @@
   "targetType": {
     "cdnChannel": "CDN 频道",
     "srsEdge": "SRS 边缘节点",
-    "customRtmp": "自定义 RTMP"
+    "customRtmp": "自定义 RTMP",
+    "cdn_channel": "CDN 目标",
+    "srs_edge": "SRS 边缘节点",
+    "custom_rtmp": "自定义推流目标"
   },
   "status": {
     "enabled": "启用",
@@ -83,5 +96,19 @@
     "idle": "空闲",
     "running": "运行中",
     "error": "错误"
+  },
+  "desiredState": {
+    "RUNNING": "期望运行",
+    "STOPPED": "期望停止"
+  },
+  "runtimeState": {
+    "STOPPED": "已停止",
+    "WAITING_INPUT": "等待输入",
+    "STARTING": "正在启动",
+    "RUNNING": "进程运行中",
+    "RETRYING": "等待重试",
+    "FAILED": "失败",
+    "STOPPING": "正在停止",
+    "LEGACY_DYNAMIC": "SRS Dynamic Forward 兼容模式"
   }
 }

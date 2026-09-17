@@ -36,6 +36,7 @@ app.use('/api/external-sources', require('./routes/external-sources'));
 app.use('/api/pull-tasks', require('./routes/pull-tasks'));
 app.use('/api/forward-tasks', require('./routes/forward-tasks'));
 app.use('/api/forward', require('./routes/forward'));
+app.use('/api/out-pull', require('./routes/out-pull'));
 app.use('/api/monitor', require('./routes/monitor'));
 app.use('/api/transcode-templates', require('./routes/transcode-templates'));
 app.use('/api/settings', require('./routes/settings'));

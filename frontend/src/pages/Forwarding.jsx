@@ -13,9 +13,10 @@ import SearchInput from '../components/ui/SearchInput';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { inputClass, labelClass, btnPrimary, btnSecondary, btnGhost, thClass, tdClass, helpTextClass } from '../components/ui/styles';
-import { Plus, Edit, Trash2, Power, Download, Upload, Info } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Square, RefreshCw, Download, Upload, Info } from 'lucide-react';
 
 const URL_PATTERN = /^(rtmp|rtmps|srt|rtsp|http|https):\/\/\S+/i;
+const PUSH_URL_PATTERN = /^(rtmp|rtmps|srt):\/\/\S+/i;
 
 export default function Forwarding() {
   const { t } = useTranslation(['forwarding', 'common']);
@@ -30,7 +31,7 @@ export default function Forwarding() {
   const [editingSource, setEditingSource] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
   const [sourceForm, setSourceForm] = useState({ name: '', source_url: '', protocol: 'rtmp', pull_mode: 'pull' });
-  const [taskForm, setTaskForm] = useState({ stream_id: '', external_source_id: '', target_type: 'cdn_channel', target_url: '', enabled: 1 });
+  const [taskForm, setTaskForm] = useState({ stream_id: '', target_type: 'custom_rtmp', target_url: '' });
   const [formError, setFormError] = useState('');
   const [deleteSource, setDeleteSource] = useState(null);
   const [deleteTask, setDeleteTask] = useState(null);
@@ -96,7 +97,7 @@ export default function Forwarding() {
 
   function openCreateTask() {
     setEditingTask(null);
-    setTaskForm({ stream_id: streams[0]?.id || '', external_source_id: sources[0]?.id || '', target_type: 'cdn_channel', target_url: '', enabled: 1 });
+    setTaskForm({ stream_id: streams[0]?.id || '', target_type: 'custom_rtmp', target_url: '' });
     setFormError('');
     setShowTaskModal(true);
   }
@@ -104,8 +105,9 @@ export default function Forwarding() {
   function openEditTask(task) {
     setEditingTask(task);
     setTaskForm({
-      stream_id: task.stream_id, external_source_id: task.external_source_id,
-      target_type: task.target_type, target_url: task.target_url, enabled: task.enabled
+      stream_id: task.stream_id,
+      target_type: task.target_type,
+      target_url: ''
     });
     setFormError('');
     setShowTaskModal(true);
@@ -114,16 +116,16 @@ export default function Forwarding() {
   async function handleTaskSubmit(e) {
     e.preventDefault();
     setFormError('');
-    if (!URL_PATTERN.test(taskForm.target_url)) {
+    if ((!editingTask || taskForm.target_url.trim()) && !PUSH_URL_PATTERN.test(taskForm.target_url.trim())) {
       setFormError(t('common:errors.VALIDATION_TEMPLATE_INVALID'));
       return;
     }
     try {
       if (editingTask) {
-        await api.put(`/forward-tasks/${editingTask.id}`, taskForm);
+        await api.put(`/forward-tasks/${editingTask.id}`, { ...taskForm, target_url: taskForm.target_url.trim() });
         toast.success(t('common:toasts.updated'));
       } else {
-        await api.post('/forward-tasks', taskForm);
+        await api.post('/forward-tasks', { ...taskForm, target_url: taskForm.target_url.trim(), enabled: 0 });
         toast.success(t('common:toasts.created'));
       }
       setShowTaskModal(false);
@@ -155,9 +157,9 @@ export default function Forwarding() {
     finally { setWorking(false); }
   }
 
-  async function handleToggleTask(task) {
+  async function controlTask(task, action) {
     try {
-      await api.put(`/forward-tasks/${task.id}`, { enabled: task.enabled ? 0 : 1 });
+      await api.post(`/forward-tasks/${task.id}/${action}`);
       toast.success(t('common:toasts.updated'));
       loadAll();
     } catch (err) { toast.error(t(`common:errors.${getErrorCode(err)}`)); }
@@ -170,7 +172,7 @@ export default function Forwarding() {
   const filteredTasks = search
     ? tasks.filter(task => {
         const stream = streams.find(s => s.id === task.stream_id);
-        return (task.target_url || '').toLowerCase().includes(q) || (stream?.name || '').toLowerCase().includes(q);
+        return (task.target_url_masked || '').toLowerCase().includes(q) || (stream?.name || '').toLowerCase().includes(q);
       })
     : tasks;
 
@@ -257,6 +259,11 @@ export default function Forwarding() {
             <p className={cn(helpTextClass, 'flex items-center gap-1.5 mb-3')}>
               <Info size={12} className="shrink-0" /> {t('forwarding:tasks.note')}
             </p>
+            {tasks.some(task => task.execution_mode === 'srs_dynamic') && (
+              <p className="mb-3 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning-soft)]/35 px-3 py-2 text-[10px] leading-5 text-[var(--warning)]">
+                {t('forwarding:tasks.legacyHint')}
+              </p>
+            )}
             {filteredTasks.length === 0 ? (
               <div className="bg-[var(--card)] rounded-lg border"><EmptyState title={t('forwarding:tasks.empty')} /></div>
             ) : (
@@ -264,10 +271,9 @@ export default function Forwarding() {
                 <thead>
                   <tr className="border-b">
                     <th className={thClass}>{t('forwarding:tasks.columns.stream')}</th>
-                    <th className={thClass}>{t('forwarding:tasks.columns.source')}</th>
                     <th className={thClass}>{t('forwarding:tasks.columns.targetType')}</th>
                     <th className={thClass}>{t('forwarding:tasks.columns.targetUrl')}</th>
-                    <th className={thClass}>{t('forwarding:tasks.columns.status')}</th>
+                    <th className={thClass}>{t('forwarding:tasks.columns.desiredStatus')}</th>
                     <th className={thClass}>{t('forwarding:tasks.columns.runtimeStatus')}</th>
                     <th className={`${thClass} text-right`}>{t('forwarding:tasks.columns.actions')}</th>
                   </tr>
@@ -275,47 +281,37 @@ export default function Forwarding() {
                 <tbody className="divide-y divide-[var(--border)]">
                   {filteredTasks.map(task => {
                     const stream = streams.find(s => s.id === task.stream_id);
-                    const source = sources.find(s => s.id === task.external_source_id);
+                    const runningDesired = task.desired_state === 'RUNNING';
+                    const legacyDynamic = task.execution_mode === 'srs_dynamic';
                     return (
                       <tr key={task.id} className="hover:bg-[var(--surface-hover)] transition-colors">
                         <td className={`${tdClass} font-medium`}>{stream?.name || '-'}</td>
-                        <td className={tdClass}>{source?.name || '-'}</td>
-                        <td className={tdClass}>{t(`forwarding:targetType.${task.target_type}`, task.target_type)}</td>
                         <td className={tdClass}>
-                          <code className="font-mono text-xs truncate block max-w-[240px]" title={task.target_url}>{task.target_url}</code>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{t(`forwarding:targetType.${task.target_type}`, task.target_type)}</span>
+                            {legacyDynamic && <span className="rounded bg-[var(--warning-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--warning)]">LEGACY</span>}
+                          </div>
                         </td>
                         <td className={tdClass}>
-                          <span className={cn('text-xs px-2 py-1 rounded whitespace-nowrap',
-                            task.enabled ? 'bg-[var(--success)]/10 text-[var(--success)]' : 'bg-[var(--secondary)] text-[var(--muted-foreground)]')}>
-                            {t(`forwarding:status.${task.enabled ? 'enabled' : 'disabled'}`)}
+                          <code className="font-mono text-xs truncate block max-w-[280px]" title={task.target_url_masked || undefined}>{task.target_url_masked || '—'}</code>
+                        </td>
+                        <td className={tdClass}>
+                          <span className={cn('text-xs px-2 py-1 rounded whitespace-nowrap', runningDesired ? 'bg-[var(--info-soft)] text-[var(--info)]' : 'bg-[var(--secondary)] text-[var(--muted-foreground)]')}>
+                            {t(`forwarding:desiredState.${task.desired_state}`, task.desired_state)}
                           </span>
                         </td>
                         <td className={tdClass}>
-                          <span
-                            className={cn('text-xs whitespace-nowrap',
-                              task.status === 'error' ? 'text-[var(--destructive)]' : 'text-[var(--muted-foreground)]')}
-                            title={task.error_message || undefined}
-                          >
-                            {t(`forwarding:taskStatus.${task.status || 'idle'}`, task.status || 'idle')}
+                          <span className={cn('text-xs whitespace-nowrap', task.runtime_state === 'FAILED' ? 'text-[var(--destructive)]' : task.runtime_state === 'RUNNING' ? 'text-[var(--success)]' : 'text-[var(--muted-foreground)]')} title={task.last_error || undefined}>
+                            {t(`forwarding:runtimeState.${task.runtime_state}`, task.runtime_state)}
                           </span>
                         </td>
                         <td className={tdClass}>
                           <div className="flex items-center justify-end gap-0.5">
-                            <button
-                              className={btnGhost}
-                              onClick={() => handleToggleTask(task)}
-                              title={t(task.enabled ? 'common:actions.hide' : 'common:actions.show')}
-                            >
-                              <Power size={14} className={task.enabled ? 'text-[var(--success)]' : ''} />
-                            </button>
-                            <button className={btnGhost} onClick={() => openEditTask(task)} title={t('common:actions.edit')}><Edit size={14} /></button>
-                            <button
-                              className={cn(btnGhost, 'text-[var(--destructive)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/15')}
-                              onClick={() => setDeleteTask(task)}
-                              title={t('common:actions.delete')}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {!runningDesired && task.runtime_state !== 'FAILED' && <button className={btnGhost} onClick={() => controlTask(task, 'start')} title={t(legacyDynamic ? 'forwarding:tasks.actions.legacyEnable' : 'forwarding:tasks.actions.start')}><Play size={14} /></button>}
+                            {runningDesired && <button className={btnGhost} onClick={() => controlTask(task, 'stop')} title={t(legacyDynamic ? 'forwarding:tasks.actions.legacyDisable' : 'forwarding:tasks.actions.stop')}><Square size={14} /></button>}
+                            {!legacyDynamic && task.runtime_state === 'FAILED' && <button className={btnGhost} onClick={() => controlTask(task, 'retry')} title={t('forwarding:tasks.actions.retry')}><RefreshCw size={14} /></button>}
+                            <button className={btnGhost} disabled={runningDesired} onClick={() => openEditTask(task)} title={t('common:actions.edit')}><Edit size={14} /></button>
+                            <button className={cn(btnGhost, 'text-[var(--destructive)] hover:text-[var(--destructive)] hover:bg-[var(--destructive)]/15')} disabled={task.desired_state !== 'STOPPED' || (!legacyDynamic && task.runtime_state !== 'STOPPED')} onClick={() => setDeleteTask(task)} title={t('common:actions.delete')}><Trash2 size={14} /></button>
                           </div>
                         </td>
                       </tr>
@@ -401,21 +397,12 @@ export default function Forwarding() {
         }
       >
         <form id="task-form" onSubmit={handleTaskSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>{t('forwarding:tasks.modal.stream')}</label>
-              <select value={taskForm.stream_id} onChange={e => setTaskForm({ ...taskForm, stream_id: e.target.value })} className={inputClass} required>
-                <option value="">{t('common:labels.selectPlaceholder')}</option>
-                {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>{t('forwarding:tasks.modal.source')}</label>
-              <select value={taskForm.external_source_id} onChange={e => setTaskForm({ ...taskForm, external_source_id: e.target.value })} className={inputClass}>
-                <option value="">{t('common:labels.selectPlaceholder')}</option>
-                {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
+          <div>
+            <label className={labelClass}>{t('forwarding:tasks.modal.stream')}</label>
+            <select value={taskForm.stream_id} onChange={e => setTaskForm({ ...taskForm, stream_id: e.target.value })} className={inputClass} required>
+              <option value="">{t('common:labels.selectPlaceholder')}</option>
+              {streams.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
           <div>
             <label className={labelClass}>{t('forwarding:tasks.modal.targetType')}</label>
@@ -427,14 +414,20 @@ export default function Forwarding() {
           </div>
           <div>
             <label className={labelClass}>{t('forwarding:tasks.modal.targetUrl')}</label>
-            <input type="text" value={taskForm.target_url} onChange={e => setTaskForm({ ...taskForm, target_url: e.target.value })} className={`${inputClass} font-mono`} placeholder="rtmp://…" required />
-          </div>
-          <div>
-            <label className={labelClass}>{t('forwarding:tasks.modal.enabled')}</label>
-            <select value={taskForm.enabled} onChange={e => setTaskForm({ ...taskForm, enabled: parseInt(e.target.value, 10) })} className={inputClass}>
-              <option value={1}>{t('forwarding:status.enabled')}</option>
-              <option value={0}>{t('forwarding:status.disabled')}</option>
-            </select>
+            {editingTask && (
+              <div className="mb-2 rounded-lg border border-[var(--border-soft)] bg-[var(--secondary)] px-3 py-2 font-mono text-xs text-[var(--muted-foreground)]">
+                {editingTask.target_url_masked || '—'}
+              </div>
+            )}
+            <input
+              type="text"
+              value={taskForm.target_url}
+              onChange={e => setTaskForm({ ...taskForm, target_url: e.target.value })}
+              className={`${inputClass} font-mono`}
+              placeholder={editingTask ? t('forwarding:tasks.modal.urlKeepPlaceholder') : 'rtmp://… / srt://…'}
+              required={!editingTask}
+            />
+            <p className={helpTextClass}>{editingTask ? t('forwarding:tasks.modal.urlKeepHint') : t('forwarding:tasks.modal.createStoppedHint')}</p>
           </div>
           {formError && <p className="text-[var(--destructive)] text-sm">{formError}</p>}
         </form>
@@ -455,7 +448,7 @@ export default function Forwarding() {
         onConfirm={confirmDeleteTask}
         confirming={working}
         title={t('common:confirm.delete.title')}
-        description={t('common:confirm.delete.description', { detail: deleteTask?.target_url || '' })}
+        description={t('common:confirm.delete.description', { detail: deleteTask?.target_url_masked || '' })}
         confirmLabel={t('common:confirm.delete.confirm')}
       />
     </div>

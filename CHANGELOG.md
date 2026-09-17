@@ -2,6 +2,45 @@
 
 本文件记录用户能够感知到的产品能力、运维机制、界面体验和重要工程变化。版本记录以“现在能做什么”为核心，不把纯代码重构包装成功能更新。
 
+## v0.4.0 — 四向链路控制
+
+发布日期：2026-09-17
+
+### 核心目标
+
+在 v0.3.0 “能推入、能拉入”的基础上，把输出方向也升级为真正可控：**我方主动外推可以真启动/真停止，第三方拉流可以分别控制端点、新连接、访问授权和现有会话。**
+
+### 新增
+
+- 新增独立 Push Worker + FFmpeg Managed OUT-PUSH 运行时；
+- OUT-PUSH 增加 `STOPPED / WAITING_INPUT / STARTING / RUNNING / RETRYING / FAILED / STOPPING` 运行状态；
+- OUT-PUSH 增加 Start / Stop / Retry 和独立 Worker Lease；
+- 输入不存在时 OUT-PUSH 进入 `WAITING_INPUT`，输入恢复后再启动；
+- 输入消失或用户 Stop 时真正终止本地 FFmpeg 外推进程；
+- 新增 OUT-PULL 端点可用、新连接准入和 Require Grant 策略；
+- 新增 Access Grant，token 只在创建时返回一次，数据库只保存 SHA-256 哈希；
+- SRS `on_play` Hook 接入真实播放准入；
+- 新增系统内部媒体凭证，使受管 Push Worker 不受外部播放授权策略误伤；
+- 单流工作台增加「主动外推」和「第三方拉流」控制面。
+
+### 兼容与安全
+
+- v0.3 旧 `forward_tasks` 自动迁移到 Managed Worker 模型并保留启停意图；
+- SRS Dynamic Forward POST 返回格式与当前 backend 契约对齐；
+- Managed Worker 任务不会由 Dynamic Forward 再次返回，避免双推；
+- OUT-PUSH 目标地址普通 API 默认脱敏；
+- 吊销 Grant 不会冒充“当前连接已断开”，断开会话仍是独立动作；
+- OUT-PULL 授权目前只对 SRS Origin 直连入口负责，第三方 CDN 需要供应商侧独立鉴权。
+
+### 验证
+
+- 后端自动回归：15/15 通过；
+- v0.3 → v0.4 旧库迁移测试：通过；
+- SRS Dynamic Forward POST 兼容与防双推测试：通过；
+- on_play 授权拒绝/放行测试：通过；
+- 前端生产构建与中英文 key 校验：通过；
+- 真实媒体环境的 OUT-PUSH 与 OUT-PULL 端到端证据仍需继续补齐。
+
 ## v0.3.0 — 推拉流 MVP
 
 发布日期：2026-09-17

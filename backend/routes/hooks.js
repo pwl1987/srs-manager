@@ -17,7 +17,10 @@ router.post('/on_unpublish', (req, res) => {
 });
 
 router.post('/on_play', (req, res) => {
-  hooksHandler.handleOnPlay(req.body);
+  const result = hooksHandler.handleOnPlay(req.body);
+  if (result?.allowed === false) {
+    return res.status(200).json({ code: 403, msg: result.reason || 'Playback denied' });
+  }
   res.status(200).json({ code: 0 });
 });
 

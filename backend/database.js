@@ -167,10 +167,19 @@ CREATE TABLE IF NOT EXISTS forward_tasks (
   external_source_id INTEGER,
   target_type TEXT NOT NULL,
   target_url TEXT NOT NULL,
-  enabled INTEGER DEFAULT 1,
+  enabled INTEGER DEFAULT 0,
+  execution_mode TEXT NOT NULL DEFAULT 'managed_worker',
+  desired_state TEXT NOT NULL DEFAULT 'STOPPED' CHECK(desired_state IN ('RUNNING', 'STOPPED')),
+  runtime_state TEXT NOT NULL DEFAULT 'STOPPED',
   status TEXT DEFAULT 'idle',
   error_message TEXT,
+  attempt INTEGER NOT NULL DEFAULT 0,
+  next_retry_at TEXT,
+  worker_instance_id TEXT,
+  last_started_at TEXT,
+  last_stopped_at TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
   FOREIGN KEY (external_source_id) REFERENCES external_sources(id) ON DELETE SET NULL
 );
@@ -224,6 +233,45 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS out_pull_policies (
+  stream_id INTEGER PRIMARY KEY,
+  endpoint_enabled INTEGER NOT NULL DEFAULT 1,
+  accepting_new_sessions INTEGER NOT NULL DEFAULT 1,
+  require_grant INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS access_grants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  label TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  token_hint TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'ACTIVE',
+  valid_from TEXT,
+  expires_at TEXT NOT NULL,
+  created_by TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  revoked_at TEXT,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_access_grants_stream_status ON access_grants(stream_id, status, expires_at);
+
+CREATE TABLE IF NOT EXISTS out_pull_sessions (
+  client_id TEXT PRIMARY KEY,
+  stream_id INTEGER NOT NULL,
+  grant_id INTEGER,
+  ip TEXT,
+  started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  stopped_at TEXT,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
+  FOREIGN KEY (grant_id) REFERENCES access_grants(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_out_pull_sessions_stream_active ON out_pull_sessions(stream_id, stopped_at);
+
 CREATE TABLE IF NOT EXISTS operations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   type TEXT NOT NULL,
@@ -253,6 +301,12 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
 );`);
 
   // Lightweight migrations for tables created by older versions.
+  // Capture whether forward_tasks predates v0.4 before ALTER TABLE adds the
+  // execution_mode column. Existing Dynamic Forward tasks must not be silently
+  // started again by the new Push Worker during a live upgrade.
+  const forwardColumnsBefore = conn.prepare('PRAGMA table_info(forward_tasks)').all().map(c => c.name);
+  const migratingLegacyForwardTasks = !forwardColumnsBefore.includes('execution_mode');
+
   const ensureColumn = (table, column, ddl) => {
     const cols = conn.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
     if (!cols.includes(column)) conn.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
@@ -265,6 +319,31 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   ensureColumn('pull_tasks', 'active_source_id', 'active_source_id INTEGER');
   ensureColumn('pull_tasks', 'last_source_switch_at', 'last_source_switch_at TEXT');
   ensureColumn('pull_tasks', 'last_source_switch_reason', 'last_source_switch_reason TEXT');
+  ensureColumn('forward_tasks', 'execution_mode', "execution_mode TEXT NOT NULL DEFAULT 'managed_worker'");
+  ensureColumn('forward_tasks', 'desired_state', "desired_state TEXT NOT NULL DEFAULT 'STOPPED'");
+  ensureColumn('forward_tasks', 'runtime_state', "runtime_state TEXT NOT NULL DEFAULT 'STOPPED'");
+  ensureColumn('forward_tasks', 'attempt', 'attempt INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('forward_tasks', 'next_retry_at', 'next_retry_at TEXT');
+  ensureColumn('forward_tasks', 'worker_instance_id', 'worker_instance_id TEXT');
+  ensureColumn('forward_tasks', 'last_started_at', 'last_started_at TEXT');
+  ensureColumn('forward_tasks', 'last_stopped_at', 'last_stopped_at TEXT');
+  ensureColumn('forward_tasks', 'updated_at', 'updated_at TEXT');
+  conn.exec('CREATE INDEX IF NOT EXISTS idx_forward_tasks_desired_runtime ON forward_tasks(desired_state, runtime_state)');
+
+  // v0.4: rows from the pre-v0.4 schema remain SRS Dynamic Forward tasks.
+  // An already-live SRS Forward cannot be observed or safely terminated by the
+  // new Push Worker, so implicit migration could double-push the same target.
+  if (migratingLegacyForwardTasks) {
+    conn.prepare(`
+      UPDATE forward_tasks
+      SET execution_mode = 'srs_dynamic',
+          desired_state = CASE WHEN enabled = 1 THEN 'RUNNING' ELSE 'STOPPED' END,
+          runtime_state = 'LEGACY_DYNAMIC',
+          status = 'legacy_dynamic',
+          updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)
+    `).run();
+  }
+
 
   // P3-B: migrate every legacy single-source PullTask into a one-to-many
   // source set without deleting the compatibility external_source_id column.

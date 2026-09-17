@@ -77,7 +77,8 @@
     "source": {
       "observed": "Observed",
       "configured": "Configured",
-      "unavailable": "Unavailable"
+      "unavailable": "Unavailable",
+      "runtime": "Managed Runtime"
     },
     "signal": {
       "title": "Signal Path",
@@ -154,7 +155,7 @@
     },
     "outputs": {
       "forwarding": "Active Push Targets",
-      "forwardHint": "Configured OUT-PUSH forwarding tasks associated with this stream",
+      "forwardHint": "OUT-PUSH managed by the Push Worker; runtime state does not prove remote playback health",
       "enabled": "Enabled",
       "disabled": "Disabled",
       "cdn": "CDN Outputs",
@@ -197,6 +198,49 @@
       "title": "Connection Controls",
       "description": "These actions control current SRS sessions only. They are not equivalent to banning access, revoking authorization or changing desired state. Persistent blocking and recovery policy will be implemented in a later control-mechanism phase.",
       "managedPullDescription": "This input is driven by Managed Pull Desired State. To actually stop the input, use Stop in Managed Pull. Kicking the current publisher would only cause the Worker to reconcile it back, so that misleading action is hidden here."
+    },
+    "managedPush": {
+      "title": "Managed Outbound Push · OUT-PUSH",
+      "subtitle": "A dedicated Push Worker reads the current SRS stream and actively pushes it to third-party targets with FFmpeg. Stop terminates the local outbound process.",
+      "workerOnline": "Push Worker Online",
+      "workerOffline": "Push Worker Offline",
+      "workerUnavailableHint": "At least one push expects RUNNING, but the Push Worker heartbeat is unavailable. Desired state is preserved without reporting false success.",
+      "empty": "No managed outbound targets are configured for this stream.",
+      "configure": "Configure Targets",
+      "start": "Start Push",
+      "stop": "Stop Push",
+      "retry": "Retry",
+      "updated": "Outbound push state updated",
+      "evidenceHint": "RUNNING proves only that the managed FFmpeg process is alive while local input is online. Remote playback health still requires independent platform/CDN evidence.",
+      "legacyHint": "This legacy task remains on SRS Dynamic Forward to avoid double-pushing during upgrades. See Sources & Outbound Push for its compatibility control semantics."
+    },
+    "outPull": {
+      "title": "Third-party Pull · OUT-PULL",
+      "subtitle": "Control SRS Origin endpoint availability, new-session admission, access grants, and current sessions independently.",
+      "currentSessions": "current sessions",
+      "endpointEnabled": "Endpoint Enabled",
+      "endpointDisabled": "Endpoint Disabled",
+      "accepting": "Accepting New Sessions",
+      "paused": "New Sessions Paused",
+      "grantRequired": "Grant Required",
+      "openAccess": "Open Access",
+      "sessionControl": "Current Session Control",
+      "sessionControlHint": "Pausing new sessions or revoking grants does not disconnect established playback sessions. Disconnecting current sessions is a separate action.",
+      "disconnectCurrent": "Disconnect Current Sessions",
+      "createGrant": "Create Access Grant",
+      "grantLabel": "Grant Label",
+      "grantLabelPlaceholder": "e.g. Partner newsroom",
+      "validFor": "Valid For",
+      "hours": "hours",
+      "days": "days",
+      "issueGrant": "Issue Grant",
+      "tokenOnce": "The access token is shown only once. Copy and store it now.",
+      "grants": "Access Grants",
+      "revoke": "Revoke",
+      "updated": "Pull access policy updated",
+      "grantCreated": "Access grant created",
+      "grantRevoked": "Access grant revoked",
+      "originOnlyHint": "This policy controls direct SRS Origin playback only. Third-party CDN domains still require separate provider-side authentication and verification."
     }
   },
   "modal": {

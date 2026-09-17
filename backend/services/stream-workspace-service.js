@@ -4,6 +4,8 @@ const streamService = require('./stream-service');
 const cdnService = require('./cdn-service');
 const pullTaskService = require('./pull-task-service');
 const operationService = require('./operation-service');
+const pushTaskService = require('./push-task-service');
+const outPullService = require('./out-pull-service');
 
 function isPublisher(client) {
   return String(client?.type || '').toLowerCase().includes('publish');
@@ -36,6 +38,8 @@ async function getWorkspace(streamId) {
 
   const pullTask = pullTaskService.getTaskByStream(id);
   const pullWorker = pullTaskService.getWorkerHealth();
+  const pushWorker = pushTaskService.getWorkerHealth();
+  const outPull = outPullService.getOverview(id);
   const pullOperation = pullTask ? operationService.getActivePullSwitch(pullTask.id) : null;
   const pullOperationHistory = pullTask ? operationService.listPullOperations(pullTask.id, 5) : [];
 
@@ -55,7 +59,7 @@ async function getWorkspace(streamId) {
   const players = relatedClients.filter(client => !isPublisher(client));
   const stats = liveStats(srsStream);
 
-  const forwards = db.prepare('SELECT * FROM forward_tasks WHERE stream_id = ? ORDER BY created_at DESC').all(id);
+  const forwards = pushTaskService.listTasksByStream(id);
   const channels = db.prepare('SELECT * FROM cdn_channels WHERE stream_id = ? ORDER BY created_at DESC').all(id);
   const distributions = db.prepare('SELECT * FROM distribution_requests WHERE stream_id = ? ORDER BY created_at DESC').all(id);
   const activity = db.prepare(`
@@ -120,6 +124,8 @@ async function getWorkspace(streamId) {
     },
     outputs: {
       forwards,
+      push_worker: pushWorker,
+      out_pull: outPull,
       cdn_channels: enrichedChannels,
       pull_endpoints: {
         hls: stream.pull_url_hls || null,
@@ -132,7 +138,9 @@ async function getWorkspace(streamId) {
     capabilities: {
       disconnect_publisher: clientsAvailable && publishers.length > 0,
       disconnect_viewers: clientsAvailable && players.length > 0,
-      in_pull_runtime: pullWorker.available
+      in_pull_runtime: pullWorker.available,
+      out_push_runtime: pushWorker.available,
+      out_pull_policy: Boolean(outPull)
     }
   };
 }

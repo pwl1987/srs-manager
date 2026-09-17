@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.3.0 MVP 收口：先确保“能推、能拉、能看、能控”。**
+**v0.4.0 候选阶段：P3-C 四向链路控制收口。**
 
 ## 已完成
 
@@ -68,39 +68,53 @@
 - Worker 重启后可安全恢复未完成切源；
 - 用户停止拉流会取消进行中的切源 Operation。
 
+
+### P3-C — 主动外推与第三方拉流控制
+
+代码层已完成：
+
+- OUT-PUSH 从配置型 Dynamic Forward 升级为独立 Push Worker + FFmpeg 受管运行时；
+- OUT-PUSH 支持 Desired / Runtime 分离、WAITING_INPUT、Start / Stop / Retry、退避与独立 Worker Lease；
+- 停止 OUT-PUSH 会真正终止本地 FFmpeg，不再只是修改 enabled 字段；
+- Managed Worker 任务不会再被 Dynamic Forward backend 返回，避免同一路目标双推；
+- OUT-PULL 新增 Endpoint Enabled、Accept New Sessions、Require Grant 三类准入策略；
+- Access Grant 只保存 SHA-256 哈希，明文 token 仅创建时返回一次；
+- on_play Hook 已接入真实准入判断，无效授权返回非零 code；
+- 吊销授权与断开当前会话保持独立语义；
+- 内部媒体凭证由共享 SQLite 原子生成，保证 Push Worker 不被外部播放策略误拦；
+- Stream Workspace 已接入 Managed Push 与 OUT-PULL 控制面。
+
 ### 工程门禁
 
 已完成：
 
-- 后端回归测试当前 9/9 通过；
+- 后端回归测试当前 15/15 通过；
 - 前端生产构建与多语言 key 校验通过；
-- Web / Pull Worker 镜像及 FFmpeg 容器门禁此前已通过；
+- v0.3.0 Web / Pull Worker 镜像及 FFmpeg 发布门禁已通过；
+- v0.4.0 本地 Compose 已包含 Web / Pull Worker / Push Worker 三服务并通过模型校验；
 - v0.3.0 起 CI 按变更范围触发，容器重任务只在关键变更、版本发布或人工触发时执行；
 - 同分支重复 CI 自动取消旧任务，降低 GitHub Actions 用量。
 
 ## 当前任务
 
-### v0.3.0 MVP 可用性收口
+### v0.4.0 P3-C 发布收口
 
-优先把用户最常见操作压缩到最短路径：
+当前只做收口，不继续扩功能：
 
-1. 运营中心直接提供「我要推流」与「我要拉流」入口；
-2. 推流：创建/选择流 → 复制 RTMP 推流地址 → 推入 SRS → 工作台观察；
-3. 拉流：创建外部来源 → 绑定 Managed Pull → 启动 → 工作台观察；
-4. 版本更新页面展示当前版本、能力亮点和迭代历史；
-5. README、产品设计文档与 CHANGELOG 全部使用中文说明；
-6. 最后补真实 SRS + FFmpeg 环境端到端证据。
+1. 完成 OUT-PUSH / OUT-PULL API、Workspace 与中文文档一致性审计；
+2. 后端、前端、迁移与 Hook 回归全部通过；
+3. Compose / 媒体 Worker 容器门禁通过后发布 v0.4.0；
+4. 真实 SRS 环境补一路主动外推、停止外推、播放授权和断会话证据。
 
 ## 下一任务
 
-MVP 收口后进入 P3-C：
+P3-C 收口后进入 P4：
 
-- 来源优先级原子排序；
-- 可选自动回主策略（默认关闭，必须配置稳定窗口）；
-- OUT-PUSH 的期望状态 / 运行状态 / 观测状态分离；
-- OUT-PULL 的访问授权、禁止新连接、断开现有连接和吊销授权；
-- 四向链路联动策略；
-- 再进入直播任务、开播前检查、告警、状态协调器、审计和自动化。
+- Live Event / 直播任务；
+- 开播前 Preflight：SRS、输入、Push Worker、CDN、DNS、NTP、播放链路；
+- Operation 时间线、Alert、Reconciler 与 Audit；
+- Runbook、模板、批量操作和自动化策略；
+- 继续统一 CDN / DNS / 设置等剩余页面的工作流与视觉语言。
 
 ## 验证债务
 
@@ -112,10 +126,14 @@ MVP 收口后进入 P3-C：
 4. Pull Worker 容器重启后的期望状态恢复；
 5. 双 Pull Worker 同时存在时只有 Lease Owner 启动 FFmpeg；
 6. Web 重启不影响正在运行的 Pull Worker；
-7. 长时间运行下 SQLite WAL、心跳、Operation 和流状态保持一致。
+7. 长时间运行下 SQLite WAL、心跳、Operation 和流状态保持一致；
+8. 真实输入 → Push Worker → 第三方 RTMP/SRT 目标持续外推；
+9. OUT-PUSH Stop 后第三方接收端立即断流，输入消失后任务进入 WAITING_INPUT；
+10. SRS Origin 在开放、暂停新连接、需要 Grant、关闭端点四种策略下的真实播放行为；
+11. 吊销 Grant 与“断开当前会话”分别取得实际媒体证据。
 
 ## 当前完成度估计
 
-按阶段复杂度和风险权重估算，整体整改约完成 **60%**。
+按阶段复杂度和风险权重估算，整体整改约完成 **75%**。
 
-v0.3.0 MVP 的“推 / 拉”输入闭环已经基本形成；剩余工作主要集中在真实部署验收、OUT-PUSH / OUT-PULL 完整控制、直播任务、开播前检查、告警/审计和 Runbook 自动化。
+v0.3.0 已完成输入侧 MVP；v0.4.0 候选版已经补齐 OUT-PUSH 与 OUT-PULL 的代码控制面。剩余工作主要集中在真实部署证据、直播任务/开播前检查、告警/状态协调/审计与 Runbook 自动化。
