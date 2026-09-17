@@ -12,6 +12,7 @@ const STARTUP_TIMEOUT_MS = Math.max(5000, Number(process.env.PULL_STARTUP_TIMEOU
 const STOP_GRACE_MS = Math.max(1000, Number(process.env.PULL_STOP_GRACE_MS || 5000));
 const MAX_BACKOFF_MS = Math.max(5000, Number(process.env.PULL_MAX_BACKOFF_MS || 30000));
 const MAX_ATTEMPTS = Math.max(1, Number(process.env.PULL_MAX_ATTEMPTS || 8));
+const SOURCE_MAX_ATTEMPTS = Math.max(1, Number(process.env.PULL_SOURCE_MAX_ATTEMPTS || 3));
 const LEASE_MAX_AGE_MS = Math.max(POLL_MS * 3, Number(process.env.PULL_WORKER_LEASE_MAX_AGE_MS || 10000));
 const STANDBY_RETRY_MS = Math.max(1000, Math.min(5000, Math.floor(LEASE_MAX_AGE_MS / 2)));
 const ALLOWED_SOURCE_PROTOCOLS = ['rtmp', 'rtmps', 'srt', 'rtsp', 'http', 'https'];
@@ -62,6 +63,28 @@ function isPublisher(client) {
 function scheduleRetry(task, error) {
   const attempt = Math.max(1, Number(task.attempt || 0));
   const safeError = redactText(error);
+  const enabledSources = (task.sources || []).filter(source => source.enabled && source.source_status === 'active');
+
+  // Multiple-source tasks fail over after a smaller per-source threshold.
+  // We intentionally move only toward lower-priority fallbacks and never wrap
+  // back to priority=1 automatically; that avoids failback flapping mid-live.
+  if (enabledSources.length > 1 && attempt >= SOURCE_MAX_ATTEMPTS) {
+    const next = pullTaskService.getNextEnabledSource(task.id, task.active_source_id);
+    if (next) {
+      const reason = `Source ${task.source_name || task.active_source_id} failed after ${attempt} attempts: ${safeError || 'unknown error'}`;
+      pullTaskService.switchActiveSource(task.id, next.external_source_id, reason, 'RETRYING');
+      log(`failover task ${task.id} stream=${task.stream_name} -> source=${next.source_name}`);
+      return;
+    }
+    pullTaskService.updateRuntime(task.id, {
+      runtime_state: 'FAILED',
+      last_error: `All enabled pull sources exhausted; last error: ${safeError || 'unknown error'}`,
+      next_retry_at: null,
+      worker_instance_id: null
+    });
+    return;
+  }
+
   if (attempt >= MAX_ATTEMPTS) {
     pullTaskService.updateRuntime(task.id, {
       runtime_state: 'FAILED',
@@ -112,6 +135,16 @@ function finalizeShutdown(exitCode = 0) {
 }
 
 function spawnTask(task) {
+  if (!task.source_url) {
+    pullTaskService.updateRuntime(task.id, {
+      runtime_state: 'FAILED',
+      last_error: 'No usable active pull source',
+      next_retry_at: null,
+      worker_instance_id: null
+    });
+    return;
+  }
+
   const check = validateStreamUrl(task.source_url, ALLOWED_SOURCE_PROTOCOLS);
   if (!check.valid) {
     pullTaskService.updateRuntime(task.id, {
@@ -142,6 +175,7 @@ function spawnTask(task) {
     child,
     taskId: task.id,
     streamName: task.stream_name,
+    sourceId: task.active_source_id,
     startedAt: Date.now(),
     lastStderr: '',
     stopping: false,
