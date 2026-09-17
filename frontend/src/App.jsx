@@ -10,6 +10,7 @@ import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Streams from './pages/Streams';
+import StreamWorkspace from './pages/StreamWorkspace';
 import CdnChannels from './pages/CdnChannels';
 import AuthKeys from './pages/AuthKeys';
 import Forwarding from './pages/Forwarding';
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="streams" element={<Streams />} />
+          <Route path="streams/:id" element={<StreamWorkspace />} />
           <Route path="cdn-channels" element={<CdnChannels />} />
           <Route path="dns-records" element={<DnsRecords />} />
           <Route path="auth-keys" element={<AuthKeys />} />
