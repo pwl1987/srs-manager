@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00–05 均 COMPLETE；Current Task 已进入 Phase 06 Session / Run Plan / Preflight，既有 Pull / Push / Transcode / Record Runtime ownership 继续兼容复用。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00–06 均 COMPLETE；Current Task 已进入 Phase 07 Incident / Health / Closing Workflow，既有 Pull / Push / Transcode / Record Runtime ownership 继续兼容复用。**
 
 ## 已完成
 
@@ -88,7 +88,7 @@
 
 已完成：
 
-- 后端回归测试当前 58/58 通过；Workspace V3 Contract、Adapter、Evidence/Operation、Source/Program、Unified Output 与 RECORD 回归均保持全绿；
+- 后端回归测试当前 64/64 通过；Workspace V3 Contract、Adapter、Evidence/Operation、Source/Program、Unified Output 与 RECORD 回归均保持全绿；
 - 前端生产构建与多语言 key 校验通过；
 - v0.3.0 Web / Pull Worker 镜像及 FFmpeg 发布门禁已通过；
 - v0.4.0 Compose 已包含 Web / Pull Worker / Push Worker 三服务并通过模型校验；
@@ -148,11 +148,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase 05 — RECORD / Storage Runtime**。RECORD 已纳入统一 V3 Output；`record_tasks / record_assets`、Record Worker lease、TS 安全分段、MP4/TS Finalize、RECOVERABLE 异常资产、filesystem growth Evidence、磁盘预算与 Shared Rendition consumer 均完成。真实 `live` 主机隔离 Field Gate 验证：MP4 正常录制与 Finalize、Candidate Manager 重启不中断录制、Record Worker 硬杀后旧 Asset=RECOVERABLE 且新 Worker 取得 lease 后继续录、TS 最终文件可读、磁盘不足正确阻断。最终 backend `58/58 PASS`、frontend i18n/build PASS；测试流/Hook/Candidate 零残留，生产 DB integrity `ok`，五个既有正式服务保持 active；生产 Record Worker cutover 留到后续 release Gate。
+Last Completed：**Phase 06 — Session / Run Plan / Preflight**。Run Plan / Session Snapshot / Required-Optional / Preflight / Session Start Operation 与生产 `SessionCommandBar` 已完成。真实 `live` 主机隔离 Field Gate 验证：同一 Idempotency-Key 重放不重复创建 child Operation；Required RECORD 正常运行、Optional PUSH 真实失败时不回滚健康链路，Session 仍 `ON_AIR` 且 `degraded=true`；新 Node 进程重载后 Session/Plan Snapshot/Session Outputs 保持一致。最终 backend `64/64 PASS`、frontend i18n/build PASS；测试 Hook/Candidate 零残留，生产 DB integrity `ok`，五个正式服务全 active。
 
-Current Task：**Phase 06 — Session / Run Plan / Preflight**。新增一次真实直播的 Session 生命周期、可复用 Run Plan、Required/Optional Output 意图与 Preflight 编排；不得重新实现已有 Source/Program/Output Runtime。
+Current Task：**Phase 07 — Incident / Health / Closing Workflow**。在既有 Runtime facts 上建立影响链、Incident、Acknowledge/Recovered 与 CLOSING 收播编排，不引入第二套监控真相。
 
-Next Task：**Phase 07 — Incident / Health / Closing Workflow**。Phase 06 Gate 通过后再把影响链、Incident、Acknowledge/Recovered 与收播编排接到已冻结 Runtime facts。
+Next Task：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。Phase 07 Gate 通过后进行最终主工作流切换、兼容清理与发布门禁。
 
 ## 验证债务 / 已知边界
 

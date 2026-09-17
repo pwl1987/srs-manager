@@ -154,7 +154,7 @@ Gate：真实部署主机完成整场 PREP → ON AIR → INCIDENT → RECOVERY 
 
 ## 阶段依赖与推进纪律
 
-推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00、Phase 00–05 已 COMPLETE；Current Task 为 Phase 06 Session / Run Plan / Preflight。后续阶段不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
+推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00、Phase 00–06 已 COMPLETE；Current Task 为 Phase 07 Incident / Health / Closing Workflow。后续阶段不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
 
 每阶段结尾必须同时更新：
 - `REDESIGN-STATUS.md` 的 Current Phase / Last Completed / Current Task / Next Task；

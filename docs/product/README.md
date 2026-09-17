@@ -4,7 +4,7 @@
 
 ## 当前版本基线
 
-当前稳定发布基线仍为 **v0.5.1 直播工作台 V2**；Workspace V3 已完成 UI-00 与 Phase 00–05，当前进入 Phase 06 Session / Run Plan / Preflight；既有 Runtime ownership 采用增量兼容迁移，不做 Big Bang 重写。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
+当前稳定发布基线仍为 **v0.5.1 直播工作台 V2**；Workspace V3 已完成 UI-00 与 Phase 00–06，当前进入 Phase 07 Incident / Health / Closing Workflow；既有 Runtime ownership 采用增量兼容迁移，不做 Big Bang 重写。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
 
 - **第三方推流到我方（IN-PUSH）**：生成推流地址、观察真实 Publisher、查看状态并进行精确控制；
 - **我方主动拉第三方（IN-PULL）**：外部来源、Pull Worker、FFmpeg、重试、主备切换和安全人工切源；
@@ -25,6 +25,8 @@
 - [Phase 03 Field Gate](./contracts/workspace-v3/PHASE-03-FIELD-GATE.md) — 真实 live 主机隔离 Candidate 的 PGM/PVW、成功切源、失败 rollback、Ingest Hook 与清理证据；
 - [Phase 05 RECORD Runtime](./contracts/workspace-v3/PHASE-05-RECORD-RUNTIME.md) — Record Task/Asset、TS 安全分段、Finalize、RECOVERABLE、磁盘预算与 Shared Rendition 边界；
 - [Phase 05 Field Gate](./contracts/workspace-v3/PHASE-05-FIELD-GATE.md) — 真实 MP4/TS、Manager/Worker 重启、异常恢复与磁盘不足现场证据；
+- [Phase 06 Session / Run Plan](./contracts/workspace-v3/PHASE-06-SESSION-RUNPLAN.md) — Session 生命周期、Run Plan Snapshot、Preflight 与 Start 编排边界；
+- [Phase 06 Field Gate](./contracts/workspace-v3/PHASE-06-FIELD-GATE.md) — 幂等 Start、Required/Optional 局部成功、进程重载与现场清理证据；
 - [Phase 04 Unified Output / Rendition](./contracts/workspace-v3/PHASE-04-OUTPUT-RENDITION.md) — PUSH/SERVE 统一模型、共享 Rendition、Scene/Professional Builder 与真实保护边界；
 - [Phase 04 Field Gate](./contracts/workspace-v3/PHASE-04-FIELD-GATE.md) — 真实 live 主机共享编码、多 Output 生命周期、Grant/HLS 边界与清理证据；
 - [Workspace V3 Phase 00 Contract](./contracts/workspace-v3/PHASE-00-MIGRATION-CONTRACT.md) — V2→V3 无损映射、Aggregate、Capability/Evidence/Operation 词汇与迁移边界；
@@ -51,7 +53,8 @@
 12. Phase 03 Sources / Program / Secure Monitor：完成并通过真实媒体 Gate；
 13. Phase 04 Unified Output / Rendition / Scene Builder：完成并通过真实媒体 Gate；
 14. Phase 05 RECORD / Storage Runtime：完成并通过真实文件 Field Gate；
-15. v0.5.1 稳定发布继续维护；Workspace V3 Current Task 为 Phase 06 Session / Run Plan / Preflight。
+15. Phase 06 Session / Run Plan / Preflight：完成并通过真实 Session 编排 Field Gate；
+16. v0.5.1 稳定发布继续维护；Workspace V3 Current Task 为 Phase 07 Incident / Health / Closing Workflow。
 
 ## 长期约束
 
