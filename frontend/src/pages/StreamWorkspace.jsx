@@ -3,9 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
-  Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Cable, CheckCircle2,
-  CircleDot, Clock3, Copy, Eye, Film, Globe2, Network, Play, Radio,
-  Server, ShieldAlert, Signal, Square, Users, WifiOff
+  Activity, ArrowLeft, ArrowRight, ArrowUpRight, Cable, CircleDot, Clock3,
+  Copy, Eye, Film, Globe2, Network, Play, QrCode, Server, ShieldAlert,
+  Signal, Square, Users, WifiOff
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from '../lib/utils';
@@ -13,17 +13,16 @@ import { copyText } from '../lib/clipboard';
 import { formatBitrateKbps, formatDuration, formatRelativeTime } from '../i18n/format';
 import { getErrorCode } from '../lib/error-mapper';
 import { usePolling } from '../lib/use-polling';
-import {
-  directRtmpUrl, displayUrl, resolvePullFlv, resolvePullHls
-} from '../lib/stream-url-display';
+import { displayUrl, resolvePullFlv, resolvePullHls } from '../lib/stream-url-display';
 import PageHeader from '../components/ui/PageHeader';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { CardSkeleton } from '../components/ui/Skeleton';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StreamPreviewModal from '../components/streams/StreamPreviewModal';
 import StreamQrModal from '../components/streams/StreamQrModal';
+import ManagedPullPanel from '../components/streams/ManagedPullPanel';
 import DistributionSection from './StreamsDistribution';
-import { btnPrimary, btnSecondary, btnDangerGhost, btnGhost } from '../components/ui/styles';
+import { btnSecondary, btnDangerGhost, btnGhost } from '../components/ui/styles';
 
 function StateBadge({ state, t }) {
   const meta = state === true
@@ -245,17 +244,29 @@ export default function StreamWorkspace() {
   const stream = workspace.stream;
   const observed = workspace.observed || {};
   const publisher = observed.publisher;
+  const managedPull = workspace.inputs?.managed_pull || {};
+  const managedTask = managedPull.task;
+  const managedDesiredRunning = managedTask?.desired_state === 'RUNNING';
+  const managedObserved = Boolean(managedPull.observed_publisher);
+  const inputMode = managedObserved || (!publisher && managedTask) ? 'IN-PULL' : 'IN-PUSH';
+  const inputTitle = managedObserved
+    ? managedTask.source_name
+    : publisher
+      ? t('streams:workspace.input.publisher')
+      : managedTask
+        ? managedTask.source_name
+        : t('streams:workspace.input.noPublisher');
   const publishUrl = displayUrl(stream.push_url);
   const hlsUrl = resolvePullHls(stream);
   const flvUrl = resolvePullFlv(stream);
-  const rtmpUrl = stream.pull_url_rtmp ? displayUrl(stream.pull_url_rtmp) : directRtmpUrl(stream.name);
+  const rtmpUrl = stream.pull_url_rtmp ? displayUrl(stream.pull_url_rtmp) : publishUrl;
+  const canDisconnectPublisher = workspace.capabilities?.disconnect_publisher && !managedDesiredRunning;
 
   return (
     <div>
       <div className="mb-4">
         <Link to="/streams" className="inline-flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-          <ArrowLeft size={13} />
-          {t('streams:workspace.back')}
+          <ArrowLeft size={13} />{t('streams:workspace.back')}
         </Link>
       </div>
 
@@ -267,11 +278,11 @@ export default function StreamWorkspace() {
           <>
             <StateBadge state={observed.online} t={t} />
             <button className={btnSecondary} onClick={() => setPreview(true)}><Play size={14} />{t('streams:actions.preview')}</button>
+            <button className={btnSecondary} onClick={() => setQr(true)}><QrCode size={14} />{t('streams:actions.qrcode')}</button>
             <button className={btnSecondary} onClick={() => handleCopy(publishUrl)}><Copy size={14} />{t('streams:actions.copyPushUrl')}</button>
-            {workspace.capabilities?.disconnect_publisher && (
+            {canDisconnectPublisher && (
               <button className={btnDangerGhost} onClick={() => setConfirmPublisher(true)}>
-                <Square size={13} />
-                {t('streams:workspace.controls.disconnectPublisher')}
+                <Square size={13} />{t('streams:workspace.controls.disconnectPublisher')}
               </button>
             )}
           </>
@@ -303,14 +314,16 @@ export default function StreamWorkspace() {
         <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(240px,0.9fr)_44px_minmax(260px,0.9fr)_44px_minmax(0,1.4fr)]">
           <FlowNode
             icon={publisher ? Signal : WifiOff}
-            eyebrow="INPUT · IN-PUSH"
-            title={publisher ? t('streams:workspace.input.publisher') : t('streams:workspace.input.noPublisher')}
+            eyebrow={`INPUT · ${inputMode}`}
+            title={inputTitle}
             tone={publisher ? 'live' : observed.srs_available === false ? 'warning' : 'neutral'}
-            state={publisher
+            state={managedObserved || publisher
               ? <SourceTag>{t('streams:workspace.source.observed')}</SourceTag>
-              : observed.srs_available === false
-                ? <SourceTag kind="unavailable">{t('streams:workspace.source.unavailable')}</SourceTag>
-                : null}
+              : managedTask
+                ? <SourceTag kind="configured">{t('streams:workspace.source.configured')}</SourceTag>
+                : observed.srs_available === false
+                  ? <SourceTag kind="unavailable">{t('streams:workspace.source.unavailable')}</SourceTag>
+                  : null}
           >
             {publisher ? (
               <div className="space-y-1.5 text-xs text-[var(--muted-foreground)]">
@@ -323,9 +336,15 @@ export default function StreamWorkspace() {
                 {observed.srs_available === false ? t('streams:workspace.input.srsUnavailable') : t('streams:workspace.input.idleHint')}
               </p>
             )}
-            <div className="mt-3 rounded-lg border border-dashed border-[var(--border-soft)] p-2.5 text-[10px] leading-4 text-[var(--text-faint)]">
-              {t('streams:workspace.input.inPullUnavailable')}
-            </div>
+            {managedTask && (
+              <div className="mt-3 rounded-lg border border-dashed border-[var(--border-soft)] p-2.5 text-[10px] leading-4 text-[var(--muted-foreground)]">
+                {t('streams:workspace.input.managedPullSummary', {
+                  desired: managedTask.desired_state,
+                  runtime: managedTask.runtime_state,
+                  worker: managedPull.worker?.available ? t('streams:workspace.managedPull.workerOnline') : t('streams:workspace.managedPull.workerOffline')
+                })}
+              </div>
+            )}
           </FlowNode>
 
           <div className="hidden items-center justify-center text-[var(--text-faint)] xl:flex"><ArrowRight size={18} /></div>
@@ -357,6 +376,8 @@ export default function StreamWorkspace() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <div className="space-y-6">
+          <ManagedPullPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
+
           <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
             <div className="mb-2 flex items-center gap-2">
               <Cable size={15} className="text-[var(--info)]" />
@@ -393,9 +414,7 @@ export default function StreamWorkspace() {
                 ))}
               </div>
             ) : <p className="text-xs text-[var(--muted-foreground)]">{t('streams:workspace.activity.empty')}</p>}
-            <p className="mt-4 border-t border-[var(--border-soft)] pt-3 text-[10px] leading-4 text-[var(--text-faint)]">
-              {t('streams:workspace.activity.note')}
-            </p>
+            <p className="mt-4 border-t border-[var(--border-soft)] pt-3 text-[10px] leading-4 text-[var(--text-faint)]">{t('streams:workspace.activity.note')}</p>
           </section>
 
           <section className="rounded-xl border border-[var(--destructive)]/20 bg-[var(--destructive)]/5 p-4">
@@ -403,15 +422,16 @@ export default function StreamWorkspace() {
               <ShieldAlert size={17} className="mt-0.5 shrink-0 text-[var(--destructive)]" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold">{t('streams:workspace.danger.title')}</h2>
-                <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">{t('streams:workspace.danger.description')}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+                  {managedDesiredRunning ? t('streams:workspace.danger.managedPullDescription') : t('streams:workspace.danger.description')}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     className={btnDangerGhost}
                     disabled={!workspace.capabilities?.disconnect_viewers}
                     onClick={() => setConfirmViewers(true)}
                   >
-                    <Users size={14} />
-                    {t('streams:workspace.controls.disconnectViewers')}
+                    <Users size={14} />{t('streams:workspace.controls.disconnectViewers')}
                   </button>
                 </div>
               </div>
