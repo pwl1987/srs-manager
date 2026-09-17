@@ -1,66 +1,174 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { Pause, Play, Radio } from 'lucide-react';
-import { resolvePullHls } from '../../lib/stream-url-display';
+import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { btnSecondary } from '../ui/styles';
 
+function rmsDb(analyser) {
+  if (!analyser) return -60;
+  const data = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(data);
+  let sum = 0;
+  for (const value of data) sum += value * value;
+  const rms = Math.sqrt(sum / Math.max(1, data.length));
+  if (!Number.isFinite(rms) || rms <= 0.001) return -60;
+  return Math.max(-60, Math.min(0, 20 * Math.log10(rms)));
+}
+
+function LevelBar({ channel, value }) {
+  const width = Math.max(0, Math.min(100, ((value + 60) / 60) * 100));
+  return (
+    <div className="grid grid-cols-[14px_minmax(0,1fr)_48px] items-center gap-2">
+      <span className="text-[9px] font-semibold text-[var(--text-faint)]">{channel}</span>
+      <div className="h-1.5 overflow-hidden rounded-full bg-[var(--secondary)]">
+        <div
+          className="h-full rounded-full bg-[linear-gradient(90deg,var(--success)_0_72%,var(--warning)_72%_90%,var(--destructive)_90%)] transition-[width] duration-100"
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      <span className="text-right font-mono text-[9px] tabular-nums text-[var(--muted-foreground)]">{value.toFixed(1)} dB</span>
+    </div>
+  );
+}
 export default function WorkspacePreviewPanel({ stream, observed, t }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
+  const audioRef = useRef({ context: null, source: null, splitter: null, left: null, right: null, silent: null, frame: null, last: 0 });
   const [playing, setPlaying] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [previewSource, setPreviewSource] = useState('');
+  const [levels, setLevels] = useState({ left: -60, right: -60 });
+  const [meterAvailable, setMeterAvailable] = useState(true);
   const [error, setError] = useState('');
-  const source = resolvePullHls(stream);
 
+  function stopMeter() {
+    const audio = audioRef.current;
+    if (audio.frame) cancelAnimationFrame(audio.frame);
+    audio.frame = null;
+    setLevels({ left: -60, right: -60 });
+  }
+
+  function startMeter() {
+    const audio = audioRef.current;
+    stopMeter();
+    const tick = timestamp => {
+      if (timestamp - audio.last >= 100) {
+        audio.last = timestamp;
+        setLevels({ left: rmsDb(audio.left), right: rmsDb(audio.right) });
+      }
+      audio.frame = requestAnimationFrame(tick);
+    };
+    audio.frame = requestAnimationFrame(tick);
+  }
+  async function ensureAudioGraph(video) {
+    const audio = audioRef.current;
+    if (!audio.context) {
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextCtor) {
+        setMeterAvailable(false);
+        return false;
+      }
+      const context = new AudioContextCtor();
+      const mediaSource = context.createMediaElementSource(video);
+      const splitter = context.createChannelSplitter(2);
+      const left = context.createAnalyser();
+      const right = context.createAnalyser();
+      const silent = context.createGain();
+      left.fftSize = 256;
+      right.fftSize = 256;
+      left.smoothingTimeConstant = 0.72;
+      right.smoothingTimeConstant = 0.72;
+      silent.gain.value = 0;
+      mediaSource.connect(splitter);
+      splitter.connect(left, 0);
+      splitter.connect(right, 1);
+      mediaSource.connect(silent);
+      silent.connect(context.destination);
+      Object.assign(audio, { context, source: mediaSource, splitter, left, right, silent });
+    }
+    await audio.context.resume().catch(() => {});
+    startMeter();
+    return true;
+  }
+
+  useEffect(() => () => {
+    const audio = audioRef.current;
+    if (audio.frame) cancelAnimationFrame(audio.frame);
+    if (audio.context) audio.context.close().catch(() => {});
+  }, []);
   useEffect(() => {
-    if (!playing || !source) return undefined;
+    if (!playing || !previewSource) return undefined;
     const video = videoRef.current;
     if (!video) return undefined;
     setError('');
     let hls = null;
 
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = source;
-    } else if (Hls.isSupported()) {
-      hls = new Hls({ liveSyncDurationCount: 3, maxLiveSyncPlaybackRate: 1.5 });
-      hlsRef.current = hls;
-      hls.loadSource(source);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) setError(t('streams:preview.error'));
-      });
-    } else {
-      setError(t('streams:preview.notSupported'));
-      setPlaying(false);
-      return undefined;
-    }
+    const attach = async () => {
+      await ensureAudioGraph(video);
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = previewSource;
+      } else if (Hls.isSupported()) {
+        hls = new Hls({ liveSyncDurationCount: 3, maxLiveSyncPlaybackRate: 1.5 });
+        hlsRef.current = hls;
+        hls.loadSource(previewSource);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (data.fatal) setError(t('streams:preview.error'));
+        });
+      } else {
+        setError(t('streams:preview.notSupported'));
+        setPlaying(false);
+        return;
+      }
+      video.play().catch(() => setError(t('streams:preview.error')));
+    };
+    attach();
 
-    video.play().catch(() => setPlaying(false));
     return () => {
+      stopMeter();
+      audioRef.current.context?.suspend().catch(() => {});
       if (hls) hls.destroy();
       hlsRef.current = null;
       video.pause();
       video.removeAttribute('src');
       video.load();
     };
-  }, [playing, source, t]);
+  }, [playing, previewSource, t]);
+  async function startPreview() {
+    if (observed?.online !== true || starting) return;
+    setStarting(true);
+    setError('');
+    try {
+      if (videoRef.current) await ensureAudioGraph(videoRef.current);
+      const access = await api.post(`/streams/${stream.id}/preview-access`);
+      if (!access?.preview_url) throw new Error('Preview URL missing');
+      setPreviewSource(access.preview_url);
+      setPlaying(true);
+    } catch {
+      setError(t('streams:preview.accessError'));
+      setPlaying(false);
+    } finally {
+      setStarting(false);
+    }
+  }
 
-  function toggle() {
-    if (!source || observed?.online !== true) return;
-    setPlaying(value => !value);
+  function stopPreview() {
+    setPlaying(false);
+    setPreviewSource('');
   }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] shadow-[var(--shadow-panel)]">
-      <div className="relative aspect-video bg-[oklch(0.12_0.006_258)]">
+      <div className="relative aspect-video bg-[oklch(0.22_0.006_258)]">
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video ref={videoRef} muted controls={playing} className="h-full w-full object-contain" />
+        <video ref={videoRef} crossOrigin="anonymous" controls={playing} className="h-full w-full object-contain" />
         {!playing && (
           <button
             type="button"
-            onClick={toggle}
-            disabled={!source || observed?.online !== true}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,transparent,oklch(0.11_0.006_258/0.52))] text-[var(--foreground)] disabled:cursor-not-allowed"
+            onClick={startPreview}
+            disabled={observed?.online !== true || starting}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,transparent,oklch(0.18_0.006_258/0.46))] text-[var(--foreground)] disabled:cursor-not-allowed"
           >
             <span className={cn(
               'flex h-12 w-12 items-center justify-center rounded-full border backdrop-blur-sm',
@@ -71,7 +179,7 @@ export default function WorkspacePreviewPanel({ stream, observed, t }) {
               <Play size={20} fill="currentColor" />
             </span>
             <span className="text-xs text-[var(--muted-foreground)]">
-              {observed?.online === true ? t('streams:workspace.console.startPreview') : t('streams:workspace.console.waitingSignal')}
+              {starting ? t('streams:workspace.console.startingPreview') : observed?.online === true ? t('streams:workspace.console.startPreview') : t('streams:workspace.console.waitingSignal')}
             </span>
           </button>
         )}
@@ -84,18 +192,31 @@ export default function WorkspacePreviewPanel({ stream, observed, t }) {
           )}>
             <Radio size={11} />{observed?.online === true ? 'ON AIR' : 'IDLE'}
           </span>
-          <span className="rounded-md border border-white/10 bg-black/35 px-2 py-1 text-[10px] text-white/70 backdrop-blur-md">
+          <span className="rounded-md border border-[var(--border-soft)] bg-[var(--background)]/78 px-2 py-1 text-[10px] text-[var(--muted-foreground)] backdrop-blur-md">
             {t('streams:workspace.console.localPreview')}
           </span>
         </div>
       </div>
-      <div className="flex min-h-12 items-center justify-between gap-3 border-t border-[var(--border-soft)] px-3.5 py-2.5">
+
+      <div className="grid gap-3 border-t border-[var(--border-soft)] px-3.5 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.72fr)_auto] lg:items-center">
         <div className="min-w-0">
-          <div className="truncate font-mono text-[10px] text-[var(--muted-foreground)]" title={source || undefined}>{source || t('streams:workspace.console.noPreviewEndpoint')}</div>
+          <div className="truncate text-[10px] text-[var(--muted-foreground)]">
+            {t('streams:workspace.console.secureProxy')}
+          </div>
           {error && <div className="mt-0.5 text-[10px] text-[var(--destructive)]">{error}</div>}
         </div>
+
+        <div className="space-y-1.5 rounded-lg bg-[var(--background)]/28 px-2.5 py-2">
+          <div className="flex items-center justify-between gap-2 text-[9px] text-[var(--text-faint)]">
+            <span>{t('streams:workspace.console.meter')}</span>
+            <span>{meterAvailable ? t('streams:workspace.console.meterHint') : t('streams:workspace.console.meterUnavailable')}</span>
+          </div>
+          <LevelBar channel="L" value={levels.left} />
+          <LevelBar channel="R" value={levels.right} />
+        </div>
+
         {playing && (
-          <button type="button" className={btnSecondary} onClick={() => setPlaying(false)}>
+          <button type="button" className={btnSecondary} onClick={stopPreview}>
             <Pause size={13} />{t('streams:workspace.console.pausePreview')}
           </button>
         )}

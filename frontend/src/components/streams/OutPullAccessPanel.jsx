@@ -5,7 +5,7 @@ import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { copyText } from '../../lib/clipboard';
 import { getErrorCode } from '../../lib/error-mapper';
-import { directFlvUrl, directHlsUrl, directRtmpUrl } from '../../lib/stream-url-display';
+import { directFlvUrl, directRtmpUrl } from '../../lib/stream-url-display';
 import { btnDangerGhost, btnGhost, btnPrimary, btnSecondary, inputClass, labelClass } from '../ui/styles';
 
 function appendToken(url, token) {
@@ -96,7 +96,6 @@ export default function OutPullAccessPanel({ workspace, stream, t, onChanged, on
     }
   }
   const originUrls = {
-    hls: directHlsUrl(stream.name, stream.http_port || 8080),
     flv: directFlvUrl(stream.name, stream.http_port || 8080),
     rtmp: directRtmpUrl(stream.name, stream.rtmp_port || 1935)
   };

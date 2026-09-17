@@ -47,8 +47,12 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
     { id: 11, stream: 'vid-publisher', url: '/live/news-main', type: 'fmle-publish', ip: '10.0.0.10', protocol: 'rtmp' },
     { id: 12, stream: 'vid-news', url: '/live/news-main', type: 'play', ip: '10.0.0.20' },
     { id: 13, stream: 'vid-news', url: '/live/news-main.flv', type: 'hls-play', ip: '10.0.0.21' },
+    { id: 'internal-14', stream: 'vid-news', url: '/live/news-main', type: 'play', ip: '127.0.0.1' },
     { id: 99, stream: 'vid-other', url: '/live/other-stream', type: 'play', ip: '10.0.0.99' }
   ];
+
+  db.prepare(`INSERT INTO out_pull_sessions (client_id, stream_id, ip, session_kind, started_at, stopped_at)
+    VALUES ('internal-14', ?, '127.0.0.1', 'internal', CURRENT_TIMESTAMP, NULL)`).run(streamId);
 
   const kicked = [];
   srsService.listClients = async () => clients;

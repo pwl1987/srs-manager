@@ -233,14 +233,14 @@
     },
     "outPull": {
       "title": "Third-party Pull · OUT-PULL",
-      "subtitle": "Control SRS Origin endpoint availability, new-session admission, access grants, and current sessions independently.",
+      "subtitle": "Control admission, grants and sessions for SRS Origin playback paths that trigger on_play; direct HLS has a separate security boundary.",
       "currentSessions": "current sessions",
-      "endpointEnabled": "Endpoint Enabled",
-      "endpointDisabled": "Endpoint Disabled",
-      "accepting": "Accepting New Sessions",
-      "paused": "New Sessions Paused",
-      "grantRequired": "Grant Required",
-      "openAccess": "Open Access",
+      "endpointEnabled": "Hook Admission Enabled",
+      "endpointDisabled": "Hook Admission Disabled",
+      "accepting": "Accepting New Hook Sessions",
+      "paused": "New Hook Sessions Paused",
+      "grantRequired": "Grant Required for Hook Playback",
+      "openAccess": "Hook Playback Open",
       "sessionControl": "Current Session Control",
       "sessionControlHint": "Pausing new sessions or revoking grants does not disconnect established playback sessions. Disconnecting current sessions is a separate action.",
       "disconnectCurrent": "Disconnect Current Sessions",
@@ -251,13 +251,13 @@
       "hours": "hours",
       "days": "days",
       "issueGrant": "Issue Grant",
-      "tokenOnce": "The access token is shown only once. Copy and store it now.",
+      "tokenOnce": "The token is shown once. Grant URLs are generated only for verified on_play paths (RTMP / HTTP-FLV); no misleading HLS grant URL is generated.",
       "grants": "Access Grants",
       "revoke": "Revoke",
       "updated": "Pull access policy updated",
       "grantCreated": "Access grant created",
       "grantRevoked": "Access grant revoked",
-      "originOnlyHint": "This policy controls direct SRS Origin playback only. Third-party CDN domains still require separate provider-side authentication and verification."
+      "originOnlyHint": "Origin paths such as RTMP/HTTP-FLV that trigger SRS on_play are governed here. On the verified SRS 6 deployment, direct HLS on port 8080 does not traverse this admission path; external HLS must be protected by a reverse proxy/CDN. Operator preview uses the Manager short-lived protected proxy."
     },
     "console": {
       "startPreview": "Start live preview",
@@ -270,7 +270,12 @@
       "source": "Acquisition",
       "media": "Source media",
       "distribution": "Active distribution",
-      "viewers": "Current viewers"
+      "viewers": "Current viewers",
+      "startingPreview": "Starting secure preview…",
+      "meter": "Local preview level · dBFS",
+      "meterHint": "RMS, not a loudness meter",
+      "meterUnavailable": "Audio metering unavailable",
+      "secureProxy": "Operator preview · Manager same-origin protected proxy"
     },
     "path": {
       "title": "Business Signal Path",
@@ -341,6 +346,7 @@
   "preview": {
     "error": "Playback failed: make sure the stream is publishing and the pull URL is reachable.",
     "placeholder": "No playable pull URL available.",
-    "notSupported": "This browser does not support HLS playback."
+    "notSupported": "This browser does not support HLS playback.",
+    "accessError": "Unable to obtain operator preview access. Check your session and try again."
   }
 }

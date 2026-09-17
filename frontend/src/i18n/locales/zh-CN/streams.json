@@ -233,14 +233,14 @@
     },
     "outPull": {
       "title": "第三方拉流 · OUT-PULL",
-      "subtitle": "分别控制 SRS Origin 的端点可用性、新连接准入、访问授权和当前会话；这些动作互不混淆。",
+      "subtitle": "控制 SRS Origin 中会触发 on_play 的直连播放准入、授权与当前会话；HLS 直连安全边界单独说明。",
       "currentSessions": "个当前连接",
-      "endpointEnabled": "端点可用",
-      "endpointDisabled": "端点已关闭",
-      "accepting": "允许新连接",
-      "paused": "已暂停新连接",
-      "grantRequired": "需要访问授权",
-      "openAccess": "开放访问",
+      "endpointEnabled": "Hook 直连准入已开启",
+      "endpointDisabled": "Hook 直连准入已关闭",
+      "accepting": "允许新的 Hook 播放会话",
+      "paused": "已暂停新的 Hook 播放会话",
+      "grantRequired": "Hook 播放需要授权",
+      "openAccess": "Hook 播放开放访问",
       "sessionControl": "当前会话控制",
       "sessionControlHint": "暂停新连接或吊销授权不会自动踢掉已经建立的播放会话；断开当前连接是独立动作。",
       "disconnectCurrent": "断开当前播放连接",
@@ -251,13 +251,13 @@
       "hours": "小时",
       "days": "天",
       "issueGrant": "签发授权",
-      "tokenOnce": "访问 token 仅本次显示，请立即复制保存。",
+      "tokenOnce": "访问 token 仅本次显示；授权链接只生成已验证走 on_play 的 RTMP / HTTP-FLV，HLS 不生成假授权链接。",
       "grants": "访问授权",
       "revoke": "吊销授权",
       "updated": "拉流访问策略已更新",
       "grantCreated": "访问授权已创建",
       "grantRevoked": "访问授权已吊销",
-      "originOnlyHint": "本策略只对 SRS Origin 直连播放入口做控制承诺。若使用第三方 CDN 域名，CDN 鉴权仍需在对应供应商侧单独配置和验证。"
+      "originOnlyHint": "RTMP/HTTP-FLV 等触发 SRS on_play 的 Origin 直连可由本策略控制。现场 SRS 6 的 8080 HLS 直连不会经过该准入链路，若对外开放 HLS，必须在反向代理/CDN 层另做鉴权；工作台管理员预览走 Manager 的短时受保护代理。"
     },
     "console": {
       "startPreview": "打开实时预览",
@@ -270,7 +270,12 @@
       "source": "当前采集",
       "media": "原始码流",
       "distribution": "活动分发",
-      "viewers": "当前观众"
+      "viewers": "当前观众",
+      "startingPreview": "正在建立安全预览…",
+      "meter": "本地预览电平 · dBFS",
+      "meterHint": "RMS，非广播响度计",
+      "meterUnavailable": "浏览器不支持电平分析",
+      "secureProxy": "管理员预览 · Manager 同源受保护代理"
     },
     "path": {
       "title": "业务信号路径",
@@ -341,6 +346,7 @@
   "preview": {
     "error": "播放失败：请确认流正在推流，且拉流地址可访问。",
     "placeholder": "暂无可用的拉流地址。",
-    "notSupported": "当前浏览器不支持 HLS 播放。"
+    "notSupported": "当前浏览器不支持 HLS 播放。",
+    "accessError": "无法获取管理员预览授权，请确认登录状态后重试。"
   }
 }

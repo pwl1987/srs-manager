@@ -2,6 +2,7 @@ const express = require('express');
 const jwtAuth = require('../middleware/jwt-auth');
 const streamService = require('../services/stream-service');
 const streamWorkspaceService = require('../services/stream-workspace-service');
+const previewAccessService = require('../services/preview-access-service');
 
 const router = express.Router();
 router.use(jwtAuth);
@@ -36,6 +37,16 @@ router.get('/external-live', async (req, res) => {
     res.json(external);
   } catch (err) {
     res.status(500).json({ code: 'INTERNAL_FETCH_STREAMS_FAILED', error: `Failed to fetch external streams: ${err.message}` });
+  }
+});
+
+router.post('/:id/preview-access', async (req, res) => {
+  try {
+    const stream = await streamService.getStream(req.params.id);
+    if (!stream) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
+    res.json(previewAccessService.issuePreviewToken(stream));
+  } catch (err) {
+    res.status(500).json({ code: 'INTERNAL_GENERAL', error: `Failed to issue preview access: ${err.message}` });
   }
 });
 

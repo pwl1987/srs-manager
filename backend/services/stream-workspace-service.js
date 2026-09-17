@@ -90,7 +90,8 @@ async function getWorkspace(streamId) {
   const srsStream = srsStreams.find(item => item.name === stream.name && (item.app || 'live') === 'live');
   const relatedClients = clients.filter(client => srsService.clientMatchesStream(client, stream.name, 'live'));
   const publishers = relatedClients.filter(isPublisher);
-  const players = relatedClients.filter(client => !isPublisher(client));
+  const nonAudienceClientIds = outPullService.nonAudienceClientIds(id);
+  const players = relatedClients.filter(client => !isPublisher(client) && !nonAudienceClientIds.has(String(client.id)));
   const stats = liveStats(srsStream);
 
   const forwards = pushTaskService.listTasksByStream(id);
@@ -156,7 +157,7 @@ async function getWorkspace(streamId) {
       clients_available: clientsAvailable,
       online,
       bitrate: online ? stats.bitrate : 0,
-      viewers: online ? stats.viewers : 0,
+      viewers: clientsAvailable ? players.length : (online ? stats.viewers : 0),
       uptime_seconds: uptimeSeconds(stream.name, srsStream),
       media: mediaEvidence(srsStream),
       publisher: publisher ? {

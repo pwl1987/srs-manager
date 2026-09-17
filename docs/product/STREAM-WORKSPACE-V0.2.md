@@ -97,7 +97,7 @@ Workspace 默认前台 2 秒刷新运行快照；页面隐藏时降低频率，�
 
 监看包括：视频预览、观众数、输入码率、分发/输出数量、视频/音频编码、FPS、运行时长。音频电平优先使用浏览器 Web Audio 对当前预览做双声道电平显示，并明确标注为“本地预览电平”，不冒充 EBU R128 广播响度计。
 
-若 OUT-PULL 开启 Require Grant，管理员预览也不能绕过 Hook 准入。W2-C 必须提供独立的短时内部预览授权（或等价的已认证预览代理），不能通过关闭对外鉴权来换取监看可用性。
+现场 SRS 6 已验证：直连 8080 HLS 不经过现有 `on_play` 准入链路，因此 OUT-PULL Hook 策略不得宣称覆盖 HLS。管理员预览使用 Manager 3001 同源受保护代理：短时 Token 绑定单流，Manager 服务端读取 Origin HLS 并重写 playlist/segment；若向第三方开放 HLS，必须在反向代理/CDN 层另做鉴权和防盗链。
 
 ## 9. 人因与视觉基线
 
@@ -138,4 +138,5 @@ Workspace 默认前台 2 秒刷新运行快照；页面隐藏时降低频率，�
 - W2-A 已完成：灰阶播控视觉、导航收敛、直播运行台、业务信号路径、工作台内 IN-PULL/OUT-PUSH 控制。
 - W2-B 已完成：`stream_transcode_bindings`、独立 Transcode Worker、同源多输出单 Pipeline、1080P/720P/纯音频、GOP/keyint 参数、Desired/Runtime/Observed。
 - 2026-09-17 已在 `10.30.5.199` 使用真实 1080P 源流完成三路并发派生、ffprobe、Worker 重启恢复和单挂载 Stop 验证。
-- 当前进入 W2-C：管理员安全预览授权、本地预览音频电平和运行态细节。
+- W2-C 已完成：Manager 同源受保护 HLS 代理、短时单流 Preview Token、主/二级 playlist 与 TS 重写、本地双声道 RMS dBFS 电平；现场 `ffprobe` 已通过代理读取 H.264/AAC。
+- 当前进入 W2-D：响应式/可用性检查、四向真实链路回归和发布收口。

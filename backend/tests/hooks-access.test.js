@@ -7,9 +7,11 @@ const express = require('express');
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'srs-manager-hooks-access-'));
 process.env.DATA_DIR = dataDir;
+process.env.JWT_SECRET = 'hooks-access-preview-secret';
 
 const db = require('../database');
 const outPullService = require('../services/out-pull-service');
+const internalMediaService = require('../services/internal-media-service');
 const hooksRouter = require('../routes/hooks');
 
 function startApp() {
@@ -65,4 +67,16 @@ test('SRS on_play enforces OUT-PULL admission and grants without affecting unman
 
   await hook(server, 'on_stop', { stream: 'secure-play', client_id: 'client-allowed' });
   assert.equal(outPullService.activeSessions(streamId).length, 0);
+
+  outPullService.updatePolicy(streamId, { endpoint_enabled: false, accepting_new_sessions: false, require_grant: true });
+  const internalToken = internalMediaService.getInternalMediaToken();
+  const internal = await hook(server, 'on_play', {
+    stream: 'secure-play', client_id: 'client-internal', param: `?internal_media_token=${internalToken}`
+  });
+  assert.equal(internal.body.code, 0);
+  assert.equal(db.prepare('SELECT viewers FROM streams WHERE id = ?').get(streamId).viewers, 0);
+  assert.equal(outPullService.nonAudienceClientIds(streamId).has('client-internal'), true);
+
+  await hook(server, 'on_stop', { stream: 'secure-play', client_id: 'client-internal' });
+  assert.equal(outPullService.nonAudienceClientIds(streamId).size, 0);
 });

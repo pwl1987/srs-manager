@@ -290,6 +290,7 @@ CREATE TABLE IF NOT EXISTS out_pull_sessions (
   stream_id INTEGER NOT NULL,
   grant_id INTEGER,
   ip TEXT,
+  session_kind TEXT NOT NULL DEFAULT 'external',
   started_at TEXT DEFAULT CURRENT_TIMESTAMP,
   stopped_at TEXT,
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
@@ -338,6 +339,7 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
     if (!cols.includes(column)) conn.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
   };
   ensureColumn('streams', 'updated_at', 'updated_at TEXT');
+  ensureColumn('out_pull_sessions', 'session_kind', "session_kind TEXT NOT NULL DEFAULT 'external'");
   ensureColumn('streams', 'transcode_template_id', 'transcode_template_id INTEGER');
   ensureColumn('transcode_templates', 'updated_at', 'updated_at TEXT');
   ensureColumn('cdn_channels', 'updated_at', 'updated_at TEXT');

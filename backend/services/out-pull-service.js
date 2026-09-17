@@ -125,46 +125,58 @@ function authorizePlay(data = {}) {
   if (!stream) return { allowed: true, stream_id: null, grant_id: null, reason: 'unmanaged_stream' };
 
   if (isInternalMediaRequest(data)) {
-    return { allowed: true, stream_id: stream.id, grant_id: null, reason: 'internal_media' };
+    return { allowed: true, stream_id: stream.id, grant_id: null, reason: 'internal_media', session_kind: 'internal' };
   }
 
   const policy = getPolicy(stream.id);
   if (!policy.endpoint_enabled) return { allowed: false, stream_id: stream.id, grant_id: null, reason: 'endpoint_disabled' };
   if (!policy.accepting_new_sessions) return { allowed: false, stream_id: stream.id, grant_id: null, reason: 'new_sessions_paused' };
-  if (!policy.require_grant) return { allowed: true, stream_id: stream.id, grant_id: null, reason: 'open_access' };
+  if (!policy.require_grant) return { allowed: true, stream_id: stream.id, grant_id: null, reason: 'open_access', session_kind: 'external' };
 
   const token = queryParams(data.param).get('access_token');
   const grant = validGrantFor(stream.id, token);
   if (!grant) return { allowed: false, stream_id: stream.id, grant_id: null, reason: 'invalid_or_expired_grant' };
-  return { allowed: true, stream_id: stream.id, grant_id: grant.id, reason: 'grant' };
+  return { allowed: true, stream_id: stream.id, grant_id: grant.id, reason: 'grant', session_kind: 'external' };
 }
 function recordPlaySession(data, authorization) {
   if (!authorization?.stream_id || !data?.client_id) return;
   db.prepare(`
-    INSERT INTO out_pull_sessions (client_id, stream_id, grant_id, ip, started_at, stopped_at)
-    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)
+    INSERT INTO out_pull_sessions (client_id, stream_id, grant_id, ip, session_kind, started_at, stopped_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)
     ON CONFLICT(client_id) DO UPDATE SET
       stream_id = excluded.stream_id,
       grant_id = excluded.grant_id,
       ip = excluded.ip,
+      session_kind = excluded.session_kind,
       started_at = CURRENT_TIMESTAMP,
       stopped_at = NULL
-  `).run(String(data.client_id), authorization.stream_id, authorization.grant_id || null, data.ip || null);
+  `).run(String(data.client_id), authorization.stream_id, authorization.grant_id || null, data.ip || null, authorization.session_kind || 'external');
+  return db.prepare('SELECT client_id, stream_id, grant_id, ip, session_kind, started_at FROM out_pull_sessions WHERE client_id = ?').get(String(data.client_id));
 }
 
 function recordStopSession(data) {
-  if (!data?.client_id) return;
+  if (!data?.client_id) return null;
+  const current = db.prepare('SELECT client_id, stream_id, grant_id, ip, session_kind, started_at FROM out_pull_sessions WHERE client_id = ? AND stopped_at IS NULL').get(String(data.client_id)) || null;
   db.prepare('UPDATE out_pull_sessions SET stopped_at = CURRENT_TIMESTAMP WHERE client_id = ? AND stopped_at IS NULL')
     .run(String(data.client_id));
+  return current;
 }
 
 function activeSessions(streamId) {
   return db.prepare(`
     SELECT client_id, grant_id, ip, started_at
     FROM out_pull_sessions
-    WHERE stream_id = ? AND stopped_at IS NULL
+    WHERE stream_id = ? AND stopped_at IS NULL AND session_kind = 'external'
     ORDER BY started_at DESC
   `).all(Number(streamId));
+}
+
+
+function nonAudienceClientIds(streamId) {
+  return new Set(db.prepare(`
+    SELECT client_id FROM out_pull_sessions
+    WHERE stream_id = ? AND stopped_at IS NULL AND session_kind != 'external'
+  `).all(Number(streamId)).map(row => String(row.client_id)));
 }
 
 function getOverview(streamId) {
@@ -189,5 +201,6 @@ module.exports = {
   activeSessions,
   getOverview,
   hashToken,
-  isInternalMediaRequest
+  isInternalMediaRequest,
+  nonAudienceClientIds
 };

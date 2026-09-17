@@ -1,6 +1,7 @@
 const srsService = require('./srs');
 const { buildUrls } = require('./stream-urls');
 const db = require('../database');
+const outPullService = require('./out-pull-service');
 
 function resolveTranscodeTemplateId(templateId) {
   if (templateId === undefined || templateId === null || templateId === '') return null;
@@ -38,20 +39,27 @@ function extractLiveStats(item) {
 }
 
 async function listStreams() {
-  const srsStreams = await srsService.getStreams();
+  const [srsStreams, clients] = await Promise.all([
+    srsService.getStreams(),
+    srsService.listClients().catch(() => null)
+  ]);
   const localStreams = db.prepare('SELECT * FROM streams ORDER BY created_at DESC').all();
   const templateNames = templateNameMap();
 
   return localStreams.map(local => {
     const srs = srsStreams.find(s => s.name === local.name);
     const live = srs ? extractLiveStats(srs) : { kbps: local.bitrate, viewers: local.viewers };
+    const nonAudience = outPullService.nonAudienceClientIds(local.id);
+    const audienceViewers = clients && srs
+      ? clients.filter(client => srsService.clientMatchesStream(client, local.name, 'live') && !isPublisher(client) && !nonAudience.has(String(client.id))).length
+      : live.viewers;
     return {
       ...local,
       ...buildUrls(local.name),
       transcode_template_name: local.transcode_template_id ? (templateNames[local.transcode_template_id] || null) : null,
       status: srs ? 'online' : local.status,
       bitrate: live.kbps,
-      viewers: live.viewers,
+      viewers: audienceViewers,
       uptime_seconds: srs ? currentUptimeSeconds(local.name) : null
     };
   });
@@ -155,7 +163,10 @@ async function disconnectPublisher(id) {
 }
 
 async function disconnectViewers(id) {
-  const result = await disconnectMatchingClients(id, client => !isPublisher(client));
+  const stream = db.prepare('SELECT id FROM streams WHERE id = ?').get(Number(id));
+  if (!stream) return null;
+  const nonAudience = outPullService.nonAudienceClientIds(stream.id);
+  const result = await disconnectMatchingClients(id, client => !isPublisher(client) && !nonAudience.has(String(client.id)));
   if (!result) return null;
   return { ...result, scope: 'viewers' };
 }

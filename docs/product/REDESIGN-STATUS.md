@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**Workspace V2 / W2-A：直播业务工作台信息架构与低疲劳灰阶视觉正在收口。**
+**Workspace V2 / W2-D：真实回归、响应式与发布收口。**
 
 ## 已完成
 
@@ -88,7 +88,7 @@
 
 已完成：
 
-- 后端回归测试当前 19/19 通过；
+- 后端回归测试当前 27/27 通过；
 - 前端生产构建与多语言 key 校验通过；
 - v0.3.0 Web / Pull Worker 镜像及 FFmpeg 发布门禁已通过；
 - v0.4.0 Compose 已包含 Web / Pull Worker / Push Worker 三服务并通过模型校验；
@@ -107,8 +107,8 @@
 
 1. W2-A：**COMPLETE** — 灰阶视觉、导航收敛、采集 → SRS → 转码 → 输出的信息架构；
 2. W2-B：**COMPLETE** — 一条流多转码模板挂载 + 单 Pipeline Transcode Worker + Desired/Runtime/Observed；
-3. W2-C：**CURRENT** — 管理员安全预览授权、本地音频电平、运行时细节与输出交互收口；
-4. W2-D：最终真实 SRS 回归、响应式/可用性检查与发布收口。
+3. W2-C：**COMPLETE** — Manager 同源安全预览代理、本地双声道 RMS dBFS 电平、内部会话不计观众；
+4. W2-D：**CURRENT** — 最终四向真实回归、响应式/可用性检查与发布收口。
 
 `/forwarding` 与 `/monitor` 暂保留兼容路由，但不再作为正常工作流主入口。转码模板作为全局资源保留，具体挂载在 Stream Workspace 完成。
 
@@ -122,15 +122,24 @@
 - 2 核现场主机三路并发测试期间 FFmpeg 峰值约 1.24 CPU 核，测试结束后临时绑定、模板与派生流全部清理；
 - 数据库升级/清理前后 `integrity_check=ok`，历史单模板只迁移为 STOPPED binding，不会升级后自动启动。
 
+### W2-C 安全预览真实证据（10.30.5.199）
+
+- SRS 6 现场确认：`8080/live/*.m3u8` 不经过现有 `on_play` 准入链路，且响应无 CORS；因此不再声称 OUT-PULL Hook 策略覆盖直连 HLS；
+- 管理员预览改为 `Browser → SRS Manager:3001 → SRS Origin:8080` 同源受保护代理，不通过关闭对外鉴权换取监看；
+- Preview Token 短时、绑定单个 stream id/name，只能读取该流同名 playlist 与该流前缀分片；缺 Token、错流 Token 和跨流资源均拒绝；
+- 主清单、二级 media playlist、TS 分片都由 Manager 重写为 3001 同源 URL，浏览器不暴露 Origin 主机地址；
+- 现场业务流 `22`：无 Token=403，受保护主/二级清单=200，TS=200，预览前后数据库观众数保持 0；
+- 额外合成 640×360 H.264 + AAC 48kHz 测试流，经 3001 Preview Proxy 被 `ffprobe` 实际读取成功，测试流随后自动清理；
+- 浏览器电平使用当前预览媒体的 L/R RMS dBFS，明确标记为本地监看电平，不冒充 EBU R128/广播响度计。
+
 W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已改为内嵌预览、实时指标、真实 SRS 媒体证据和“采集 → SRS → 处理/转码 → 输出分发”业务路径；IN-PULL 来源登记与 OUT-PUSH 目标创建已内聚到当前流。旧 `streams.transcode_template_id` 只作为迁移记录展示，不再声称存在真实转码 Runtime。
 
 ## 下一任务
 
-继续 W2-C：在不削弱 OUT-PULL 鉴权的前提下完成管理员短时预览授权，并补本地双声道音频电平与运行态细节。
+进入 W2-D：按 1440P/4K/移动端检查工作台信息层级和操作密度，完成四向真实链路回归、过期入口/文案清理与版本发布收口。
 
 ## 验证债务
 
 - v0.4.1 运行修复已部署 10.30.5.199：允许受管媒体使用 RFC1918/ULA，兼容 SRS 6 opaque client/stream id，19/19 现场回归通过；
-- W2-C 管理员内嵌预览需要独立短时授权，不能通过关闭 OUT-PULL Grant 策略绕过；
 - Workspace V2 完成后重新跑真实 IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 媒体证据；
-- 管理员 HLS 预览在 Require Grant 场景下仍需短时内部授权，不能通过关闭鉴权绕过。
+- SRS 8080 直连 HLS 不受当前 on_play Hook 策略保护；若对外暴露 HLS，必须在反向代理/CDN 层增加鉴权与防盗链。

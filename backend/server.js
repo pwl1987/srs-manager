@@ -26,6 +26,7 @@ app.get('/api/health', (req, res) => {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/streams', require('./routes/streams'));
+app.use('/api/preview', require('./routes/preview'));
 app.use('/api/cdn/channels', require('./routes/cdn-channels'));
 app.use('/api/cdn/auth-config', require('./routes/cdn-auth'));
 app.use('/api/dns/auth', require('./routes/dns-auth'));

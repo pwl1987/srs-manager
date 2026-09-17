@@ -5,7 +5,7 @@
 // copy-paste works from any client machine during testing.
 
 function isLoopbackHost(hostname) {
-  return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]';
+  return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]' || hostname === 'host.docker.internal';
 }
 
 export function directHlsUrl(name, httpPort = 8080) {
@@ -42,4 +42,9 @@ export function resolvePullFlv(stream) {
   if (!stream) return '';
   if (stream.cdn_configured === false) return directFlvUrl(stream.name, stream.http_port || 8080);
   return stream.pull_url_flv || directFlvUrl(stream.name, stream.http_port || 8080);
+}
+
+export function resolveOriginHls(stream) {
+  if (!stream) return '';
+  return displayUrl(stream.origin_pull_url_hls) || directHlsUrl(stream.name, stream.http_port || 8080);
 }

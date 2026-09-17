@@ -56,13 +56,13 @@ function handleOnPlay(data) {
   }
 
   recordEvent('on_play', streamName);
+  const session = outPullService.recordPlaySession(data, authorization);
   const stream = db.prepare('SELECT viewers FROM streams WHERE name = ?').get(streamName);
-  if (stream) {
+  if (stream && session?.session_kind === 'external') {
     db.prepare('UPDATE streams SET viewers = viewers + 1, updated_at = CURRENT_TIMESTAMP WHERE name = ?')
       .run(streamName);
   }
-  outPullService.recordPlaySession(data, authorization);
-  console.log(`[Hooks] Viewer started playing "${streamName}"`);
+  console.log(`[Hooks] Viewer started playing "${streamName}" (${authorization.reason})`);
   return authorization;
 }
 
@@ -73,13 +73,13 @@ function handleOnStop(data) {
 
   recordEvent('on_stop', streamName);
 
+  const session = outPullService.recordStopSession(data);
   const stream = db.prepare('SELECT viewers FROM streams WHERE name = ?').get(streamName);
-  if (stream && stream.viewers > 0) {
+  if (stream && stream.viewers > 0 && session?.session_kind === 'external') {
     db.prepare('UPDATE streams SET viewers = viewers - 1, updated_at = CURRENT_TIMESTAMP WHERE name = ?')
       .run(streamName);
   }
 
-  outPullService.recordStopSession(data);
   console.log(`[Hooks] Viewer stopped playing "${streamName}"`);
 }
 
