@@ -75,7 +75,7 @@ function getTask(id, { includeSecret = false } = {}) {
 }
 
 function validateTarget(url) {
-  const check = validateStreamUrl(url, TARGET_PROTOCOLS);
+  const check = validateStreamUrl(url, TARGET_PROTOCOLS, { allowPrivateNetwork: true });
   if (!check.valid) throw new Error(`Invalid OUT-PUSH target URL: ${check.error}`);
 }
 

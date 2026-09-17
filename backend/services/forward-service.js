@@ -15,7 +15,7 @@ function getSource(id) {
 
 function createSource({ name, source_url, protocol, pull_mode }) {
   if (!name || !source_url) throw new Error('Name and source URL are required');
-  const check = validateStreamUrl(source_url, STREAM_PROTOCOLS);
+  const check = validateStreamUrl(source_url, STREAM_PROTOCOLS, { allowPrivateNetwork: true });
   if (!check.valid) throw new Error(`Invalid source URL: ${check.error}`);
   db.prepare('INSERT INTO external_sources (name, source_url, protocol, pull_mode) VALUES (?, ?, ?, ?)')
     .run(name, source_url, protocol || 'rtmp', pull_mode || 'pull');
@@ -32,7 +32,7 @@ function updateSource(id, updates) {
     if (updates[key] !== undefined) fields[key] = updates[key];
   }
   if (fields.source_url !== undefined) {
-    const check = validateStreamUrl(fields.source_url, STREAM_PROTOCOLS);
+    const check = validateStreamUrl(fields.source_url, STREAM_PROTOCOLS, { allowPrivateNetwork: true });
     if (!check.valid) throw new Error(`Invalid source URL: ${check.error}`);
   }
   if (Object.keys(fields).length === 0) return source;

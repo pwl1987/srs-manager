@@ -45,7 +45,7 @@ test('external source API masks credentials and blank URL edit preserves the sto
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
-  const sourceUrl = 'rtmp://user:password@example.com/live/source?token=super-secret';
+  const sourceUrl = 'rtmp://user:password@10.30.5.199/live/source?token=super-secret';
   const created = await request(server, '', {
     method: 'POST',
     body: JSON.stringify({
@@ -58,7 +58,7 @@ test('external source API masks credentials and blank URL edit preserves the sto
 
   assert.equal(created.response.status, 201);
   assert.equal(created.body.source_url, undefined);
-  assert.ok(created.body.source_url_masked.includes('example.com/live/source'));
+  assert.ok(created.body.source_url_masked.includes('10.30.5.199/live/source'));
   assert.ok(!created.body.source_url_masked.includes('password'));
   assert.ok(!created.body.source_url_masked.includes('super-secret'));
 

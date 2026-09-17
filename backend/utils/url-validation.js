@@ -1,21 +1,26 @@
 const net = require('net');
 
-// IPv4 私有与保留地址段（含环回、链路本地、CGNAT、组播、保留、广播）
-const RESERVED_IPV4 = [
-  { c: [10, 0, 0, 0], m: [255, 0, 0, 0] },      // 10.0.0.0/8 私有
-  { c: [172, 16, 0, 0], m: [255, 240, 0, 0] },  // 172.16.0.0/12 私有
-  { c: [192, 168, 0, 0], m: [255, 255, 0, 0] }, // 192.168.0.0/16 私有
-  { c: [127, 0, 0, 0], m: [255, 0, 0, 0] },     // 127.0.0.0/8 环回
-  { c: [169, 254, 0, 0], m: [255, 255, 0, 0] }, // 169.254.0.0/16 链路本地
-  { c: [0, 0, 0, 0], m: [255, 0, 0, 0] },       // 0.0.0.0/8 本网络
-  { c: [100, 64, 0, 0], m: [255, 192, 0, 0] },  // 100.64.0.0/10 CGNAT
-  { c: [192, 0, 0, 0], m: [255, 255, 255, 0] }, // 192.0.0.0/24 IETF 协议分配
-  { c: [192, 0, 2, 0], m: [255, 255, 255, 0] }, // 192.0.2.0/24 TEST-NET-1
-  { c: [198, 18, 0, 0], m: [255, 254, 0, 0] },  // 198.18.0.0/15 基准测试
-  { c: [198, 51, 100, 0], m: [255, 255, 255, 0] }, // 198.51.100.0/24 TEST-NET-2
-  { c: [203, 0, 113, 0], m: [255, 255, 255, 0] },  // 203.0.113.0/24 TEST-NET-3
-  { c: [224, 0, 0, 0], m: [240, 0, 0, 0] },     // 224.0.0.0/4 组播
-  { c: [240, 0, 0, 0], m: [240, 0, 0, 0] },     // 240.0.0.0/4 保留
+// RFC1918 private ranges are common in broadcast/LAN media workflows. They can
+// be allowed explicitly for trusted media endpoints while unsafe/local ranges
+// remain blocked.
+const PRIVATE_IPV4 = [
+  { c: [10, 0, 0, 0], m: [255, 0, 0, 0] },
+  { c: [172, 16, 0, 0], m: [255, 240, 0, 0] },
+  { c: [192, 168, 0, 0], m: [255, 255, 0, 0] }
+];
+
+const UNSAFE_IPV4 = [
+  { c: [127, 0, 0, 0], m: [255, 0, 0, 0] },       // loopback
+  { c: [169, 254, 0, 0], m: [255, 255, 0, 0] },   // link-local / metadata
+  { c: [0, 0, 0, 0], m: [255, 0, 0, 0] },         // this network / unspecified
+  { c: [100, 64, 0, 0], m: [255, 192, 0, 0] },    // CGNAT
+  { c: [192, 0, 0, 0], m: [255, 255, 255, 0] },   // IETF protocol assignments
+  { c: [192, 0, 2, 0], m: [255, 255, 255, 0] },   // TEST-NET-1
+  { c: [198, 18, 0, 0], m: [255, 254, 0, 0] },    // benchmarking
+  { c: [198, 51, 100, 0], m: [255, 255, 255, 0] }, // TEST-NET-2
+  { c: [203, 0, 113, 0], m: [255, 255, 255, 0] }, // TEST-NET-3
+  { c: [224, 0, 0, 0], m: [240, 0, 0, 0] },       // multicast
+  { c: [240, 0, 0, 0], m: [240, 0, 0, 0] }        // reserved / broadcast
 ];
 
 function inCidr4(parts, cidr) {
@@ -25,28 +30,49 @@ function inCidr4(parts, cidr) {
   return true;
 }
 
-function isPrivateIP(ip) {
-  if (!ip || typeof ip !== 'string') return false;
+function mappedIPv4(ip) {
+  const lower = String(ip || '').toLowerCase();
+  return lower.startsWith('::ffff:') ? lower.slice(7) : null;
+}
 
+function isPrivateNetworkIP(ip) {
+  if (!ip || typeof ip !== 'string') return false;
   if (net.isIPv4(ip)) {
     const parts = ip.split('.').map(Number);
-    return RESERVED_IPV4.some(cidr => inCidr4(parts, cidr));
+    return PRIVATE_IPV4.some(cidr => inCidr4(parts, cidr));
   }
-
   if (net.isIPv6(ip)) {
-    const lower = ip.toLowerCase();
-    if (lower === '::' || lower === '::1') return true;           // 未指定/环回
-    if (/^f[cd][0-9a-f]{2}:/.test(lower)) return true;            // fc00::/7 私有
-    if (/^fe[89ab][0-9a-f]:/.test(lower)) return true;            // fe80::/10 链路本地
-    if (/^2001:db8:/.test(lower)) return true;                     // 2001:db8::/32 文档专用
-    if (lower.startsWith('::ffff:')) return isPrivateIP(lower.slice(7)); // IPv4 映射
-    return false;
+    const mapped = mappedIPv4(ip);
+    if (mapped && net.isIPv4(mapped)) return isPrivateNetworkIP(mapped);
+    return /^f[cd][0-9a-f]{2}:/i.test(ip); // fc00::/7 ULA
   }
-
   return false;
 }
 
-// 从 "host:port" / "[v6]:port" 中取出不带端口的主机名
+function isUnsafeIP(ip) {
+  if (!ip || typeof ip !== 'string') return false;
+  if (net.isIPv4(ip)) {
+    const parts = ip.split('.').map(Number);
+    return UNSAFE_IPV4.some(cidr => inCidr4(parts, cidr));
+  }
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase();
+    const mapped = mappedIPv4(lower);
+    if (mapped && net.isIPv4(mapped)) return isUnsafeIP(mapped);
+    if (lower === '::' || lower === '::1') return true;
+    if (/^fe[89ab][0-9a-f]:/.test(lower)) return true; // fe80::/10 link-local
+    if (/^ff[0-9a-f]{2}:/.test(lower)) return true;    // ff00::/8 multicast
+    if (/^2001:db8:/.test(lower)) return true;         // documentation
+    return false;
+  }
+  return false;
+}
+
+// Backward-compatible helper: historically this meant "non-public/blocked IP".
+function isPrivateIP(ip) {
+  return isPrivateNetworkIP(ip) || isUnsafeIP(ip);
+}
+
 function stripPort(host) {
   if (!host) return host;
   if (host.startsWith('[')) {
@@ -54,63 +80,64 @@ function stripPort(host) {
     return end === -1 ? host : host.slice(1, end);
   }
   const idx = host.lastIndexOf(':');
-  // 仅当冒号唯一时才视为端口分隔（IPv6 裸地址已由方括号分支处理）
   if (idx !== -1 && host.indexOf(':') === idx) return host.slice(0, idx);
   return host;
 }
 
-function isBlockedHost(hostname) {
+function isBlockedHost(hostname, { allowPrivateNetwork = false } = {}) {
   if (!hostname) return true;
-  const host = stripPort(hostname).toLowerCase();
-  if (host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '[::1]') return true;
-  return isPrivateIP(host);
+  const host = stripPort(hostname).toLowerCase().replace(/\.$/, '');
+  if (host === 'localhost' || host.endsWith('.localhost')) return true;
+  if (isUnsafeIP(host)) return true;
+  if (!allowPrivateNetwork && isPrivateNetworkIP(host)) return true;
+  return false;
 }
 
-function validateStreamUrl(url, allowedProtocols = ['rtmp', 'rtmps', 'http', 'https', 'srt', 'rtsp']) {
-  if (!url || typeof url !== 'string') {
-    return { valid: false, error: 'URL is required' };
-  }
+function validateStreamUrl(
+  url,
+  allowedProtocols = ['rtmp', 'rtmps', 'http', 'https', 'srt', 'rtsp'],
+  { allowPrivateNetwork = false } = {}
+) {
+  if (!url || typeof url !== 'string') return { valid: false, error: 'URL is required' };
 
   const trimmed = url.trim();
-  if (trimmed.length > 2048) {
-    return { valid: false, error: 'URL is too long' };
-  }
+  if (trimmed.length > 2048) return { valid: false, error: 'URL is too long' };
 
   let parsed;
   try {
     parsed = new URL(trimmed);
   } catch {
-    // RTMP/SRT/RTSP URL 非标准格式，手动解析
+    // Some media URLs are accepted by FFmpeg even when WHATWG URL parsing fails.
     const match = trimmed.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/([^/?#]+)([^\s]*)$/);
-    if (!match) {
-      return { valid: false, error: 'Invalid URL format' };
-    }
+    if (!match) return { valid: false, error: 'Invalid URL format' };
     const protocol = match[1].toLowerCase();
     if (!allowedProtocols.includes(protocol)) {
       return { valid: false, error: `Protocol "${protocol}" not allowed. Allowed: ${allowedProtocols.join(', ')}` };
     }
-    const host = stripPort(match[2]);
-    if (net.isIP(host)) {
-      if (isPrivateIP(host)) {
-        return { valid: false, error: 'Private or reserved IP addresses are not allowed in stream URLs' };
-      }
-    } else if (host.toLowerCase() === 'localhost' || host.toLowerCase().endsWith('.localhost')) {
-      return { valid: false, error: 'Localhost is not allowed in stream URLs' };
+    const host = stripPort(match[2].split('@').pop());
+    if (isBlockedHost(host, { allowPrivateNetwork })) {
+      return { valid: false, error: 'Localhost or unsafe/reserved address is not allowed in stream URLs' };
     }
     return { valid: true };
   }
 
-  // 标准 URL（http/https 等）
   const protocol = parsed.protocol.toLowerCase().replace(':', '');
   if (!allowedProtocols.includes(protocol)) {
     return { valid: false, error: `Protocol "${protocol}" not allowed. Allowed: ${allowedProtocols.join(', ')}` };
   }
 
-  if (isBlockedHost(parsed.hostname)) {
-    return { valid: false, error: 'Localhost, private, or reserved addresses are not allowed in stream URLs' };
+  if (isBlockedHost(parsed.hostname, { allowPrivateNetwork })) {
+    return { valid: false, error: 'Localhost or unsafe/reserved address is not allowed in stream URLs' };
   }
 
   return { valid: true };
 }
 
-module.exports = { validateStreamUrl, isPrivateIP, isBlockedHost, stripPort };
+module.exports = {
+  validateStreamUrl,
+  isPrivateIP,
+  isPrivateNetworkIP,
+  isUnsafeIP,
+  isBlockedHost,
+  stripPort
+};

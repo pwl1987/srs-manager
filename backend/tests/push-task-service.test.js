@@ -14,13 +14,13 @@ test('OUT-PUSH separates desired/runtime state, masks target secrets and owns on
   t.after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
   const stream = db.prepare("INSERT INTO streams (name, protocol, status) VALUES ('push-news', 'rtmp', 'offline')").run();
   const streamId = Number(stream.lastInsertRowid);
-  const target = 'rtmp://user:pass@platform.example.org/live/key?token=abc123';
+  const target = 'rtmp://user:pass@10.30.5.199/live/key?token=abc123';
 
   const task = pushTaskService.createTask({ stream_id: streamId, target_type: 'customRtmp', target_url: target });
   assert.equal(task.desired_state, 'STOPPED');
   assert.equal(task.runtime_state, 'STOPPED');
   assert.equal(task.target_url, undefined);
-  assert.ok(task.target_url_masked.includes('platform.example.org/live/key'));
+  assert.ok(task.target_url_masked.includes('10.30.5.199/live/key'));
   assert.ok(!task.target_url_masked.includes('pass'));
   assert.ok(!task.target_url_masked.includes('abc123'));
 

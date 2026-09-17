@@ -146,7 +146,7 @@ function spawnTask(task, switchOperationId = null) {
     return null;
   }
 
-  const check = validateStreamUrl(task.source_url, ALLOWED_SOURCE_PROTOCOLS);
+  const check = validateStreamUrl(task.source_url, ALLOWED_SOURCE_PROTOCOLS, { allowPrivateNetwork: true });
   if (!check.valid) {
     pullTaskService.updateRuntime(task.id, {
       runtime_state: 'FAILED',
