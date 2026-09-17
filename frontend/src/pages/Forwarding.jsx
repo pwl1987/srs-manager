@@ -67,7 +67,7 @@ export default function Forwarding() {
 
   function openEditSource(source) {
     setEditingSource(source);
-    setSourceForm({ name: source.name, source_url: source.source_url, protocol: source.protocol, pull_mode: source.pull_mode });
+    setSourceForm({ name: source.name, source_url: '', protocol: source.protocol, pull_mode: source.pull_mode });
     setFormError('');
     setShowSourceModal(true);
   }
@@ -75,16 +75,18 @@ export default function Forwarding() {
   async function handleSourceSubmit(e) {
     e.preventDefault();
     setFormError('');
-    if (!URL_PATTERN.test(sourceForm.source_url)) {
+    const candidateUrl = sourceForm.source_url.trim();
+    if ((!editingSource || candidateUrl) && !URL_PATTERN.test(candidateUrl)) {
       setFormError(t('common:errors.VALIDATION_TEMPLATE_INVALID'));
       return;
     }
     try {
+      const payload = { ...sourceForm, source_url: candidateUrl };
       if (editingSource) {
-        await api.put(`/external-sources/${editingSource.id}`, sourceForm);
+        await api.put(`/external-sources/${editingSource.id}`, payload);
         toast.success(t('common:toasts.updated'));
       } else {
-        await api.post('/external-sources', sourceForm);
+        await api.post('/external-sources', payload);
         toast.success(t('common:toasts.created'));
       }
       setShowSourceModal(false);
@@ -163,7 +165,7 @@ export default function Forwarding() {
 
   const q = search.toLowerCase();
   const filteredSources = search
-    ? sources.filter(s => (s.name || '').toLowerCase().includes(q) || (s.source_url || '').toLowerCase().includes(q))
+    ? sources.filter(s => (s.name || '').toLowerCase().includes(q) || (s.source_url_masked || '').toLowerCase().includes(q))
     : sources;
   const filteredTasks = search
     ? tasks.filter(task => {
@@ -216,7 +218,7 @@ export default function Forwarding() {
                     <tr key={s.id} className="hover:bg-[var(--surface-hover)] transition-colors">
                       <td className={`${tdClass} font-medium`}>{s.name}</td>
                       <td className={tdClass}>
-                        <code className="font-mono text-xs truncate block max-w-[320px]" title={s.source_url}>{s.source_url}</code>
+                        <code className="font-mono text-xs truncate block max-w-[320px]" title={s.source_url_masked || undefined}>{s.source_url_masked || '—'}</code>
                       </td>
                       <td className={tdClass}>{t(`forwarding:protocol.${s.protocol}`, s.protocol)}</td>
                       <td className={tdClass}>
@@ -347,7 +349,20 @@ export default function Forwarding() {
           </div>
           <div>
             <label className={labelClass}>{t('forwarding:sources.modal.url')}</label>
-            <input type="text" value={sourceForm.source_url} onChange={e => setSourceForm({ ...sourceForm, source_url: e.target.value })} className={`${inputClass} font-mono`} placeholder="rtmp://…" required />
+            {editingSource && (
+              <div className="mb-2 rounded-lg border border-[var(--border-soft)] bg-[var(--secondary)] px-3 py-2 font-mono text-xs text-[var(--muted-foreground)]">
+                {editingSource.source_url_masked || '—'}
+              </div>
+            )}
+            <input
+              type="text"
+              value={sourceForm.source_url}
+              onChange={e => setSourceForm({ ...sourceForm, source_url: e.target.value })}
+              className={`${inputClass} font-mono`}
+              placeholder={editingSource ? t('forwarding:sources.modal.urlKeepPlaceholder') : 'rtmp://…'}
+              required={!editingSource}
+            />
+            {editingSource && <p className={helpTextClass}>{t('forwarding:sources.modal.urlKeepHint')}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
