@@ -78,6 +78,12 @@ function validateOutput(input = {}, workspace = null) {
   if (mode === 'PUSH' && !caps.runtime.push_worker?.available) {
     return invalid('RUNTIME_PUSH_WORKER_UNAVAILABLE', 'Managed Push Worker is unavailable');
   }
+  if (mode === 'SERVE' && ['rtmp', 'http-flv'].includes(transport) && !['none', 'access-grant'].includes(protection)) {
+    return invalid('RUNTIME_PROTECTION_UNAVAILABLE', `Current Runtime cannot enforce ${protection} on ${transport}`, ['none', 'access-grant']);
+  }
+  if (mode === 'SERVE' && transport === 'hls' && !['none', 'external-proxy'].includes(protection)) {
+    return invalid('RUNTIME_PROTECTION_UNAVAILABLE', `Direct SRS HLS cannot enforce ${protection}`, ['none', 'external-proxy']);
+  }
   if (mode === 'SERVE' && workspace && caps.runtime.srs_observed === false) {
     return invalid('RUNTIME_SRS_UNAVAILABLE', 'SRS runtime is not currently observable');
   }
@@ -91,7 +97,10 @@ function validateOutput(input = {}, workspace = null) {
   const warnings = [];
   if (destination.state === 'UNKNOWN') warnings.push({ code: 'DESTINATION_CAPABILITY_UNKNOWN', message: 'Destination compatibility is unknown and must be verified by the operator.' });
   if (mode === 'SERVE' && transport === 'hls' && protection === 'external-proxy') {
-    warnings.push({ code: 'HLS_EXTERNAL_PROTECTION_REQUIRED', message: 'Direct SRS HLS is not protected by the current on_play admission hook.' });
+    warnings.push({ code: 'HLS_EXTERNAL_PROTECTION_REQUIRED', message: 'Direct SRS HLS is not protected by the current on_play admission hook; protection must be enforced by reverse proxy/CDN.' });
+  }
+  if (mode === 'SERVE' && transport === 'hls' && protection === 'none') {
+    warnings.push({ code: 'HLS_DIRECT_UNPROTECTED', message: 'Direct SRS HLS is intentionally unprotected.' });
   }
   return { valid: true, reason_code: null, message: 'Combination is supported by current product/runtime capability.', alternatives: [], override_allowed: destination.state === 'UNKNOWN', warnings };
 }

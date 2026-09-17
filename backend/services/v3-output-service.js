@@ -10,9 +10,9 @@ const SCENES = Object.freeze({
   LIVE_PLATFORM_PUSH: { mode: 'PUSH', transports: ['rtmp', 'rtmps'], default_transport: 'rtmp', default_protection: 'none' },
   CDN_PUSH: { mode: 'PUSH', transports: ['rtmp', 'rtmps'], default_transport: 'rtmp', default_protection: 'none' },
   SRT_NODE: { mode: 'PUSH', transports: ['srt'], default_transport: 'srt', default_protection: 'none' },
-  CDN_ORIGIN: { mode: 'SERVE', transports: ['rtmp', 'http-flv', 'hls'], default_protection: 'external-proxy' },
-  PARTNER_PULL: { mode: 'SERVE', transports: ['rtmp', 'http-flv'], default_protection: 'access-grant' },
-  PLAYBACK_ACCESS: { mode: 'SERVE', transports: ['http-flv', 'hls'], default_protection: 'none' },
+  CDN_ORIGIN: { mode: 'SERVE', transports: ['rtmp', 'http-flv', 'hls'], endpoint_protections: { rtmp: 'none', 'http-flv': 'none', hls: 'external-proxy' } },
+  PARTNER_PULL: { mode: 'SERVE', transports: ['rtmp', 'http-flv'], endpoint_protections: { rtmp: 'access-grant', 'http-flv': 'access-grant' } },
+  PLAYBACK_ACCESS: { mode: 'SERVE', transports: ['http-flv', 'hls'], endpoint_protections: { 'http-flv': 'access-grant', hls: 'external-proxy' } },
   PROFESSIONAL: { mode: null, transports: [], default_protection: null }
 });
 
@@ -160,26 +160,58 @@ function configureServeOutput(streamId, input = {}) {
   const scene = sceneDefinition(sceneName);
   if (!scene) throw new Error('Unknown output scene');
   if (scene.mode && scene.mode !== 'SERVE') throw new Error(`${sceneName} is not a SERVE scene`);
-  const protection = String(input.protection || scene.default_protection || 'none').toLowerCase();
   const transports = Array.isArray(input.transports) && input.transports.length
     ? [...new Set(input.transports.map(value => String(value).toLowerCase()))]
     : (scene.transports.length ? scene.transports : ['rtmp', 'http-flv', 'hls']);
+  const endpointProtections = {};
   for (const transport of transports) {
     if (!capabilityService.PRODUCT.SERVE.transports.includes(transport)) throw new Error(`Unsupported SERVE transport: ${transport}`);
+    const protection = String(input.endpoint_protections?.[transport] || scene.endpoint_protections?.[transport] || input.protection || 'none').toLowerCase();
     const allowed = capabilityService.PROTECTION[`SERVE:${transport}`] || [];
-    if (!allowed.includes(protection) && !(transport === 'hls' && protection === 'access-grant')) {
-      throw new Error(`Unsupported protection for SERVE ${transport}: ${protection}`);
+    if (!allowed.includes(protection)) throw new Error(`Unsupported protection for SERVE ${transport}: ${protection}`);
+    if (['rtmp', 'http-flv'].includes(transport) && !['none', 'access-grant'].includes(protection)) {
+      throw new Error(`Current Runtime cannot enforce ${protection} on ${transport}`);
     }
+    if (transport === 'hls' && !['none', 'external-proxy'].includes(protection)) {
+      throw new Error(`Direct SRS HLS cannot enforce ${protection}; use external-proxy or none`);
+    }
+    endpointProtections[transport] = protection;
   }
-  if (protection === 'access-grant' && transports.includes('hls')) {
-    throw new Error('Access Grant does not protect direct SRS HLS; use external-proxy protection or remove HLS');
+  const hookProtections = transports.filter(t => ['rtmp', 'http-flv'].includes(t)).map(t => endpointProtections[t]);
+  const usesGrant = hookProtections.includes('access-grant');
+  if (usesGrant && hookProtections.some(p => p !== 'access-grant')) {
+    throw new Error('RTMP and HTTP-FLV share one admission policy and cannot mix open/access-grant in current Runtime');
+  }
+  const warnings = [];
+  if (transports.includes('hls') && endpointProtections.hls === 'none') {
+    warnings.push({ code: 'HLS_DIRECT_UNPROTECTED', message: 'Direct SRS HLS bypasses current on_play admission and is intentionally unprotected.' });
   }
   const policy = outPullService.updatePolicy(stream.id, {
     endpoint_enabled: input.endpoint_enabled !== false,
     accepting_new_sessions: input.accepting_new_sessions !== false,
-    require_grant: protection === 'access-grant'
+    require_grant: usesGrant,
+    v3_metadata: {
+      name: input.name || input.consumer?.label || 'SERVE Output',
+      scene: sceneName,
+      consumer_label: input.consumer?.label || null,
+      advertised_transports: transports,
+      endpoint_protections: endpointProtections
+    }
   });
-  return { stream_id: stream.id, scene: sceneName, protection, transports, policy };
+  return {
+    id: `output:serve:${stream.id}`,
+    stream_id: stream.id,
+    scene: sceneName,
+    transports,
+    endpoint_protections: endpointProtections,
+    policy,
+    warnings,
+    runtime_boundary: {
+      admission_shared_by: ['rtmp', 'http-flv'],
+      direct_hls_requires_external_boundary_for_protection: true,
+      per_endpoint_disable: false
+    }
+  };
 }
 
 function setServeDesiredState(streamId, desiredState) {
@@ -188,6 +220,35 @@ function setServeDesiredState(streamId, desiredState) {
   if (!['RUNNING', 'STOPPED'].includes(desired)) throw new Error('Invalid SERVE desired state');
   return outPullService.updatePolicy(streamId, { endpoint_enabled: desired === 'RUNNING' });
 }
+
+function serveOutputId(streamId) {
+  return `output:serve:${Number(streamId)}`;
+}
+
+function parseServeOutputId(value) {
+  const match = String(value || '').match(/^output:serve:(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
+function startOrStopServe(streamId, desiredState, { idempotency_key, requested_by = null } = {}) {
+  requireStream(streamId);
+  const desired = String(desiredState || '').toUpperCase();
+  const type = desired === 'RUNNING' ? 'V3_SERVE_ENABLE' : desired === 'STOPPED' ? 'V3_SERVE_DISABLE' : null;
+  if (!type) throw new Error('Invalid SERVE desired state');
+  const created = operationCore.createOrReuse({
+    type, subject_type: 'out_pull_policy', subject_id: Number(streamId), idempotency_key, requested_by,
+    payload: { output_id: serveOutputId(streamId), desired_state: desired }
+  });
+  if (created.conflict || created.reused) return created;
+  try {
+    operationCore.transition(created.operation.id, 'RUNNING');
+    const policy = setServeDesiredState(streamId, desired);
+    return { operation: operationCore.transition(created.operation.id, 'SUCCEEDED', { result: { output_id: serveOutputId(streamId), endpoint_enabled: policy.endpoint_enabled } }), reused: false };
+  } catch (error) {
+    return { operation: operationCore.transition(created.operation.id, 'FAILED', { error: error.message }), reused: false };
+  }
+}
+
 function listScenes() {
   return Object.entries(SCENES).map(([id, value]) => ({ id, ...value }));
 }
@@ -203,5 +264,8 @@ module.exports = {
   reconcilePushOperation,
   deletePushOutput,
   outputId,
-  parsePushOutputId
+  parsePushOutputId,
+  serveOutputId,
+  parseServeOutputId,
+  startOrStopServe
 };

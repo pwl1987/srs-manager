@@ -243,20 +243,26 @@ function projectOutputs(workspace) {
   const serve = workspace.outputs?.out_pull;
   if (serve?.policy) {
     const endpoints = workspace.outputs?.pull_endpoints || {};
+    const serveMeta = serve.policy.v3_metadata || {};
+    const advertised = new Set(serveMeta.advertised_transports || ['rtmp', 'http-flv', 'hls']);
+    const endpointProtections = serveMeta.endpoint_protections || {};
     outputs.push({
       id: `output:serve:${streamId}`,
-      name: 'Legacy Pull Access',
+      name: serveMeta.name || serveMeta.consumer_label || 'Pull Access',
       mode: 'SERVE',
+      scene: serveMeta.scene || null,
       media_ref: originalRef,
       runtime_state: serve.policy.endpoint_enabled ? 'AVAILABLE' : 'DISABLED',
       endpoints: [
-        { transport: 'rtmp', url: endpoints.rtmp || null, available: Boolean(serve.policy.endpoint_enabled) },
-        { transport: 'http-flv', url: endpoints.flv || null, available: Boolean(serve.policy.endpoint_enabled) },
-        { transport: 'hls', url: endpoints.hls || null, available: Boolean(serve.policy.endpoint_enabled), protection_boundary: 'reverse_proxy_or_cdn' }
+        { transport: 'rtmp', url: endpoints.rtmp || null, available: Boolean(serve.policy.endpoint_enabled), runtime_exposed: true, advertised: advertised.has('rtmp'), protection: endpointProtections.rtmp || (serve.policy.require_grant ? 'access-grant' : 'none') },
+        { transport: 'http-flv', url: endpoints.flv || null, available: Boolean(serve.policy.endpoint_enabled), runtime_exposed: true, advertised: advertised.has('http-flv'), protection: endpointProtections['http-flv'] || (serve.policy.require_grant ? 'access-grant' : 'none') },
+        { transport: 'hls', url: endpoints.hls || null, available: Boolean(serve.policy.endpoint_enabled), runtime_exposed: true, advertised: advertised.has('hls'), protection: endpointProtections.hls || 'none', protection_boundary: 'reverse_proxy_or_cdn' }
       ],
       protection: {
         accepting_new_sessions: Boolean(serve.policy.accepting_new_sessions),
         require_grant: Boolean(serve.policy.require_grant),
+        endpoint_protections: endpointProtections,
+        direct_hls_on_play_protected: false,
         grants: (serve.grants || []).map(grant => ({ id: grant.id, label: grant.label, token_hint: grant.token_hint, status: grant.status, expires_at: grant.expires_at }))
       },
       sessions: { active_external: (serve.active_sessions || []).length },

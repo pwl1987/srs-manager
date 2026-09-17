@@ -266,6 +266,7 @@ CREATE TABLE IF NOT EXISTS out_pull_policies (
   endpoint_enabled INTEGER NOT NULL DEFAULT 1,
   accepting_new_sessions INTEGER NOT NULL DEFAULT 1,
   require_grant INTEGER NOT NULL DEFAULT 0,
+  v3_metadata_json TEXT,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 );
@@ -370,6 +371,7 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   };
   ensureColumn('streams', 'updated_at', 'updated_at TEXT');
   ensureColumn('out_pull_sessions', 'session_kind', "session_kind TEXT NOT NULL DEFAULT 'external'");
+  ensureColumn('out_pull_policies', 'v3_metadata_json', 'v3_metadata_json TEXT');
   ensureColumn('streams', 'transcode_template_id', 'transcode_template_id INTEGER');
   ensureColumn('transcode_templates', 'updated_at', 'updated_at TEXT');
   ensureColumn('cdn_channels', 'updated_at', 'updated_at TEXT');

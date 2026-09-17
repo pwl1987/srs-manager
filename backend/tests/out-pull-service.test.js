@@ -20,6 +20,7 @@ test('OUT-PULL policy enforces admission while grants stay hashed and revocation
     endpoint_enabled: true,
     accepting_new_sessions: true,
     require_grant: false,
+    v3_metadata: null,
     updated_at: null
   });
   assert.equal(outPullService.authorizePlay({ stream: 'pull-access' }).allowed, true);

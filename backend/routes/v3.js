@@ -117,13 +117,20 @@ for (const [action, desired] of [['start', 'RUNNING'], ['stop', 'STOPPED']]) {
     const idempotencyKey = String(req.get('Idempotency-Key') || '').trim();
     if (!idempotencyKey) return res.status(400).json({ code: 'V3_IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key is required', detail: null, retryable: false, correlation_id: null });
     const taskId = outputService.parsePushOutputId(req.params.outputId);
-    if (!taskId) return res.status(422).json({ code: 'V3_OUTPUT_OPERATION_UNSUPPORTED', message: 'This Output does not use managed PUSH operations.', detail: req.params.outputId, retryable: false, correlation_id: null });
+    const serveStreamId = outputService.parseServeOutputId(req.params.outputId);
     try {
-      const task = require('../services/push-task-service').getTask(taskId);
-      if (!task || Number(task.stream_id) !== Number(stream.id)) return res.status(404).json({ code: 'V3_OUTPUT_NOT_FOUND', message: 'Output not found in this Room.', detail: req.params.outputId, retryable: false, correlation_id: null });
-      const result = outputService.startOrStopPush(taskId, desired, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
+      let result;
+      if (taskId) {
+        const task = require('../services/push-task-service').getTask(taskId);
+        if (!task || Number(task.stream_id) !== Number(stream.id)) return res.status(404).json({ code: 'V3_OUTPUT_NOT_FOUND', message: 'Output not found in this Room.', detail: req.params.outputId, retryable: false, correlation_id: null });
+        result = outputService.startOrStopPush(taskId, desired, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
+      } else if (serveStreamId && Number(serveStreamId) === Number(stream.id)) {
+        result = outputService.startOrStopServe(stream.id, desired, { idempotency_key: idempotencyKey, requested_by: req.user?.username || req.user?.sub || null });
+      } else {
+        return res.status(422).json({ code: 'V3_OUTPUT_OPERATION_UNSUPPORTED', message: 'Unsupported Output operation target.', detail: req.params.outputId, retryable: false, correlation_id: null });
+      }
       if (result.conflict) return res.status(409).json({ code: 'V3_OUTPUT_OPERATION_CONFLICT', message: 'Another Output operation is already active.', detail: result.operation, retryable: true, correlation_id: null });
-      return res.status(result.reused ? 200 : 202).json(result.operation);
+      return res.status(result.reused ? 200 : (result.operation.phase === 'SUCCEEDED' ? 200 : 202)).json(result.operation);
     } catch (error) {
       return res.status(422).json({ code: 'V3_OUTPUT_OPERATION_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null });
     }

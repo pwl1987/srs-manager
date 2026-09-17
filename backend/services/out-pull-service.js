@@ -10,6 +10,20 @@ function getStreamByName(name) {
   return db.prepare('SELECT id, name FROM streams WHERE name = ?').get(String(name || '')) || null;
 }
 
+function parseMetadata(value) {
+  if (!value) return null;
+  try { return JSON.parse(value); } catch { return null; }
+}
+
+function sanitizeMetadata(value) {
+  if (!value || typeof value !== 'object') return null;
+  const out = {};
+  for (const key of ['name','scene','consumer_label','advertised_transports','endpoint_protections']) {
+    if (value[key] !== undefined) out[key] = value[key];
+  }
+  return out;
+}
+
 function getPolicy(streamId) {
   const stream = getStream(streamId);
   if (!stream) return null;
@@ -19,6 +33,7 @@ function getPolicy(streamId) {
     endpoint_enabled: row ? Boolean(row.endpoint_enabled) : true,
     accepting_new_sessions: row ? Boolean(row.accepting_new_sessions) : true,
     require_grant: row ? Boolean(row.require_grant) : false,
+    v3_metadata: parseMetadata(row?.v3_metadata_json),
     updated_at: row?.updated_at || null
   };
 }
@@ -27,20 +42,23 @@ function updatePolicy(streamId, updates = {}) {
   const stream = getStream(streamId);
   if (!stream) return null;
   const current = getPolicy(stream.id);
+  const metadata = updates.v3_metadata === undefined ? current.v3_metadata : sanitizeMetadata(updates.v3_metadata);
   const value = {
     endpoint_enabled: updates.endpoint_enabled === undefined ? current.endpoint_enabled : Boolean(updates.endpoint_enabled),
     accepting_new_sessions: updates.accepting_new_sessions === undefined ? current.accepting_new_sessions : Boolean(updates.accepting_new_sessions),
-    require_grant: updates.require_grant === undefined ? current.require_grant : Boolean(updates.require_grant)
+    require_grant: updates.require_grant === undefined ? current.require_grant : Boolean(updates.require_grant),
+    v3_metadata: metadata
   };
   db.prepare(`
-    INSERT INTO out_pull_policies (stream_id, endpoint_enabled, accepting_new_sessions, require_grant, updated_at)
-    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO out_pull_policies (stream_id, endpoint_enabled, accepting_new_sessions, require_grant, v3_metadata_json, updated_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(stream_id) DO UPDATE SET
       endpoint_enabled = excluded.endpoint_enabled,
       accepting_new_sessions = excluded.accepting_new_sessions,
       require_grant = excluded.require_grant,
+      v3_metadata_json = excluded.v3_metadata_json,
       updated_at = CURRENT_TIMESTAMP
-  `).run(stream.id, value.endpoint_enabled ? 1 : 0, value.accepting_new_sessions ? 1 : 0, value.require_grant ? 1 : 0);
+  `).run(stream.id, value.endpoint_enabled ? 1 : 0, value.accepting_new_sessions ? 1 : 0, value.require_grant ? 1 : 0, metadata ? JSON.stringify(metadata) : null);
   return getPolicy(stream.id);
 }
 function hashToken(token) {
