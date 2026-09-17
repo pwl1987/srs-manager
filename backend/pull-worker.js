@@ -11,6 +11,7 @@ const POLL_MS = Math.max(500, Number(process.env.PULL_WORKER_POLL_MS || 2000));
 const STARTUP_TIMEOUT_MS = Math.max(5000, Number(process.env.PULL_STARTUP_TIMEOUT_MS || 15000));
 const STOP_GRACE_MS = Math.max(1000, Number(process.env.PULL_STOP_GRACE_MS || 5000));
 const MAX_BACKOFF_MS = Math.max(5000, Number(process.env.PULL_MAX_BACKOFF_MS || 30000));
+const MAX_ATTEMPTS = Math.max(1, Number(process.env.PULL_MAX_ATTEMPTS || 8));
 const ALLOWED_SOURCE_PROTOCOLS = ['rtmp', 'rtmps', 'srt', 'rtsp', 'http', 'https'];
 
 const processes = new Map();
@@ -24,7 +25,7 @@ function log(message, extra = '') {
 
 function redactText(value) {
   return String(value || '')
-    .replace(/([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)([^\s/@]+(?::[^\s/@]*)?@)?([^\s?#]+)(\?[^\s#]*)?/g, '$1$3$4'.replace('$4', ''))
+    .replace(/([a-zA-Z][a-zA-Z0-9+.-]*:\/\/)([^\s/@]+(?::[^\s/@]*)?@)?([^\s?#]+)(\?[^\s#]*)?/g, '$1$3')
     .replace(/([?&](?:token|secret|signature|sig|key|auth|password|passwd)=)[^&\s]+/gi, '$1***')
     .slice(-1200);
 }
@@ -56,9 +57,20 @@ function isPublisher(client) {
 
 function scheduleRetry(task, error) {
   const attempt = Math.max(1, Number(task.attempt || 0));
+  const safeError = redactText(error);
+  if (attempt >= MAX_ATTEMPTS) {
+    pullTaskService.updateRuntime(task.id, {
+      runtime_state: 'FAILED',
+      last_error: safeError || `Pull failed after ${attempt} attempts`,
+      next_retry_at: null,
+      worker_instance_id: null
+    });
+    return;
+  }
+
   pullTaskService.updateRuntime(task.id, {
     runtime_state: 'RETRYING',
-    last_error: redactText(error),
+    last_error: safeError,
     next_retry_at: retryAt(nextBackoffMs(attempt)),
     worker_instance_id: null
   });
@@ -120,6 +132,7 @@ function spawnTask(task) {
     startedAt: Date.now(),
     lastStderr: '',
     stopping: false,
+    stopReason: null,
     exited: false,
     killTimer: null
   };
@@ -164,12 +177,16 @@ function spawnTask(task) {
       return;
     }
 
-    if (fresh.desired_state === 'STOPPED' || state.stopping) {
+    if (fresh.desired_state === 'STOPPED' || state.stopReason === 'desired STOPPED') {
       markStopped(task.id);
       return;
     }
 
-    scheduleRetry(fresh, state.lastStderr || `ffmpeg exited code=${code} signal=${signal || 'none'}`);
+    const error = state.lastStderr
+      || (state.stopReason === 'startup timeout'
+        ? 'Timed out waiting for SRS publisher observation'
+        : `ffmpeg exited code=${code} signal=${signal || 'none'}`);
+    scheduleRetry(fresh, error);
   });
 
   log(`starting task ${task.id} stream=${task.stream_name} source=${task.source_url_masked}`);
@@ -194,7 +211,7 @@ async function reconcile() {
   } catch (error) {
     log('SRS observation unavailable; no new pull task will be started', redactText(error.message));
     for (const task of pullTaskService.listWorkerTasks()) {
-      if (!processes.has(task.id) && task.desired_state === 'RUNNING') {
+      if (!processes.has(task.id) && task.desired_state === 'RUNNING' && task.runtime_state !== 'FAILED') {
         pullTaskService.updateRuntime(task.id, {
           runtime_state: 'RETRYING',
           last_error: `SRS observation unavailable: ${redactText(error.message)}`,
@@ -211,7 +228,7 @@ async function reconcile() {
     const state = processes.get(task.id);
 
     if (task.desired_state === 'STOPPED') {
-      if (state) stopProcess(task.id);
+      if (state) stopProcess(task.id, 'desired STOPPED');
       else if (task.runtime_state !== 'STOPPED') markStopped(task.id);
       continue;
     }
@@ -232,17 +249,16 @@ async function reconcile() {
       continue;
     }
 
+    if (task.runtime_state === 'FAILED') continue;
     if (!canRetry(task)) continue;
 
     if (publisherNames.has(task.stream_name)) {
-      if (task.runtime_state !== 'BLOCKED' || task.last_error !== 'Input ownership conflict: publisher already exists') {
-        pullTaskService.updateRuntime(task.id, {
-          runtime_state: 'BLOCKED',
-          last_error: 'Input ownership conflict: publisher already exists',
-          next_retry_at: retryAt(5000),
-          worker_instance_id: null
-        });
-      }
+      pullTaskService.updateRuntime(task.id, {
+        runtime_state: 'BLOCKED',
+        last_error: 'Input ownership conflict: publisher already exists',
+        next_retry_at: retryAt(5000),
+        worker_instance_id: null
+      });
       continue;
     }
 
