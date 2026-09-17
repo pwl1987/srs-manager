@@ -103,5 +103,16 @@ test('PullTask separates desired/runtime state, manages source sets, and enforce
 
   pullTaskService.setDesiredState(task.id, 'STOPPED');
   pullTaskService.updateRuntime(task.id, { runtime_state: 'STOPPED', worker_instance_id: null, attempt: 0 });
+
+  // Removing the active source must be atomic: if every remaining candidate is
+  // disabled, reject before deleting anything.
+  pullTaskService.updateTaskSource(task.id, sourceId, { enabled: 0 });
+  assert.throws(() => pullTaskService.deleteTaskSource(task.id, backupId), /no enabled source/);
+  assert.equal(pullTaskService.getTask(task.id).sources.length, 2, 'failed removal must not partially mutate the source set');
+  pullTaskService.updateTaskSource(task.id, sourceId, { enabled: 1 });
+  const afterRemoval = pullTaskService.deleteTaskSource(task.id, backupId);
+  assert.equal(afterRemoval.active_source_id, sourceId, 'stopped task should atomically select the next usable source');
+  assert.equal(afterRemoval.sources.length, 1);
+
   assert.deepEqual(pullTaskService.deleteTask(task.id), { id: task.id, stream_id: streamId });
 });

@@ -195,29 +195,42 @@ function updateTaskSource(taskId, externalSourceId, updates = {}) {
 function deleteTaskSource(taskId, externalSourceId) {
   const id = Number(taskId);
   const sourceId = Number(externalSourceId);
-  const task = getTask(id);
-  if (!task) throw new Error('Pull task not found');
-  const sources = listTaskSources(id);
-  const current = sources.find(source => Number(source.external_source_id) === sourceId);
-  if (!current) throw new Error('Pull task source not found');
-  if (sources.length <= 1) throw new Error('Pull task must keep at least one source');
-  if (Number(task.active_source_id) === sourceId && task.desired_state === 'RUNNING') {
-    throw new Error('Active pull source cannot be removed while task is running');
-  }
+  const remove = db.transaction(() => {
+    const task = getTask(id);
+    if (!task) throw new Error('Pull task not found');
+    const sources = listTaskSources(id);
+    const current = sources.find(source => Number(source.external_source_id) === sourceId);
+    if (!current) throw new Error('Pull task source not found');
+    if (sources.length <= 1) throw new Error('Pull task must keep at least one source');
 
-  db.prepare('DELETE FROM pull_task_sources WHERE pull_task_id = ? AND external_source_id = ?').run(id, sourceId);
-  if (Number(task.active_source_id) === sourceId) {
-    const next = listTaskSources(id).find(source => source.enabled && source.source_status === 'active');
-    if (!next) throw new Error('Pull task has no enabled source');
-    db.prepare(`
-      UPDATE pull_tasks
-      SET active_source_id = ?, attempt = 0,
-          last_source_switch_at = CURRENT_TIMESTAMP,
-          last_source_switch_reason = 'active source removed while stopped',
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(next.external_source_id, id);
-  }
+    const removingActive = Number(task.active_source_id) === sourceId;
+    if (removingActive && task.desired_state === 'RUNNING') {
+      throw new Error('Active pull source cannot be removed while task is running');
+    }
+
+    let next = null;
+    if (removingActive) {
+      next = sources.find(source =>
+        Number(source.external_source_id) !== sourceId
+          && source.enabled
+          && source.source_status === 'active'
+      );
+      if (!next) throw new Error('Pull task has no enabled source');
+    }
+
+    db.prepare('DELETE FROM pull_task_sources WHERE pull_task_id = ? AND external_source_id = ?').run(id, sourceId);
+    if (next) {
+      db.prepare(`
+        UPDATE pull_tasks
+        SET active_source_id = ?, attempt = 0,
+            last_source_switch_at = CURRENT_TIMESTAMP,
+            last_source_switch_reason = 'active source removed while stopped',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(next.external_source_id, id);
+    }
+  });
+  remove.immediate();
   return getTask(id);
 }
 
