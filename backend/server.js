@@ -33,6 +33,7 @@ app.use('/api/dns/records', require('./routes/dns-records'));
 app.use('/api/keys', require('./routes/keys'));
 app.use('/api/distribution', require('./routes/distribution'));
 app.use('/api/external-sources', require('./routes/external-sources'));
+app.use('/api/pull-tasks', require('./routes/pull-tasks'));
 app.use('/api/forward-tasks', require('./routes/forward-tasks'));
 app.use('/api/forward', require('./routes/forward'));
 app.use('/api/monitor', require('./routes/monitor'));
