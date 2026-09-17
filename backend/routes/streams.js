@@ -16,14 +16,25 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { name, protocol } = req.body;
+    const { name, protocol, transcode_template_id } = req.body;
     if (!name) return res.status(400).json({ code: 'VALIDATION_STREAM_NAME_REQUIRED', error: 'Stream name is required' });
-    const stream = await streamService.createStream(name, protocol);
+    const stream = await streamService.createStream(name, protocol, transcode_template_id);
     res.status(201).json({ stream });
   } catch (err) {
     if (err.message.includes('Invalid stream name')) return res.status(400).json({ code: 'VALIDATION_STREAM_NAME_INVALID', error: err.message });
+    if (err.message.includes('Invalid transcode template')) return res.status(400).json({ code: 'NOT_FOUND_TEMPLATE', error: 'Transcode template not found' });
     if (err.message.includes('UNIQUE constraint failed')) return res.status(409).json({ code: 'CONFLICT_STREAM_EXISTS', error: 'Stream already exists' });
     res.status(500).json({ code: 'INTERNAL_CREATE_STREAM_FAILED', error: `Failed to create stream: ${err.message}` });
+  }
+});
+
+// Must be declared before /:id, otherwise "external-live" is captured as an id.
+router.get('/external-live', async (req, res) => {
+  try {
+    const external = await streamService.listExternalStreams();
+    res.json(external);
+  } catch (err) {
+    res.status(500).json({ code: 'INTERNAL_FETCH_STREAMS_FAILED', error: `Failed to fetch external streams: ${err.message}` });
   }
 });
 
@@ -39,12 +50,13 @@ router.get('/:id', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { name, protocol } = req.body;
-    const stream = await streamService.updateStream(req.params.id, { name, protocol });
+    const { name, protocol, transcode_template_id } = req.body;
+    const stream = await streamService.updateStream(req.params.id, { name, protocol, transcode_template_id });
     if (!stream) return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: 'Stream not found', detail: `Stream ID: ${req.params.id}` });
     res.json({ stream });
   } catch (err) {
     if (err.message.includes('Invalid stream name')) return res.status(400).json({ code: 'VALIDATION_STREAM_NAME_INVALID', error: err.message });
+    if (err.message.includes('Invalid transcode template')) return res.status(400).json({ code: 'NOT_FOUND_TEMPLATE', error: 'Transcode template not found' });
     if (err.message.includes('UNIQUE constraint failed')) return res.status(409).json({ code: 'CONFLICT_STREAM_NAME_IN_USE', error: 'Stream name already in use' });
     res.status(500).json({ code: 'INTERNAL_UPDATE_STREAM_FAILED', error: `Failed to update stream: ${err.message}`, detail: `Stream ID: ${req.params.id}` });
   }

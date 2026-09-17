@@ -2,6 +2,21 @@ const srsService = require('./srs');
 const { buildUrls } = require('./stream-urls');
 const db = require('../database');
 
+function resolveTranscodeTemplateId(templateId) {
+  if (templateId === undefined || templateId === null || templateId === '') return null;
+  const id = Number(templateId);
+  if (!Number.isInteger(id) || id <= 0) throw new Error('Invalid transcode template');
+  const tpl = db.prepare('SELECT id FROM transcode_templates WHERE id = ?').get(id);
+  if (!tpl) throw new Error('Invalid transcode template');
+  return id;
+}
+
+function templateNameMap() {
+  const map = {};
+  for (const row of db.prepare('SELECT id, name FROM transcode_templates').all()) map[row.id] = row.name;
+  return map;
+}
+
 // Uptime of the current publishing session: time since the latest on_publish
 // hook event. processed_at is SQLite CURRENT_TIMESTAMP (UTC, "YYYY-MM-DD HH:MM:SS").
 function currentUptimeSeconds(streamName) {
@@ -27,6 +42,7 @@ function extractLiveStats(item) {
 async function listStreams() {
   const srsStreams = await srsService.getStreams();
   const localStreams = db.prepare('SELECT * FROM streams ORDER BY created_at DESC').all();
+  const templateNames = templateNameMap();
 
   return localStreams.map(local => {
     const srs = srsStreams.find(s => s.name === local.name);
@@ -34,6 +50,7 @@ async function listStreams() {
     return {
       ...local,
       ...buildUrls(local.name),
+      transcode_template_name: local.transcode_template_id ? (templateNames[local.transcode_template_id] || null) : null,
       status: srs ? 'online' : local.status,
       bitrate: live.kbps,
       viewers: live.viewers,
@@ -42,23 +59,47 @@ async function listStreams() {
   });
 }
 
+// Live publishes that reached SRS but are not registered in the panel, so the
+// operator can see pushes with mismatched names (e.g. pushed "22" while the
+// panel stream is "222") instead of wondering why nothing shows as online.
+async function listExternalStreams() {
+  const [srsStreams, clients] = await Promise.all([
+    srsService.getStreams(),
+    srsService.listClients().catch(() => [])
+  ]);
+  const known = new Set(db.prepare('SELECT name FROM streams').all().map(r => r.name));
+  return srsStreams
+    .filter(s => (s.app || 'live') === 'live' && !known.has(s.name))
+    .map(s => {
+      const publisher = clients.find(c => (c.app || 'live') === 'live' && c.stream === s.name && String(c.type || '').includes('publish'));
+      const stats = extractLiveStats(s);
+      return { name: s.name, kbps: stats.kbps, viewers: stats.viewers, publish_ip: publisher?.ip || null };
+    });
+}
+
 async function getStream(id) {
   const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(id);
   if (!stream) return null;
-  return { ...stream, ...buildUrls(stream.name) };
+  const names = templateNameMap();
+  return {
+    ...stream,
+    ...buildUrls(stream.name),
+    transcode_template_name: stream.transcode_template_id ? (names[stream.transcode_template_id] || null) : null
+  };
 }
 
-async function createStream(name, protocol) {
+async function createStream(name, protocol, transcodeTemplateId) {
   if (!/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('Invalid stream name');
+  const templateId = resolveTranscodeTemplateId(transcodeTemplateId);
 
-  db.prepare('INSERT INTO streams (name, protocol, status) VALUES (?, ?, ?)')
-    .run(name, protocol || 'rtmp', 'offline');
+  db.prepare('INSERT INTO streams (name, protocol, status, transcode_template_id) VALUES (?, ?, ?, ?)')
+    .run(name, protocol || 'rtmp', 'offline', templateId);
 
   const stream = db.prepare('SELECT * FROM streams WHERE name = ?').get(name);
   return { ...stream, ...buildUrls(name) };
 }
 
-async function updateStream(id, { name, protocol }) {
+async function updateStream(id, { name, protocol, transcode_template_id }) {
   const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(id);
   if (!stream) return null;
 
@@ -68,6 +109,9 @@ async function updateStream(id, { name, protocol }) {
     updates.name = name;
   }
   if (protocol) updates.protocol = protocol;
+  if (transcode_template_id !== undefined) {
+    updates.transcode_template_id = resolveTranscodeTemplateId(transcode_template_id);
+  }
 
   if (Object.keys(updates).length > 0) {
     const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(', ');
@@ -110,4 +154,4 @@ async function stopStream(id) {
   return { name: stream.name, kicked, errors };
 }
 
-module.exports = { listStreams, getStream, createStream, updateStream, deleteStream, stopStream };
+module.exports = { listStreams, listExternalStreams, getStream, createStream, updateStream, deleteStream, stopStream };

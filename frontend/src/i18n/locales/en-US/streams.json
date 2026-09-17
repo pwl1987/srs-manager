@@ -35,10 +35,27 @@
     "pullAddress": "Pull Address",
     "rtmp": "RTMP",
     "hls": "HLS",
+    "flv": "FLV",
     "webrtc": "WebRTC",
     "key": "Key",
     "keyMasked": "sk_live_****{{last4}}",
-    "keyShown": "sk_live_{{key}}"
+    "keyShown": "sk_live_{{key}}",
+    "testModeNote": "Test mode: no CDN domain configured, pull URLs point directly at SRS (testing only); loopback hosts in the push URL are replaced with this panel's host."
+  },
+  "transcode": {
+    "label": "Transcode Template",
+    "none": "Disabled",
+    "note": "When bound, the stream is transcoded with the template's parameters. Templates are managed on the Transcode Templates page.",
+    "badge": "Transcode template: {{name}}"
+  },
+  "distributionSection": {
+    "title": "Pull Distribution",
+    "create": "New Request"
+  },
+  "external": {
+    "title": "Unregistered live pushes detected",
+    "hint": "These publishes reached the SRS server but their names are not registered in the panel, so they never appear in the list. Register to manage them:",
+    "register": "Register"
   },
   "modal": {
     "create": "Create Stream",
@@ -59,7 +76,7 @@
   },
   "preview": {
     "error": "Playback failed: make sure the stream is publishing and the pull URL is reachable.",
-    "placeholder": "Pull domain not configured (placeholder address). Set the CDN domain in Settings first.",
+    "placeholder": "No playable pull URL available.",
     "notSupported": "This browser does not support HLS playback."
   }
 }

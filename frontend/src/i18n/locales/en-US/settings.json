@@ -22,6 +22,8 @@
     "apiUrl": "API URL",
     "apiToken": "API Token",
     "rtmpPort": "RTMP Port",
+    "httpPort": "HTTP Port",
+    "httpPortHelper": "SRS http_server port used by direct HLS / FLV pull URLs in test mode (default 8080)",
     "hooks": "Hooks",
     "apiTokenSet": "Configured",
     "apiTokenPlaceholder": "Leave blank to keep current",

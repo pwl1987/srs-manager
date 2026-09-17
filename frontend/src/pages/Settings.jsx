@@ -15,7 +15,7 @@ export default function Settings() {
   const [srsConfig, setSrsConfig] = useState(null);
   const [ntpStatus, setNtpStatus] = useState(null);
   const [form, setForm] = useState({
-    api_url: '', api_token: '', rtmp_port: 1935,
+    api_url: '', api_token: '', rtmp_port: 1935, http_port: 8080,
     dns_domain: '', cdn_domain: '', timezone: 'Asia/Shanghai'
   });
   const [tokenTouched, setTokenTouched] = useState(false);
@@ -41,6 +41,7 @@ export default function Settings() {
         api_url: cfg.api_url || '',
         api_token: '',
         rtmp_port: cfg.rtmp_port || 1935,
+        http_port: all.srs_http_port || 8080,
         dns_domain: all.dns_domain || '',
         cdn_domain: all.cdn_domain || '',
         timezone: all.timezone || 'Asia/Shanghai'
@@ -80,6 +81,7 @@ export default function Settings() {
       const payload = {
         srs_api_url: form.api_url,
         srs_rtmp_port: parseInt(form.rtmp_port, 10) || 1935,
+        srs_http_port: parseInt(form.http_port, 10) || 8080,
         dns_domain: form.dns_domain,
         cdn_domain: form.cdn_domain,
         timezone: form.timezone
@@ -161,9 +163,21 @@ export default function Settings() {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>{t('settings:srs.hooks')}</label>
-                  <p className="text-sm py-2">{srsConfig.hooks_enabled ? t('common:labels.yes') : t('common:labels.no')}</p>
+                  <label className={labelClass}>{t('settings:srs.httpPort')}</label>
+                  <input
+                    type="number"
+                    value={form.http_port}
+                    onChange={e => setForm({ ...form, http_port: e.target.value })}
+                    className={inputClass}
+                    min={1}
+                    max={65535}
+                  />
+                  <p className={helpTextClass}>{t('settings:srs.httpPortHelper')}</p>
                 </div>
+              </div>
+              <div>
+                <label className={labelClass}>{t('settings:srs.hooks')}</label>
+                <p className="text-sm py-2">{srsConfig.hooks_enabled ? t('common:labels.yes') : t('common:labels.no')}</p>
               </div>
             </div>
           ) : (

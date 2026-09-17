@@ -35,10 +35,27 @@
     "pullAddress": "拉流地址",
     "rtmp": "RTMP",
     "hls": "HLS",
+    "flv": "FLV",
     "webrtc": "WebRTC",
     "key": "密钥",
     "keyMasked": "sk_live_****{{last4}}",
-    "keyShown": "sk_live_{{key}}"
+    "keyShown": "sk_live_{{key}}",
+    "testModeNote": "测试模式：未配置 CDN 域名，拉流地址为 SRS 直连地址（仅供测试）；推流地址中的回环地址已替换为本面板主机。"
+  },
+  "transcode": {
+    "label": "转码模板",
+    "none": "不启用",
+    "note": "绑定后该流按模板参数转码，模板在「转码模板」页面维护。",
+    "badge": "转码模板：{{name}}"
+  },
+  "distributionSection": {
+    "title": "拉流分发",
+    "create": "新建分发"
+  },
+  "external": {
+    "title": "检测到未注册的推流",
+    "hint": "以下推流已到达 SRS 服务器，但流名未在面板注册，因此不出现在列表中。可一键注册后正常管理：",
+    "register": "注册到面板"
   },
   "modal": {
     "create": "创建流",
@@ -59,7 +76,7 @@
   },
   "preview": {
     "error": "播放失败：请确认流正在推流，且拉流地址可访问。",
-    "placeholder": "拉流域名未配置（当前为占位地址）。请先在「设置」中填写 CDN 域名。",
+    "placeholder": "暂无可用的拉流地址。",
     "notSupported": "当前浏览器不支持 HLS 播放。"
   }
 }

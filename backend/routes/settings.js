@@ -49,6 +49,12 @@ router.put('/', (req, res) => {
       return res.status(400).json({ code: 'VALIDATION_TEMPLATE_INVALID', error: 'srs_rtmp_port must be an integer between 1 and 65535' });
     }
   }
+  if (updates.srs_http_port !== undefined) {
+    const port = parseInt(updates.srs_http_port, 10);
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+      return res.status(400).json({ code: 'VALIDATION_TEMPLATE_INVALID', error: 'srs_http_port must be an integer between 1 and 65535' });
+    }
+  }
   for (const [key, value] of Object.entries(updates)) {
     settingsService.setSetting(key, value);
   }

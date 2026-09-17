@@ -195,6 +195,7 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
     if (!cols.includes(column)) conn.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
   };
   ensureColumn('streams', 'updated_at', 'updated_at TEXT');
+  ensureColumn('streams', 'transcode_template_id', 'transcode_template_id INTEGER');
   ensureColumn('cdn_channels', 'updated_at', 'updated_at TEXT');
   ensureColumn('distribution_requests', 'notes', 'notes TEXT');
   ensureColumn('distribution_requests', 'updated_at', 'updated_at TEXT');

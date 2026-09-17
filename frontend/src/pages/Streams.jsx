@@ -9,6 +9,8 @@ import { copyText } from '../lib/clipboard';
 import { formatBitrateKbps, formatDuration, formatDateTime } from '../i18n/format';
 import { getErrorCode } from '../lib/error-mapper';
 import { usePolling } from '../lib/use-polling';
+import { displayUrl, resolvePullHls, resolvePullFlv } from '../lib/stream-url-display';
+import DistributionSection from './StreamsDistribution';
 import PageHeader from '../components/ui/PageHeader';
 import TableShell from '../components/ui/TableShell';
 import EmptyState from '../components/ui/EmptyState';
@@ -18,12 +20,13 @@ import SearchInput from '../components/ui/SearchInput';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { inputClass, labelClass, btnPrimary, btnSecondary, btnGhost, thClass, tdClass } from '../components/ui/styles';
-import { Radio, Plus, Edit, Trash2, Copy, X, StopCircle, Play, QrCode, ChevronDown, ChevronRight } from 'lucide-react';
+import { Radio, Plus, Edit, Trash2, Copy, X, StopCircle, Play, QrCode, ChevronDown, ChevronRight, AlertTriangle, FlaskConical, Film } from 'lucide-react';
 
 function PreviewModal({ stream, onClose, t }) {
   const videoRef = useRef(null);
   const [error, setError] = useState('');
-  const isPlaceholder = !stream?.pull_url_hls || stream.pull_url_hls.includes('cdn.example.com');
+  const source = resolvePullHls(stream);
+  const isPlaceholder = !source;
 
   useEffect(() => {
     if (!stream || isPlaceholder) return undefined;
@@ -32,11 +35,11 @@ function PreviewModal({ stream, onClose, t }) {
 
     let hls = null;
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = stream.pull_url_hls;
+      video.src = source;
       video.play().catch(() => {});
     } else if (Hls.isSupported()) {
       hls = new Hls();
-      hls.loadSource(stream.pull_url_hls);
+      hls.loadSource(source);
       hls.attachMedia(video);
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) setError(t('streams:preview.error'));
@@ -48,7 +51,7 @@ function PreviewModal({ stream, onClose, t }) {
     return () => {
       if (hls) hls.destroy();
     };
-  }, [stream, isPlaceholder, t]);
+  }, [stream, source, isPlaceholder, t]);
 
   return (
     <Modal open={Boolean(stream)} onClose={onClose} title={t('streams:actions.preview')} size="lg">
@@ -59,7 +62,7 @@ function PreviewModal({ stream, onClose, t }) {
           {error && <p className="text-sm text-[var(--destructive)] mb-3">{error}</p>}
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video ref={videoRef} controls autoPlay muted className="w-full rounded bg-black aspect-video" />
-          <p className="text-xs text-[var(--muted-foreground)] mt-2 break-all font-mono">{stream.pull_url_hls}</p>
+          <p className="text-xs text-[var(--muted-foreground)] mt-2 break-all font-mono">{source}</p>
         </>
       )}
     </Modal>
@@ -68,13 +71,14 @@ function PreviewModal({ stream, onClose, t }) {
 
 function QrModal({ stream, onClose, t, onCopy }) {
   const [dataUrl, setDataUrl] = useState('');
+  const qrSource = resolvePullHls(stream);
 
   useEffect(() => {
-    if (!stream?.pull_url_hls) return;
-    QRCode.toDataURL(stream.pull_url_hls, { width: 256, margin: 2 })
+    if (!qrSource) return;
+    QRCode.toDataURL(qrSource, { width: 256, margin: 2 })
       .then(setDataUrl)
       .catch(() => setDataUrl(''));
-  }, [stream]);
+  }, [qrSource]);
 
   return (
     <Modal
@@ -82,7 +86,7 @@ function QrModal({ stream, onClose, t, onCopy }) {
       onClose={onClose}
       title={t('streams:actions.qrcode')}
       size="sm"
-      footer={<button className={btnSecondary} onClick={() => onCopy(stream.pull_url_hls)}><Copy size={14} />{t('common:actions.copy')}</button>}
+      footer={<button className={btnSecondary} onClick={() => onCopy(qrSource)}><Copy size={14} />{t('common:actions.copy')}</button>}
     >
       <div className="flex flex-col items-center gap-3">
         {dataUrl ? (
@@ -90,7 +94,7 @@ function QrModal({ stream, onClose, t, onCopy }) {
         ) : (
           <div className="w-64 h-64 animate-pulse bg-[var(--secondary)] rounded" />
         )}
-        <p className="text-xs text-[var(--muted-foreground)] break-all font-mono text-center">{stream?.pull_url_hls}</p>
+        <p className="text-xs text-[var(--muted-foreground)] break-all font-mono text-center">{qrSource}</p>
       </div>
     </Modal>
   );
@@ -118,19 +122,30 @@ export default function Streams() {
   const [expandedId, setExpandedId] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', protocol: 'rtmp' });
+  const [form, setForm] = useState({ name: '', protocol: 'rtmp', transcode_template_id: '' });
   const [formError, setFormError] = useState('');
   const [previewStream, setPreviewStream] = useState(null);
   const [qrStream, setQrStream] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [stopTarget, setStopTarget] = useState(null);
   const [working, setWorking] = useState(false);
+  const [externalLive, setExternalLive] = useState([]);
+  const [templates, setTemplates] = useState([]);
+
+  useEffect(() => {
+    api.get('/transcode-templates').then(setTemplates).catch(() => {});
+  }, []);
 
   async function loadStreams(silent = false) {
     if (!silent) setLoading(true);
     if (!silent) setError(null);
     try {
-      setStreams(await api.get('/streams'));
+      const [list, external] = await Promise.all([
+        api.get('/streams'),
+        api.get('/streams/external-live').catch(() => [])
+      ]);
+      setStreams(list);
+      setExternalLive(Array.isArray(external) ? external : []);
     } catch (err) {
       setError({ code: getErrorCode(err) });
     } finally {
@@ -146,14 +161,14 @@ export default function Streams() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: '', protocol: 'rtmp' });
+    setForm({ name: '', protocol: 'rtmp', transcode_template_id: '' });
     setFormError('');
     setShowModal(true);
   }
 
   function openEdit(stream) {
     setEditing(stream);
-    setForm({ name: stream.name, protocol: stream.protocol });
+    setForm({ name: stream.name, protocol: stream.protocol, transcode_template_id: stream.transcode_template_id || '' });
     setFormError('');
     setShowModal(true);
   }
@@ -214,6 +229,19 @@ export default function Streams() {
     }
   }
 
+  async function registerExternal(name) {
+    setWorking(true);
+    try {
+      await api.post('/streams', { name, protocol: 'rtmp' });
+      toast.success(t('common:toasts.created'));
+      loadStreams(true);
+    } catch (err) {
+      toast.error(t(`common:errors.${getErrorCode(err)}`));
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -230,6 +258,36 @@ export default function Streams() {
       />
 
       {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => loadStreams()} />}
+
+      {externalLive.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-2">
+            <AlertTriangle size={16} className="shrink-0" />
+            {t('streams:external.title')}
+          </div>
+          <p className="text-xs text-[var(--muted-foreground)] mb-2">{t('streams:external.hint')}</p>
+          <div className="space-y-1.5">
+            {externalLive.map(x => (
+              <div key={x.name} className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-[var(--success)] animate-pulse shrink-0" />
+                  <span className="font-mono font-medium truncate">{x.name}</span>
+                  <span className="text-xs text-[var(--muted-foreground)] shrink-0">
+                    {x.publish_ip || '-'} · {formatBitrateKbps(x.kbps)}
+                  </span>
+                </div>
+                <button
+                  className={cn(btnSecondary, 'shrink-0 text-xs')}
+                  disabled={working}
+                  onClick={() => registerExternal(x.name)}
+                >
+                  {t('streams:external.register')}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <TableSkeleton rows={4} />
@@ -274,6 +332,15 @@ export default function Streams() {
                     <span className="flex items-center gap-2">
                       <span className={cn('w-2 h-2 rounded-full shrink-0', s.status === 'online' ? 'bg-[var(--success)]' : 'bg-[var(--border)]')} />
                       <span className="font-medium">{s.name}</span>
+                      {s.transcode_template_name && (
+                        <span
+                          className="hidden md:inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--muted-foreground)] whitespace-nowrap"
+                          title={t('streams:transcode.badge', { name: s.transcode_template_name })}
+                        >
+                          <Film size={10} />
+                          {s.transcode_template_name}
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td className={tdClass}>
@@ -315,9 +382,25 @@ export default function Streams() {
                     <td></td>
                     <td colSpan={7} className="px-4 py-3">
                       <div className="space-y-2">
-                        <UrlRow label={`${t('streams:info.pushAddress')} (RTMP)`} url={s.push_url} t={t} onCopy={handleCopy} />
-                        <UrlRow label={`${t('streams:info.pullAddress')} (HLS)`} url={s.pull_url_hls} t={t} onCopy={handleCopy} />
-                        <UrlRow label={`${t('streams:info.pullAddress')} (RTMP)`} url={s.pull_url_rtmp} t={t} onCopy={handleCopy} />
+                        <UrlRow label={`${t('streams:info.pushAddress')} (RTMP)`} url={displayUrl(s.push_url)} t={t} onCopy={handleCopy} />
+                        {s.cdn_configured === false ? (
+                          <>
+                            <UrlRow label={`${t('streams:info.pullAddress')} (HLS)`} url={resolvePullHls(s)} t={t} onCopy={handleCopy} />
+                            <UrlRow label={`${t('streams:info.pullAddress')} (${t('streams:info.flv')})`} url={resolvePullFlv(s)} t={t} onCopy={handleCopy} />
+                            <UrlRow label={`${t('streams:info.pullAddress')} (RTMP)`} url={displayUrl(s.push_url)} t={t} onCopy={handleCopy} />
+                            <p className="text-xs text-amber-500 flex items-center gap-1.5 pt-1">
+                              <FlaskConical size={12} />
+                              {t('streams:info.testModeNote')}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <UrlRow label={`${t('streams:info.pullAddress')} (HLS)`} url={s.pull_url_hls} t={t} onCopy={handleCopy} />
+                            <UrlRow label={`${t('streams:info.pullAddress')} (${t('streams:info.flv')})`} url={resolvePullFlv(s)} t={t} onCopy={handleCopy} />
+                            <UrlRow label={`${t('streams:info.pullAddress')} (RTMP)`} url={s.pull_url_rtmp} t={t} onCopy={handleCopy} />
+                          </>
+                        )}
+                        <DistributionSection stream={s} />
                       </div>
                     </td>
                   </tr>
@@ -364,6 +447,20 @@ export default function Streams() {
               <option value="rtsp">RTSP</option>
               <option value="hls">HLS</option>
             </select>
+          </div>
+          <div>
+            <label className={labelClass}>{t('streams:transcode.label')}</label>
+            <select
+              value={form.transcode_template_id}
+              onChange={e => setForm({ ...form, transcode_template_id: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">{t('streams:transcode.none')}</option>
+              {templates.map(tpl => (
+                <option key={tpl.id} value={tpl.id}>{tpl.name}（{tpl.vcodec}/{tpl.acodec}）</option>
+              ))}
+            </select>
+            <p className="text-xs text-[var(--muted-foreground)] mt-1">{t('streams:transcode.note')}</p>
           </div>
           {formError && <p className="text-[var(--destructive)] text-sm">{formError}</p>}
         </form>

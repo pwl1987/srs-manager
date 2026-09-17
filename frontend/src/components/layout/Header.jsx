@@ -12,7 +12,6 @@ const ROUTE_TITLE_KEYS = {
   '/cdn-channels': 'cdnChannels',
   '/dns-records': 'dnsRecords',
   '/auth-keys': 'authKeys',
-  '/distribution': 'distribution',
   '/forwarding': 'forwarding',
   '/monitor': 'monitor',
   '/transcode': 'transcode',

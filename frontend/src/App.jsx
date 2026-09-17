@@ -12,7 +12,6 @@ import Dashboard from './pages/Dashboard';
 import Streams from './pages/Streams';
 import CdnChannels from './pages/CdnChannels';
 import AuthKeys from './pages/AuthKeys';
-import Distribution from './pages/Distribution';
 import Forwarding from './pages/Forwarding';
 import Monitor from './pages/Monitor';
 import TranscodeTemplates from './pages/TranscodeTemplates';
@@ -60,7 +59,6 @@ export default function App() {
           <Route path="cdn-channels" element={<CdnChannels />} />
           <Route path="dns-records" element={<DnsRecords />} />
           <Route path="auth-keys" element={<AuthKeys />} />
-          <Route path="distribution" element={<Distribution />} />
           <Route path="forwarding" element={<Forwarding />} />
           <Route path="monitor" element={<Monitor />} />
           <Route path="transcode" element={<TranscodeTemplates />} />

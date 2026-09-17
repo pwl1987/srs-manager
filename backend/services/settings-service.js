@@ -2,7 +2,7 @@ const db = require('../database');
 const config = require('../config');
 
 // Keys the API accepts in PUT /api/settings. Everything else is rejected.
-const SETTABLE_KEYS = ['dns_domain', 'cdn_domain', 'srs_api_url', 'srs_api_token', 'srs_rtmp_port', 'timezone'];
+const SETTABLE_KEYS = ['dns_domain', 'cdn_domain', 'srs_api_url', 'srs_api_token', 'srs_rtmp_port', 'srs_http_port', 'timezone'];
 
 function getSetting(key) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -34,11 +34,22 @@ function getRtmpPort() {
   return Number.isInteger(port) && port > 0 && port <= 65535 ? port : 1935;
 }
 
+// SRS http_server port: serves HLS / http-flv on the media host.
+function getSrsHttpPort() {
+  const port = parseInt(getSetting('srs_http_port'), 10);
+  return Number.isInteger(port) && port > 0 && port <= 65535 ? port : 8080;
+}
+
 function getCdnDomain() {
   return getSetting('cdn_domain') || 'cdn.example.com';
 }
 
-function getSrsConfig() {
+function isCdnDomainConfigured() {
+  const v = getSetting('cdn_domain');
+  // example.com is a reserved documentation domain: treat the placeholder
+  // (e.g. an early cdn.example.com value stored before this check) as unset.
+  return Boolean(v) && !v.includes('example.com');
+}function getSrsConfig() {
   const token = getSrsApiToken();
   return {
     api_url: getSrsApiUrl(),
@@ -73,5 +84,5 @@ function getNtpStatus() {
 module.exports = {
   SETTABLE_KEYS,
   getSetting, setSetting, getAllSettings, getSrsConfig, getNtpStatus,
-  getSrsApiUrl, getSrsApiToken, getRtmpPort, getCdnDomain
+  getSrsApiUrl, getSrsApiToken, getRtmpPort, getSrsHttpPort, getCdnDomain, isCdnDomainConfigured
 };

@@ -22,6 +22,8 @@
     "apiUrl": "API 地址",
     "apiToken": "API 令牌",
     "rtmpPort": "RTMP 端口",
+    "httpPort": "HTTP 端口",
+    "httpPortHelper": "SRS http_server 端口，测试模式下 HLS / FLV 直连拉流地址使用此端口（默认 8080）",
     "hooks": "钩子",
     "apiTokenSet": "已配置",
     "apiTokenPlaceholder": "留空表示不修改",

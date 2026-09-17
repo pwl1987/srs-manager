@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  LayoutDashboard, Radio, Satellite, Key, FileText,
+  LayoutDashboard, Radio, Satellite, Key,
   ArrowLeftRight, Monitor, Film, Settings as SettingsIcon,
   Cloud, Globe, Server
 } from 'lucide-react';
@@ -17,7 +17,6 @@ export default function Sidebar({ onNavigate }) {
     { path: '/cdn-channels', label: t('common:navigation.cdnChannels'), icon: Satellite },
     { path: '/dns-records', label: t('common:navigation.dnsRecords'), icon: Globe },
     { path: '/auth-keys', label: t('common:navigation.authKeys'), icon: Key },
-    { path: '/distribution', label: t('common:navigation.distribution'), icon: FileText },
     { path: '/forwarding', label: t('common:navigation.forwarding'), icon: ArrowLeftRight },
     { path: '/monitor', label: t('common:navigation.monitor'), icon: Monitor },
     { path: '/transcode', label: t('common:navigation.transcode'), icon: Film },

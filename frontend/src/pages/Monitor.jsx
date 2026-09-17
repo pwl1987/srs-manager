@@ -5,6 +5,7 @@ import { cn, formatTime, statusColor } from '../lib/utils';
 import { formatCodec, formatBitrateKbps } from '../i18n/format';
 import { getErrorCode } from '../lib/error-mapper';
 import { usePolling } from '../lib/use-polling';
+import { resolvePullHls } from '../lib/stream-url-display';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import PageHeader from '../components/ui/PageHeader';
 import { inputClass, labelClass, btnPrimary } from '../components/ui/styles';
@@ -114,7 +115,9 @@ export default function Monitor() {
   }, []);
 
   function togglePlay() {
-    if (!selectedStream?.pull_url_hls) return;
+    // Test mode (no CDN domain): fall back to the SRS direct-connect address.
+    const source = resolvePullHls(selectedStream);
+    if (!source) return;
     if (playing) {
       if (hlsRef.current) hlsRef.current.destroy();
       hlsRef.current = null;
@@ -126,12 +129,12 @@ export default function Monitor() {
       if (Hls.isSupported()) {
         const hls = new Hls();
         hlsRef.current = hls;
-        hls.loadSource(selectedStream.pull_url_hls);
+        hls.loadSource(source);
         hls.attachMedia(video);
         video.play().catch(() => {});
         setPlaying(true);
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = selectedStream.pull_url_hls;
+        video.src = source;
         video.play().catch(() => {});
         setPlaying(true);
       }
