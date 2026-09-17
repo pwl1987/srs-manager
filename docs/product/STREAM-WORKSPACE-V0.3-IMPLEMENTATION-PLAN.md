@@ -108,7 +108,7 @@ Gate：**PASS**。真实 `live` 主机隔离 Candidate 已验证：两个 Output
 - 磁盘空间转换成“预计剩余可录时长”，并定义低空间告警阈值；
 - Recording 复用已有 Rendition，不重复转码。
 
-Gate：正常停止、异常杀进程、Worker/Manager 重启、磁盘不足、分段和最终封装均有真实文件证据；异常中断不得导致全部媒体不可恢复。
+Gate：**PASS**。正常 MP4/TS、Candidate Manager 重启、Record Worker 硬杀后 RECOVERABLE + 新 Asset 续录、磁盘不足阻断、分段与最终封装均获得真实文件证据；见 `contracts/workspace-v3/PHASE-05-FIELD-GATE.md`。
 
 ## Phase 06 — Session / Run Plan / Preflight
 
@@ -154,7 +154,7 @@ Gate：真实部署主机完成整场 PREP → ON AIR → INCIDENT → RECOVERY 
 
 ## 阶段依赖与推进纪律
 
-推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00、Phase 00–04 已 COMPLETE；Current Task 为 Phase 05 RECORD / Storage Runtime。后续阶段不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
+推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00、Phase 00–05 已 COMPLETE；Current Task 为 Phase 06 Session / Run Plan / Preflight。后续阶段不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
 
 每阶段结尾必须同时更新：
 - `REDESIGN-STATUS.md` 的 Current Phase / Last Completed / Current Task / Next Task；
