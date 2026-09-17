@@ -91,7 +91,28 @@
       "protocol": "协议",
       "idleHint": "SRS 当前没有观测到该流的发布连接。这不等同于故障，可能只是尚未开播。",
       "srsUnavailable": "当前无法读取 SRS 实时状态，因此不能判断输入是否在线。",
-      "inPullUnavailable": "IN-PULL（我方主动拉取第三方）目前只有配置基础，尚未接入可验证、可控制的拉流 Runtime，因此本工作台不会伪造运行状态。"
+      "inPullUnavailable": "IN-PULL 尚未接入可验证运行时。",
+      "managedPullSummary": "Managed Pull：Desired={{desired}} · Runtime={{runtime}} · Worker={{worker}}"
+    },
+    "managedPull": {
+      "title": "主动拉流 · IN-PULL",
+      "subtitle": "由独立 Pull Worker 使用 FFmpeg 拉取已登记第三方源，并发布回当前 SRS 流。Desired State 与 Runtime State 分离。",
+      "workerOnline": "Worker 在线",
+      "workerOffline": "Worker 不可用",
+      "workerUnavailableHint": "任务期望状态仍为 RUNNING，但当前 Pull Worker 心跳不可用。系统会保留期望状态，Worker 恢复后再进行 reconciliation；当前不会伪报为运行中。",
+      "selectSource": "选择已登记的外部源…",
+      "bind": "绑定拉流任务",
+      "noSources": "当前没有可用的外部源。",
+      "manageSources": "前往转发路由登记源",
+      "source": "来源",
+      "state": "控制状态",
+      "publisherObserved": "已确认发布回 SRS",
+      "start": "启动拉流",
+      "stop": "停止拉流",
+      "retry": "重新尝试",
+      "unbind": "解除绑定",
+      "updated": "主动拉流状态已更新",
+      "deleted": "主动拉流任务已解除"
     },
     "core": {
       "protocol": "登记协议",
@@ -141,7 +162,8 @@
     },
     "danger": {
       "title": "连接控制",
-      "description": "这里的动作只控制当前 SRS 会话，不等于禁播、吊销授权或修改期望状态。永久阻断与自动恢复策略将在后续控制机制阶段实现。"
+      "description": "这里的动作只控制当前 SRS 会话，不等于禁播、吊销授权或修改期望状态。永久阻断与自动恢复策略将在后续控制机制阶段实现。",
+      "managedPullDescription": "当前输入由 Managed Pull 的 Desired State 驱动。要真正停止输入，请在“主动拉流”中执行停止；直接踢 publisher 只会触发 Worker 再次 reconciliation，因此这里不提供该误导性动作。"
     }
   },
   "modal": {
