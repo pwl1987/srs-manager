@@ -1,19 +1,19 @@
 {
-  "title": "流管理",
-  "subtitle": "管理和监控所有直播流",
+  "title": "直播流",
+  "subtitle": "从运行状态进入单流工作台，统一查看输入、输出、分发与控制关系",
   "columns": {
     "name": "流名称",
     "status": "状态",
     "viewers": "观众数",
     "bitrate": "码率",
     "latency": "延迟",
-    "uptime": "已推流",
+    "uptime": "已运行",
     "createdAt": "创建时间",
     "actions": "操作"
   },
   "status": {
     "online": "直播中",
-    "offline": "已停止",
+    "offline": "空闲",
     "streaming": "推流中"
   },
   "actions": {
@@ -24,11 +24,19 @@
     "edit": "编辑",
     "delete": "删除",
     "stopStream": "停止推流",
-    "preview": "预览播放",
+    "preview": "预览",
     "obsGuide": "OBS 配置指南 ↗",
     "qrcode": "二维码",
     "more": "更多",
-    "expand": "查看地址"
+    "expand": "查看地址",
+    "workspace": "工作台"
+  },
+  "list": {
+    "eyebrow": "STREAM OPERATIONS",
+    "liveNow": "正在直播",
+    "total": "已登记",
+    "unregistered": "未登记输入",
+    "created": "创建于"
   },
   "info": {
     "pushAddress": "推流地址",
@@ -44,7 +52,7 @@
   },
   "transcode": {
     "label": "转码模板",
-    "none": "不启用",
+    "none": "未启用",
     "note": "绑定后该流按模板参数转码，模板在「转码模板」页面维护。",
     "badge": "转码模板：{{name}}"
   },
@@ -53,9 +61,88 @@
     "create": "新建分发"
   },
   "external": {
-    "title": "检测到未注册的推流",
-    "hint": "以下推流已到达 SRS 服务器，但流名未在面板注册，因此不出现在列表中。可一键注册后正常管理：",
-    "register": "注册到面板"
+    "title": "检测到未登记的实时输入",
+    "hint": "这些发布端已经到达 SRS，但流名尚未登记到控制台。登记后才能纳入工作台和统一运维。",
+    "register": "登记到控制台"
+  },
+  "workspace": {
+    "back": "返回直播流",
+    "eyebrow": "STREAM WORKSPACE",
+    "subtitle": "以当前流为上下文查看真实输入、已配置输出、访问端点和分发关系",
+    "state": {
+      "live": "LIVE",
+      "idle": "IDLE",
+      "unknown": "UNKNOWN"
+    },
+    "source": {
+      "observed": "实时观测",
+      "configured": "已配置",
+      "unavailable": "无法观测"
+    },
+    "signal": {
+      "title": "信号路径",
+      "subtitle": "绿色只代表已经从运行系统观测到的状态；已配置资源不会自动被视为健康运行。"
+    },
+    "input": {
+      "publisher": "当前发布端",
+      "noPublisher": "当前未观测到发布端",
+      "publisherIp": "来源 IP",
+      "clientId": "Client ID",
+      "protocol": "协议",
+      "idleHint": "SRS 当前没有观测到该流的发布连接。这不等同于故障，可能只是尚未开播。",
+      "srsUnavailable": "当前无法读取 SRS 实时状态，因此不能判断输入是否在线。",
+      "inPullUnavailable": "IN-PULL（我方主动拉取第三方）目前只有配置基础，尚未接入可验证、可控制的拉流 Runtime，因此本工作台不会伪造运行状态。"
+    },
+    "core": {
+      "protocol": "登记协议",
+      "transcode": "转码",
+      "players": "当前播放连接"
+    },
+    "outputs": {
+      "forwarding": "主动外推",
+      "forwardHint": "与该流关联的 OUT-PUSH 转发任务",
+      "enabled": "启用",
+      "disabled": "停用",
+      "cdn": "CDN 输出",
+      "cdnHint": "与该流绑定的 CDN 频道；远端状态查询失败时显示未知",
+      "pull": "第三方拉流",
+      "pullHint": "当前由第三方主动建立的播放连接数",
+      "remote": {
+        "live": "LIVE",
+        "idle": "IDLE",
+        "unknown": "UNKNOWN"
+      }
+    },
+    "endpoints": {
+      "title": "访问端点",
+      "subtitle": "地址由当前流配置生成；复制地址不会改变任何运行状态。",
+      "publish": "推流入口"
+    },
+    "activity": {
+      "title": "最近观测事件",
+      "empty": "暂无可用事件",
+      "note": "当前 hook_events 只保留每种事件的最近一次记录，这里是观测摘要，不是完整审计日志。"
+    },
+    "controls": {
+      "disconnectPublisher": "断开发布端",
+      "disconnectViewers": "断开播放连接"
+    },
+    "confirm": {
+      "publisherTitle": "断开当前发布端？",
+      "publisherDescription": "只主动断开这路流的发布连接，不会由管理端遍历并主动踢除播放端。输入消失后，SRS 可能自然结束相关播放会话；对方发布端也可能自行重新连接。",
+      "publisherConfirm": "断开发布端",
+      "viewersTitle": "断开当前播放连接？",
+      "viewersDescription": "将主动断开当前 {{count}} 个播放连接，但不会断开发布端，也不会阻止第三方随后重新拉流。",
+      "viewersConfirm": "断开播放连接"
+    },
+    "toasts": {
+      "publisherDisconnected": "已断开 {{count}} 个发布连接",
+      "viewersDisconnected": "已断开 {{count}} 个播放连接"
+    },
+    "danger": {
+      "title": "连接控制",
+      "description": "这里的动作只控制当前 SRS 会话，不等于禁播、吊销授权或修改期望状态。永久阻断与自动恢复策略将在后续控制机制阶段实现。"
+    }
   },
   "modal": {
     "create": "创建流",
@@ -70,8 +157,8 @@
     "pullUrlWebrtc": "WebRTC 拉流地址"
   },
   "empty": {
-    "title": "暂无流",
-    "description": "还没有创建任何直播流。",
+    "title": "暂无直播流",
+    "description": "还没有登记任何直播流。",
     "createButton": "创建流"
   },
   "preview": {
