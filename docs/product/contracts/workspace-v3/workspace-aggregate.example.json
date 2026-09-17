@@ -1,0 +1,182 @@
+{
+  "contract_version": "workspace-v3-phase00.1",
+  "room": {
+    "id": "room:22",
+    "legacy_stream_id": 22,
+    "name": "晚间新闻直播",
+    "routing": {
+      "app": "live",
+      "stream_name": "news-main"
+    }
+  },
+  "session": null,
+  "sources": [
+    {
+      "id": "source:in_push:legacy-22",
+      "kind": "IN_PUSH",
+      "name": "Legacy Push Ingest",
+      "role": "PROGRAM",
+      "availability": "ONLINE",
+      "configured": true,
+      "compatibility": {
+        "kind": "legacy_stream_ingest"
+      }
+    },
+    {
+      "id": "source:in_pull:ptsrc-41",
+      "kind": "IN_PULL",
+      "name": "SRT 备源",
+      "role": "STANDBY",
+      "availability": "READY",
+      "configured": true,
+      "compatibility": {
+        "external_source_id": 31,
+        "pull_task_id": 7,
+        "priority": 2
+      }
+    }
+  ],
+  "program": {
+    "id": "program:room:22",
+    "state": "LIVE",
+    "source_id": "source:in_push:legacy-22",
+    "media": {
+      "video": {
+        "codec": "H264",
+        "width": 1920,
+        "height": 1080,
+        "fps": null
+      },
+      "audio": {
+        "codec": "AAC",
+        "sample_rate": 48000,
+        "channels": 2
+      }
+    },
+    "evidence": {
+      "source": "SRS API",
+      "observed_at": "2026-09-17T18:42:31Z",
+      "freshness": "FRESH"
+    }
+  },
+  "renditions": [
+    {
+      "id": "rendition:room:22:program-original",
+      "kind": "PASSTHROUGH",
+      "signature": "program-original",
+      "runtime_state": "RUNNING",
+      "compatibility": {}
+    },
+    {
+      "id": "rendition:room:22:binding-9",
+      "kind": "TRANSCODE",
+      "profile_id": "media-profile:4",
+      "signature": "h264:1920x1080:25:6000:gop2|aac:48000:192",
+      "runtime_state": "RUNNING",
+      "compatibility": {
+        "stream_transcode_binding_id": 9
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "output:push:12",
+      "name": "视频号",
+      "mode": "PUSH",
+      "media_ref": "rendition:room:22:binding-9",
+      "transport": "rtmp",
+      "desired_state": "RUNNING",
+      "runtime_state": "RUNNING",
+      "destination": {
+        "kind": "CUSTOM",
+        "label": "视频号",
+        "target_url_masked": "rtmp://example.invalid/live/…"
+      },
+      "evidence": {
+        "local": {
+          "state": "OBSERVED",
+          "source": "Push Worker",
+          "observed_at": "2026-09-17T18:42:31Z",
+          "freshness": "FRESH"
+        },
+        "remote": {
+          "state": "UNKNOWN",
+          "source": null,
+          "observed_at": null,
+          "freshness": "UNKNOWN"
+        }
+      },
+      "compatibility": {
+        "forward_task_id": 12
+      }
+    },
+    {
+      "id": "output:serve:22",
+      "name": "合作方拉流",
+      "mode": "SERVE",
+      "media_ref": "rendition:room:22:program-original",
+      "runtime_state": "AVAILABLE",
+      "endpoints": [
+        {
+          "transport": "rtmp",
+          "available": true
+        },
+        {
+          "transport": "http-flv",
+          "available": true
+        },
+        {
+          "transport": "hls",
+          "available": true,
+          "protection_boundary": "reverse_proxy_or_cdn"
+        }
+      ],
+      "protection": {
+        "require_grant": true
+      },
+      "compatibility": {
+        "out_pull_policy_stream_id": 22
+      }
+    }
+  ],
+  "evidence": {
+    "levels": [
+      "CONFIGURED",
+      "DESIRED",
+      "RUNTIME",
+      "OBSERVED"
+    ],
+    "remote_verified_outputs": 0
+  },
+  "health": {
+    "status": "NORMAL",
+    "reasons": []
+  },
+  "capabilities": {
+    "source_preview": true,
+    "output_push": [
+      "rtmp",
+      "rtmps",
+      "srt"
+    ],
+    "output_serve": [
+      "rtmp",
+      "http-flv",
+      "hls"
+    ],
+    "record": false
+  },
+  "operations": [],
+  "incidents": [],
+  "timeline": [],
+  "compatibility": {
+    "legacy_distribution_count": 0,
+    "provider_channels": [
+      {
+        "cdn_channel_id": 4,
+        "role": "provider_integration",
+        "runtime_claim": false
+      }
+    ]
+  }
+}

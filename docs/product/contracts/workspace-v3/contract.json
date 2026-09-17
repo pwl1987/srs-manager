@@ -1,0 +1,383 @@
+{
+  "contract_version": "workspace-v3-phase00.1",
+  "authority": "STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md",
+  "principles": [
+    "configured_not_runtime",
+    "local_not_remote",
+    "unknown_not_failure",
+    "expected_vs_actual",
+    "additive_migration"
+  ],
+  "ids": {
+    "room": "room:<id>",
+    "source": "source:<kind>:<id>",
+    "program": "program:<room_id>",
+    "rendition": "rendition:<room_id>:<binding_or_signature>",
+    "output": "output:<mode>:<id>",
+    "session": "session:<id>",
+    "operation": "operation:<id>"
+  },
+  "v2_to_v3": [
+    {
+      "v2": [
+        "streams"
+      ],
+      "v3": [
+        "Room",
+        "Program route identity"
+      ],
+      "rule": "1 legacy stream seeds exactly 1 Room; streams remains compatibility media-routing identity",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "external_sources",
+        "pull_tasks",
+        "pull_task_sources"
+      ],
+      "v3": [
+        "Source(IN_PULL)",
+        "SourceSet",
+        "Program candidate"
+      ],
+      "rule": "each task source remains individually addressable; active_source_id is only current pull candidate, not proof of Program",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "SRS publisher/client observation"
+      ],
+      "v3": [
+        "Source(IN_PUSH) observed evidence",
+        "Program observed evidence"
+      ],
+      "rule": "publisher is evidence, never durable configuration; managed-pull publisher is attributed only when worker lease + task/runtime evidence match",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "transcode_templates"
+      ],
+      "v3": [
+        "MediaProfile"
+      ],
+      "rule": "template becomes reusable media profile; no runtime claim",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "stream_transcode_bindings"
+      ],
+      "v3": [
+        "Rendition instance"
+      ],
+      "rule": "preserve each legacy binding/runtime; compute signature but do not deduplicate runtime before Phase 04",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "forward_tasks"
+      ],
+      "v3": [
+        "Output(PUSH)"
+      ],
+      "rule": "managed_worker maps to controlled PUSH; srs_dynamic maps to legacy_unmanaged with remote/stop evidence UNKNOWN",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "out_pull_policies",
+        "access_grants",
+        "out_pull_sessions"
+      ],
+      "v3": [
+        "Output(SERVE)",
+        "Endpoints",
+        "Protection",
+        "Sessions"
+      ],
+      "rule": "one SERVE output may expose RTMP/HTTP-FLV/HLS endpoints; direct HLS protection remains external-boundary caveat",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "cdn_channels"
+      ],
+      "v3": [
+        "ProviderIntegration",
+        "Destination capability",
+        "RemoteEvidence candidate"
+      ],
+      "rule": "channel configuration alone MUST NOT become a running Output; attach to Output only when a delivery relationship is evidenced",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "distribution_requests"
+      ],
+      "v3": [
+        "LegacyDistribution metadata"
+      ],
+      "rule": "preserve for compatibility/audit; do not invent runtime Output",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "operations"
+      ],
+      "v3": [
+        "Operation"
+      ],
+      "rule": "existing pull switch states project to generic operation phase + step without rewriting history",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "hook_events"
+      ],
+      "v3": [
+        "Event/Evidence provenance"
+      ],
+      "rule": "event history is evidence/timeline, not current runtime truth by itself",
+      "lossless": true
+    },
+    {
+      "v2": [
+        "auth_keys",
+        "wangsu_auth",
+        "aliyun_dns_auth"
+      ],
+      "v3": [
+        "Credential/Integration secret resource"
+      ],
+      "rule": "secrets stay outside Workspace aggregate; only masked metadata/reference may appear",
+      "lossless": true
+    }
+  ],
+  "source": {
+    "kinds": [
+      "IN_PUSH",
+      "IN_PULL"
+    ],
+    "roles": [
+      "PROGRAM",
+      "STANDBY",
+      "CANDIDATE"
+    ],
+    "availability": [
+      "READY",
+      "ONLINE",
+      "OFFLINE",
+      "STARTING",
+      "RETRYING",
+      "FAILED",
+      "BLOCKED",
+      "UNKNOWN"
+    ],
+    "program_states": [
+      "NO_PROGRAM",
+      "READY",
+      "LIVE",
+      "SWITCHING",
+      "VERIFYING"
+    ]
+  },
+  "output": {
+    "modes": {
+      "PUSH": {
+        "transports": [
+          "rtmp",
+          "rtmps",
+          "srt"
+        ],
+        "single_destination": true,
+        "multi_endpoint": false
+      },
+      "SERVE": {
+        "transports": [
+          "rtmp",
+          "http-flv",
+          "hls"
+        ],
+        "single_destination": false,
+        "multi_endpoint": true
+      },
+      "RECORD": {
+        "formats": [
+          "ts",
+          "mp4",
+          "audio"
+        ],
+        "single_destination": true,
+        "multi_endpoint": false
+      }
+    },
+    "push_runtime": [
+      "STOPPED",
+      "WAITING_INPUT",
+      "STARTING",
+      "CONNECTING",
+      "VERIFYING",
+      "RUNNING",
+      "RETRYING",
+      "STOPPING",
+      "FAILED",
+      "UNKNOWN"
+    ],
+    "serve_runtime": [
+      "DISABLED",
+      "ENABLING",
+      "AVAILABLE",
+      "DEGRADED",
+      "DISABLING",
+      "FAILED",
+      "UNKNOWN"
+    ],
+    "record_runtime": [
+      "STOPPED",
+      "STARTING",
+      "RECORDING",
+      "STOPPING",
+      "FINALIZING",
+      "COMPLETE",
+      "STALLED",
+      "FAILED",
+      "UNKNOWN"
+    ],
+    "legacy_push_projection": {
+      "LEGACY_DYNAMIC": "UNKNOWN"
+    }
+  },
+  "session": {
+    "lifecycle": [
+      "PREP",
+      "READY",
+      "ON_AIR",
+      "CLOSING",
+      "ENDED"
+    ]
+  },
+  "health": {
+    "states": [
+      "NORMAL",
+      "DEGRADED",
+      "CRITICAL",
+      "UNKNOWN"
+    ],
+    "rule": "derived from expected vs actual + impact; lifecycle/offline is not itself a fault"
+  },
+  "evidence": {
+    "levels": [
+      "CONFIGURED",
+      "DESIRED",
+      "RUNTIME",
+      "OBSERVED",
+      "REMOTE_VERIFIED"
+    ],
+    "remote_states": [
+      "VERIFIED",
+      "UNKNOWN",
+      "STALE",
+      "UNAVAILABLE"
+    ],
+    "required_fields": [
+      "source",
+      "observed_at",
+      "freshness"
+    ],
+    "freshness": [
+      "FRESH",
+      "STALE",
+      "UNKNOWN"
+    ]
+  },
+  "operation": {
+    "phases": [
+      "QUEUED",
+      "RUNNING",
+      "VERIFYING",
+      "SUCCEEDED",
+      "FAILED",
+      "CANCELLED"
+    ],
+    "steps": [
+      "REQUESTED",
+      "STOPPING_OLD_SOURCE",
+      "STARTING_TARGET",
+      "SWITCHING",
+      "STOPPING",
+      "STARTING",
+      "FINALIZING",
+      "NONE"
+    ],
+    "v2_pull_switch_projection": {
+      "QUEUED": [
+        "QUEUED",
+        "REQUESTED"
+      ],
+      "STOPPING": [
+        "RUNNING",
+        "STOPPING_OLD_SOURCE"
+      ],
+      "STARTING": [
+        "RUNNING",
+        "STARTING_TARGET"
+      ],
+      "VERIFYING": [
+        "VERIFYING",
+        "NONE"
+      ],
+      "SUCCEEDED": [
+        "SUCCEEDED",
+        "NONE"
+      ],
+      "FAILED": [
+        "FAILED",
+        "NONE"
+      ],
+      "CANCELLED": [
+        "CANCELLED",
+        "NONE"
+      ]
+    }
+  },
+  "capability": {
+    "layers": [
+      "PRODUCT",
+      "RUNTIME",
+      "DESTINATION"
+    ],
+    "availability_rule": "available = product ∩ runtime ∩ destination",
+    "unsupported_override": {
+      "product_or_runtime": false,
+      "destination_unknown": true
+    }
+  },
+  "aggregate": {
+    "top_level": [
+      "contract_version",
+      "room",
+      "session",
+      "sources",
+      "program",
+      "renditions",
+      "outputs",
+      "evidence",
+      "health",
+      "capabilities",
+      "operations",
+      "incidents",
+      "timeline"
+    ],
+    "forbidden_secret_fields": [
+      "source_url",
+      "target_url",
+      "token",
+      "token_hash",
+      "access_key_secret",
+      "password",
+      "passphrase"
+    ],
+    "compatibility_fields_must_be_namespaced": true
+  }
+}

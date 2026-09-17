@@ -23,6 +23,8 @@ Gate 已满足：前端 i18n/build PASS；1920×1080 直播间总览、Workspace
 
 ## Phase 00 — Design Freeze / Migration Contract
 
+状态：**COMPLETE**。Authority：`contracts/workspace-v3/PHASE-00-MIGRATION-CONTRACT.md`、`API-CONTRACT.md`、`contract.json`。
+
 目标：把口头设计转换为可实施 Contract，仍不改业务 Runtime。
 
 交付：
@@ -32,7 +34,7 @@ Gate 已满足：前端 i18n/build PASS；1920×1080 直播间总览、Workspace
 - 定义 Workspace V3 聚合 API、错误语义、幂等规则、Evidence freshness；
 - 为后续各阶段写出可自动验证的 acceptance fixtures。
 
-Gate：任何 V2 对象找不到无损映射时不得进入 Phase 01。
+Gate：**PASS**。V2 事实类均有 lossless mapping；Contract tests 5/5、backend regression 32/32、frontend i18n/build PASS；Phase 00 未修改 Worker/Runtime 执行语义。
 
 ## Phase 01 — Domain Compatibility Foundation
 
@@ -146,7 +148,7 @@ Gate：真实部署主机完成整场 PREP → ON AIR → INCIDENT → RECOVERY 
 
 ## 阶段依赖与推进纪律
 
-推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00 已 COMPLETE；Phase 03 与 Phase 04 的局部前端原型可以并行探索，但不得绕过 01/02 的 Domain/Evidence Authority 直接形成第二套状态逻辑。
+推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00 与 Phase 00 已 COMPLETE；Phase 03 与 Phase 04 的局部前端原型可以并行探索，但不得绕过 01/02 的 Domain/Evidence Authority 直接形成第二套状态逻辑。
 
 每阶段结尾必须同时更新：
 - `REDESIGN-STATUS.md` 的 Current Phase / Last Completed / Current Task / Next Task；

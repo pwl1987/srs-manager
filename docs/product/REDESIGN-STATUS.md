@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：DESIGN FREEZE；Phase UI-00 高保真 Product Design Lab 已 COMPLETE，正式实施仍从 Phase 00 开始，业务 Runtime 尚未迁移。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00 + Phase 00 Contract 均 COMPLETE；Current Task 已进入 Phase 01 Domain Compatibility Foundation，业务 Runtime ownership 尚未迁移。**
 
 ## 已完成
 
@@ -88,7 +88,7 @@
 
 已完成：
 
-- 后端回归测试当前 27/27 通过；
+- 后端回归测试当前 32/32 通过（含 Workspace V3 Phase 00 Contract Gate 5/5）；
 - 前端生产构建与多语言 key 校验通过；
 - v0.3.0 Web / Pull Worker 镜像及 FFmpeg 发布门禁已通过；
 - v0.4.0 Compose 已包含 Web / Pull Worker / Push Worker 三服务并通过模型校验；
@@ -148,11 +148,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase UI-00 — Product Design Lab / UI Freeze**。完整产品 IA、直播间列表、Workspace 五态、媒体规格、开播方案、Session 复盘、Provider/集成、凭据、系统页与异常状态样板已形成可运行 Mock 高保真基线；未接入真实 Runtime。
+Last Completed：**Phase 00 — Design Freeze / Migration Contract**。`contracts/workspace-v3/` 已冻结 V2→V3 无损映射、Aggregate/API Contract、PUSH/SERVE/RECORD Capability Matrix、Evidence/Health/Operation 状态词汇与 15 个 acceptance cases；纯 Contract tests 5/5、backend full regression 32/32、frontend i18n/build PASS。
 
-Current Task：**Phase 00 — Design Freeze / Migration Contract**。先完成 V2→V3 全量映射、数据/API Contract、Capability Matrix、状态机和 acceptance fixtures；Phase 00 Gate 通过前不进入业务 Runtime 改造。
+Current Task：**Phase 01 — Domain Compatibility Foundation**。建立只读 V3 Domain Adapter / Workspace Aggregate；先用确定性 `room:<streams.id>` 作为稳定 Room Domain ID，不新增第二套 Room SoR，不改变现有 Pull / Push / Transcode / Preview / Hook Runtime ownership。
 
-Next Task：**Phase 01 — Domain Compatibility Foundation**。采用 additive migration 和 adapter/read-model 先行，现有 v0.5.1 Pull / Push / Transcode / Preview / Hook Runtime 保持稳定并持续回归。
+Next Task：**Phase 02 — Capability / Evidence / Operation Core**。Phase 01 Gate 通过后再把 Capability Registry、Evidence freshness/LOCAL-REMOTE、Health evaluator 与通用 Operation 基础设施接入真实 Read Model。
 
 ## 验证债务 / 已知边界
 

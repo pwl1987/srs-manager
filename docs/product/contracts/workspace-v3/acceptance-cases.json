@@ -1,0 +1,181 @@
+{
+  "contract_version": "workspace-v3-phase00.1",
+  "cases": [
+    {
+      "id": "room-from-legacy-stream",
+      "facts": [
+        "streams"
+      ],
+      "expect": [
+        "room_exists",
+        "legacy_stream_id_preserved",
+        "program_state_NO_PROGRAM_when_unobserved"
+      ]
+    },
+    {
+      "id": "external-publisher-program",
+      "facts": [
+        "streams",
+        "srs_publisher"
+      ],
+      "expect": [
+        "source_IN_PUSH",
+        "program_source_is_push",
+        "program_state_LIVE",
+        "publisher_is_evidence_not_config"
+      ]
+    },
+    {
+      "id": "managed-pull-attribution",
+      "facts": [
+        "pull_task_RUNNING",
+        "matching_worker_lease",
+        "active_pull_source",
+        "srs_publisher"
+      ],
+      "expect": [
+        "source_IN_PULL",
+        "program_source_is_active_pull_source",
+        "no_duplicate_push_source_claim"
+      ]
+    },
+    {
+      "id": "pull-running-no-publisher",
+      "facts": [
+        "pull_task_RUNNING",
+        "no_srs_publisher"
+      ],
+      "expect": [
+        "program_not_LIVE",
+        "no_fake_observed_health"
+      ]
+    },
+    {
+      "id": "managed-push-local-only",
+      "facts": [
+        "forward_task_managed_RUNNING",
+        "local_send_bitrate",
+        "no_remote_api"
+      ],
+      "expect": [
+        "output_PUSH",
+        "runtime_RUNNING",
+        "local_observed",
+        "remote_UNKNOWN"
+      ]
+    },
+    {
+      "id": "legacy-dynamic-forward",
+      "facts": [
+        "forward_task_srs_dynamic"
+      ],
+      "expect": [
+        "output_PUSH",
+        "runtime_UNKNOWN",
+        "control_mode_LEGACY_UNMANAGED",
+        "no_managed_retry_claim"
+      ]
+    },
+    {
+      "id": "serve-zero-viewers",
+      "facts": [
+        "out_pull_policy_enabled",
+        "zero_sessions"
+      ],
+      "expect": [
+        "output_SERVE",
+        "runtime_AVAILABLE",
+        "zero_sessions_not_failure"
+      ]
+    },
+    {
+      "id": "serve-multi-endpoint",
+      "facts": [
+        "out_pull_policy_enabled"
+      ],
+      "expect": [
+        "endpoints_rtmp_http_flv_hls",
+        "one_consumer_output_can_have_multiple_endpoints"
+      ]
+    },
+    {
+      "id": "direct-hls-boundary",
+      "facts": [
+        "out_pull_require_grant",
+        "hls_endpoint"
+      ],
+      "expect": [
+        "hls_protection_boundary_external",
+        "no_claim_hook_protects_direct_hls"
+      ]
+    },
+    {
+      "id": "transcode-runtime-without-derived-media",
+      "facts": [
+        "transcode_binding_RUNNING",
+        "derived_stream_absent"
+      ],
+      "expect": [
+        "rendition_exists",
+        "runtime_RUNNING",
+        "observed_missing",
+        "health_not_NORMAL"
+      ]
+    },
+    {
+      "id": "provider-channel-config-only",
+      "facts": [
+        "cdn_channel_configured",
+        "no_delivery_relationship"
+      ],
+      "expect": [
+        "provider_integration_exists",
+        "no_running_output_claim"
+      ]
+    },
+    {
+      "id": "provider-remote-evidence",
+      "facts": [
+        "cdn_channel",
+        "provider_api_live"
+      ],
+      "expect": [
+        "remote_evidence_candidate",
+        "provenance_provider_api",
+        "freshness_required"
+      ]
+    },
+    {
+      "id": "secret-redaction",
+      "facts": [
+        "pull_source_secret",
+        "push_target_secret",
+        "access_grant_secret"
+      ],
+      "expect": [
+        "aggregate_has_no_raw_secret_fields",
+        "masked_or_reference_only"
+      ]
+    },
+    {
+      "id": "pull-switch-operation",
+      "facts": [
+        "operation_PULL_SOURCE_SWITCH_STOPPING"
+      ],
+      "expect": [
+        "operation_phase_RUNNING",
+        "operation_step_STOPPING_OLD_SOURCE"
+      ]
+    },
+    {
+      "id": "record-not-yet-supported",
+      "facts": [
+        "phase_before_05"
+      ],
+      "expect": [
+        "record_capability_false",
+        "no_fake_record_button_runtime"
+      ]
+    }
+  ]
+}
