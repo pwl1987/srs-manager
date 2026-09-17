@@ -5,7 +5,7 @@ const config = require('../config');
 const PURPOSE = 'operator_preview';
 const ISSUER = 'srs-manager';
 const AUDIENCE = 'srs-operator-preview';
-const DEFAULT_TTL_SECONDS = 30 * 60;
+const DEFAULT_TTL_SECONDS = 10 * 60;
 
 function ttlSeconds() {
   const value = Number(process.env.PREVIEW_TOKEN_TTL || DEFAULT_TTL_SECONDS);

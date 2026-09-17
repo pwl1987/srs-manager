@@ -293,7 +293,6 @@
       "processingHint": "Passthrough and derived renditions",
       "passthrough": "Source passthrough",
       "legacyTranscodeNote": "This is a legacy single-profile configuration record, not evidence that transcoding is running.",
-      "processingPending": "Multi-rendition runtime will be attached through a real Worker in the next phase.",
       "distribution": "Distribution",
       "distributionHint": "Managed push, CDN and third-party pull",
       "guardsAttached": "Authentication, hotlink protection and session controls attach to outputs"
@@ -305,7 +304,6 @@
       "passthroughHint": "Without re-encoding the system cannot change GOP/keyint, resolution or codec parameters.",
       "legacyConfigured": "Legacy profile configuration",
       "legacyHint": "This record will migrate to an observable binding when the multi-transcode runtime lands.",
-      "next": "Multi-transcode Worker next: 1080P, 720P, audio-only and GOP/keyint control.",
       "runtimeSubtitle": "One Transcode Pipeline produces all renditions for this source. A rendition is healthy only when SRS actually observes its derived stream.",
       "workerOnline": "Transcode Worker Online",
       "workerOffline": "Transcode Worker Offline",

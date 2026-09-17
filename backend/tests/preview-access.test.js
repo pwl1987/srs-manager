@@ -9,5 +9,5 @@ test('operator preview token is short lived and stream bound', () => {
   assert.equal(service.verifyPreviewToken(issued.token, stream), true);
   assert.equal(service.verifyPreviewToken(issued.token, { id: 8, name: 'other' }), false);
   assert.ok(Date.parse(issued.expires_at) > Date.now());
-  assert.ok(issued.ttl_seconds <= 3600);
+  assert.ok(issued.ttl_seconds <= 600);
 });

@@ -293,7 +293,6 @@
       "processingHint": "原始直通与派生码流",
       "passthrough": "原始码流直通",
       "legacyTranscodeNote": "这是旧单模板配置记录，不作为“正在转码”的运行证据。",
-      "processingPending": "多转码 Runtime 将在下一阶段以真实 Worker 挂载。",
       "distribution": "输出分发",
       "distributionHint": "主动推送、CDN 与第三方拉取",
       "guardsAttached": "鉴权、防盗链和会话控制附着在输出端"
@@ -305,7 +304,6 @@
       "passthroughHint": "未重新编码时不能改变 GOP/keyint、分辨率或编码参数。",
       "legacyConfigured": "旧模板配置",
       "legacyHint": "该配置将在多转码 Runtime 上线后迁移为可观察的挂载项。",
-      "next": "多转码 Worker 建设中：支持 1080P、720P、纯音频和 GOP/keyint。",
       "runtimeSubtitle": "一条业务流由一个 Transcode Pipeline 统一产生多个派生码流；只有 SRS 实际观测到派生流才视为运行成功。",
       "workerOnline": "Transcode Worker 在线",
       "workerOffline": "Transcode Worker 不可用",

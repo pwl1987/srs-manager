@@ -126,9 +126,9 @@
 
 - SRS 6 现场确认：`8080/live/*.m3u8` 不经过现有 `on_play` 准入链路，且响应无 CORS；因此不再声称 OUT-PULL Hook 策略覆盖直连 HLS；
 - 管理员预览改为 `Browser → SRS Manager:3001 → SRS Origin:8080` 同源受保护代理，不通过关闭对外鉴权换取监看；
-- Preview Token 短时、绑定单个 stream id/name，只能读取该流同名 playlist 与该流前缀分片；缺 Token、错流 Token 和跨流资源均拒绝；
+- Preview Token 默认 10 分钟、绑定单个 stream id/name，只能读取该流同名 playlist 与该流前缀分片；缺 Token、错流 Token 和跨流资源均拒绝；
 - 主清单、二级 media playlist、TS 分片都由 Manager 重写为 3001 同源 URL，浏览器不暴露 Origin 主机地址；
-- 现场业务流 `22`：无 Token=403，受保护主/二级清单=200，TS=200，预览前后数据库观众数保持 0；
+- 现场业务流 `22`：无 Token=403，受保护主/二级清单=200，TS=200，并通过 Manager:3001 Preview Proxy 被 `ffprobe` 实际读取为 1920×1080 H.264 + 48kHz 双声道 AAC；预览不计入外部观众；
 - 额外合成 640×360 H.264 + AAC 48kHz 测试流，经 3001 Preview Proxy 被 `ffprobe` 实际读取成功，测试流随后自动清理；
 - 浏览器电平使用当前预览媒体的 L/R RMS dBFS，明确标记为本地监看电平，不冒充 EBU R128/广播响度计。
 
