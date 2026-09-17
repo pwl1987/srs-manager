@@ -302,6 +302,57 @@ CREATE TABLE IF NOT EXISTS out_pull_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_out_pull_sessions_stream_active ON out_pull_sessions(stream_id, stopped_at);
 
+CREATE TABLE IF NOT EXISTS record_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  source_binding_id INTEGER,
+  name TEXT NOT NULL,
+  format TEXT NOT NULL CHECK(format IN ('ts','mp4','audio')),
+  audio_format TEXT CHECK(audio_format IS NULL OR audio_format IN ('aac','mp3')),
+  subdir TEXT NOT NULL DEFAULT '',
+  filename_prefix TEXT,
+  segment_seconds INTEGER NOT NULL DEFAULT 6,
+  retention_days INTEGER,
+  desired_state TEXT NOT NULL DEFAULT 'STOPPED' CHECK(desired_state IN ('RUNNING','STOPPED')),
+  runtime_state TEXT NOT NULL DEFAULT 'STOPPED',
+  attempt INTEGER NOT NULL DEFAULT 0,
+  worker_instance_id TEXT,
+  last_error TEXT,
+  last_growth_at TEXT,
+  bytes_written INTEGER NOT NULL DEFAULT 0,
+  last_started_at TEXT,
+  last_stopped_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
+  FOREIGN KEY (source_binding_id) REFERENCES stream_transcode_bindings(id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_record_tasks_stream ON record_tasks(stream_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_record_tasks_desired_runtime ON record_tasks(desired_state, runtime_state);
+CREATE INDEX IF NOT EXISTS idx_record_tasks_source_binding ON record_tasks(source_binding_id, desired_state);
+
+CREATE TABLE IF NOT EXISTS record_assets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  record_task_id INTEGER NOT NULL,
+  state TEXT NOT NULL DEFAULT 'PREPARING' CHECK(state IN ('PREPARING','RECORDING','FINALIZING','COMPLETE','RECOVERABLE','FAILED')),
+  work_dir TEXT NOT NULL,
+  final_path TEXT,
+  format TEXT NOT NULL CHECK(format IN ('ts','mp4','audio')),
+  segment_count INTEGER NOT NULL DEFAULT 0,
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  duration_seconds REAL,
+  error TEXT,
+  started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  completed_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (record_task_id) REFERENCES record_tasks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_record_assets_task_created ON record_assets(record_task_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_record_assets_state ON record_assets(state, updated_at);
+
 CREATE TABLE IF NOT EXISTS operations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   type TEXT NOT NULL,

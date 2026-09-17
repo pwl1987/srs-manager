@@ -72,9 +72,13 @@ function ensureRendition(streamId, templateId) {
 }
 
 function runningConsumers(bindingId) {
-  return db.prepare(`SELECT COUNT(*) AS count FROM forward_tasks
+  const id = Number(bindingId);
+  const push = db.prepare(`SELECT COUNT(*) AS count FROM forward_tasks
     WHERE source_binding_id = ? AND execution_mode = 'managed_worker' AND desired_state = 'RUNNING'`)
-    .get(Number(bindingId)).count;
+    .get(id).count;
+  const record = db.prepare(`SELECT COUNT(*) AS count FROM record_tasks
+    WHERE source_binding_id = ? AND desired_state = 'RUNNING'`).get(id).count;
+  return Number(push || 0) + Number(record || 0);
 }
 
 function reconcileDesiredState(bindingId) {
