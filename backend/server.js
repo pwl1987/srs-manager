@@ -39,6 +39,7 @@ app.use('/api/forward', require('./routes/forward'));
 app.use('/api/out-pull', require('./routes/out-pull'));
 app.use('/api/monitor', require('./routes/monitor'));
 app.use('/api/transcode-templates', require('./routes/transcode-templates'));
+app.use('/api/transcode-bindings', require('./routes/transcode-bindings'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/hooks', require('./routes/hooks'));
 

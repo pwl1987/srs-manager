@@ -41,8 +41,8 @@ export default function TranscodeTemplates() {
   const [showConfig, setShowConfig] = useState(null);
   const [form, setForm] = useState({
     name: '', vcodec: 'h264', acodec: 'aac',
-    video_config: { width: '1280', height: '720', fps: '30', bitrate: '2000' },
-    audio_config: { bitrate: '128' },
+    video_config: { width: '1280', height: '720', fps: '30', bitrate: '2000', gop_seconds: '2' },
+    audio_config: { bitrate: '128', sample_rate: '48000', channels: '2' },
     output_format: 'rtmp', enabled: 1
   });
   const [formError, setFormError] = useState('');
@@ -69,8 +69,8 @@ export default function TranscodeTemplates() {
     setEditing(null);
     setForm({
       name: '', vcodec: 'h264', acodec: 'aac',
-      video_config: { width: '1280', height: '720', fps: '30', bitrate: '2000' },
-      audio_config: { bitrate: '128' },
+      video_config: { width: '1280', height: '720', fps: '30', bitrate: '2000', gop_seconds: '2' },
+      audio_config: { bitrate: '128', sample_rate: '48000', channels: '2' },
       output_format: 'rtmp', enabled: 1
     });
     setFormError('');
@@ -83,15 +83,20 @@ export default function TranscodeTemplates() {
     setEditing(template);
     setForm({
       name: template.name,
-      vcodec: template.vcodec || 'h264',
-      acodec: template.acodec || 'aac',
+      vcodec: template.vcodec === 'libx264' ? 'h264' : template.vcodec === 'libx265' ? 'h265' : (template.vcodec || 'h264'),
+      acodec: template.acodec === 'libmp3lame' ? 'mp3' : (template.acodec || 'aac'),
       video_config: {
         width: video.width != null ? String(video.width) : '',
         height: video.height != null ? String(video.height) : '',
         fps: video.fps != null ? String(video.fps) : '',
-        bitrate: video.bitrate != null ? String(video.bitrate) : ''
+        bitrate: video.bitrate != null ? String(video.bitrate) : '',
+        gop_seconds: video.gop_seconds != null ? String(video.gop_seconds) : ''
       },
-      audio_config: { bitrate: audio.bitrate != null ? String(audio.bitrate) : '' },
+      audio_config: {
+        bitrate: audio.bitrate != null ? String(audio.bitrate) : '',
+        sample_rate: audio.sample_rate != null ? String(audio.sample_rate) : '',
+        channels: audio.channels != null ? String(audio.channels) : ''
+      },
       output_format: template.output_format || 'rtmp',
       enabled: template.enabled
     });
@@ -107,7 +112,9 @@ export default function TranscodeTemplates() {
       if (value !== '') videoConfig[key] = num(value, null);
     }
     const audioConfig = {};
-    if (form.audio_config.bitrate !== '') audioConfig.bitrate = num(form.audio_config.bitrate, null);
+    for (const [key, value] of Object.entries(form.audio_config)) {
+      if (value !== '') audioConfig[key] = num(value, null);
+    }
 
     const data = {
       ...form,
@@ -262,7 +269,6 @@ export default function TranscodeTemplates() {
               <select value={form.vcodec} onChange={e => setForm({ ...form, vcodec: e.target.value })} className={inputClass}>
                 <option value="h264">{t('transcode:vcodecOptions.h264')}</option>
                 <option value="h265">{t('transcode:vcodecOptions.h265')}</option>
-                <option value="vp9">{t('transcode:vcodecOptions.vp9')}</option>
                 <option value="none">{t('transcode:vcodecOptions.none')}</option>
               </select>
             </div>
@@ -271,7 +277,6 @@ export default function TranscodeTemplates() {
               <select value={form.acodec} onChange={e => setForm({ ...form, acodec: e.target.value })} className={inputClass}>
                 <option value="aac">{t('transcode:acodecOptions.aac')}</option>
                 <option value="mp3">{t('transcode:acodecOptions.mp3')}</option>
-                <option value="opus">{t('transcode:acodecOptions.opus')}</option>
                 <option value="none">{t('transcode:acodecOptions.none')}</option>
               </select>
             </div>
@@ -302,14 +307,19 @@ export default function TranscodeTemplates() {
                   onChange={e => setForm({ ...form, video_config: { ...form.video_config, bitrate: e.target.value } })}
                   className={inputClass} />
               </div>
+              <div>
+                <label className={labelClass}>{t('transcode:modal.gopSeconds')}</label>
+                <input type="number" min="0.2" step="0.1" value={form.video_config.gop_seconds}
+                  onChange={e => setForm({ ...form, video_config: { ...form.video_config, gop_seconds: e.target.value } })}
+                  className={inputClass} />
+              </div>
             </div>
           )}
           {form.acodec !== 'none' && (
-            <div>
-              <label className={labelClass}>{t('transcode:modal.audioBitrate')}</label>
-              <input type="number" value={form.audio_config.bitrate}
-                onChange={e => setForm({ ...form, audio_config: { ...form.audio_config, bitrate: e.target.value } })}
-                className={inputClass} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div><label className={labelClass}>{t('transcode:modal.audioBitrate')}</label><input type="number" value={form.audio_config.bitrate} onChange={e => setForm({ ...form, audio_config: { ...form.audio_config, bitrate: e.target.value } })} className={inputClass} /></div>
+              <div><label className={labelClass}>{t('transcode:modal.sampleRate')}</label><input type="number" value={form.audio_config.sample_rate} onChange={e => setForm({ ...form, audio_config: { ...form.audio_config, sample_rate: e.target.value } })} className={inputClass} /></div>
+              <div><label className={labelClass}>{t('transcode:modal.channels')}</label><input type="number" min="1" max="8" value={form.audio_config.channels} onChange={e => setForm({ ...form, audio_config: { ...form.audio_config, channels: e.target.value } })} className={inputClass} /></div>
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">

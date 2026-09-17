@@ -105,22 +105,32 @@
 
 执行顺序：
 
-1. W2-A：灰阶视觉、导航收敛、采集 → SRS → 转码 → 输出的信息架构；
-2. W2-B：一条流多转码模板挂载与 Transcode Runtime；
-3. W2-C：2 秒运行态、内嵌预览、观众/码率/运行时长、音频电平与输出一键控制；
-4. W2-D：真实 SRS 验收与 UI/UX 收口。
+1. W2-A：**COMPLETE** — 灰阶视觉、导航收敛、采集 → SRS → 转码 → 输出的信息架构；
+2. W2-B：**COMPLETE** — 一条流多转码模板挂载 + 单 Pipeline Transcode Worker + Desired/Runtime/Observed；
+3. W2-C：**CURRENT** — 管理员安全预览授权、本地音频电平、运行时细节与输出交互收口；
+4. W2-D：最终真实 SRS 回归、响应式/可用性检查与发布收口。
 
 `/forwarding` 与 `/monitor` 暂保留兼容路由，但不再作为正常工作流主入口。转码模板作为全局资源保留，具体挂载在 Stream Workspace 完成。
+
+### W2-B 真实媒体证据（10.30.5.199）
+
+- 真实源流 `22`：1920×1080 H.264 + AAC；
+- 同一 Transcode Pipeline 同时生成 `1080P + 720P + audio-only` 三条派生流，三条均被 SRS Observed；
+- `ffprobe` 实际读取确认：1080P/720P 为 H.264+AAC，audio-only 仅 AAC；
+- Worker 重启后 Desired RUNNING 自动恢复，三条派生重新进入 Runtime RUNNING；
+- 单独停止 audio-only 会重建 Pipeline，audio 派生消失，1080P/720P 自动恢复；
+- 2 核现场主机三路并发测试期间 FFmpeg 峰值约 1.24 CPU 核，测试结束后临时绑定、模板与派生流全部清理；
+- 数据库升级/清理前后 `integrity_check=ok`，历史单模板只迁移为 STOPPED binding，不会升级后自动启动。
 
 W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已改为内嵌预览、实时指标、真实 SRS 媒体证据和“采集 → SRS → 处理/转码 → 输出分发”业务路径；IN-PULL 来源登记与 OUT-PUSH 目标创建已内聚到当前流。旧 `streams.transcode_template_id` 只作为迁移记录展示，不再声称存在真实转码 Runtime。
 
 ## 下一任务
 
-完成 W2-A 后立即进入多转码绑定，不再扩展与直播工作台无关的新业务域。
+继续 W2-C：在不削弱 OUT-PULL 鉴权的前提下完成管理员短时预览授权，并补本地双声道音频电平与运行态细节。
 
 ## 验证债务
 
 - v0.4.1 运行修复已部署 10.30.5.199：允许受管媒体使用 RFC1918/ULA，兼容 SRS 6 opaque client/stream id，19/19 现场回归通过；
 - W2-C 管理员内嵌预览需要独立短时授权，不能通过关闭 OUT-PULL Grant 策略绕过；
 - Workspace V2 完成后重新跑真实 IN-PUSH / IN-PULL / OUT-PUSH / OUT-PULL 媒体证据；
-- 多转码需要真实 1080P / 720P / audio-only 同时运行证据。
+- 管理员 HLS 预览在 Require Grant 场景下仍需短时内部授权，不能通过关闭鉴权绕过。

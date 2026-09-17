@@ -193,8 +193,34 @@ CREATE TABLE IF NOT EXISTS transcode_templates (
   audio_config TEXT,
   output_format TEXT DEFAULT 'flv',
   enabled INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS stream_transcode_bindings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL,
+  template_id INTEGER NOT NULL,
+  role TEXT NOT NULL DEFAULT 'custom' CHECK(role IN ('main', 'secondary', 'audio', 'custom')),
+  output_suffix TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 100,
+  desired_state TEXT NOT NULL DEFAULT 'STOPPED' CHECK(desired_state IN ('RUNNING', 'STOPPED')),
+  runtime_state TEXT NOT NULL DEFAULT 'STOPPED',
+  attempt INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  next_retry_at TEXT,
+  worker_instance_id TEXT,
+  last_started_at TEXT,
+  last_stopped_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
+  FOREIGN KEY (template_id) REFERENCES transcode_templates(id) ON DELETE RESTRICT,
+  UNIQUE(stream_id, output_suffix)
+);
+
+CREATE INDEX IF NOT EXISTS idx_transcode_bindings_stream_order ON stream_transcode_bindings(stream_id, sort_order, id);
+CREATE INDEX IF NOT EXISTS idx_transcode_bindings_desired_runtime ON stream_transcode_bindings(desired_state, runtime_state);
 
 CREATE TABLE IF NOT EXISTS hook_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -313,6 +339,7 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   };
   ensureColumn('streams', 'updated_at', 'updated_at TEXT');
   ensureColumn('streams', 'transcode_template_id', 'transcode_template_id INTEGER');
+  ensureColumn('transcode_templates', 'updated_at', 'updated_at TEXT');
   ensureColumn('cdn_channels', 'updated_at', 'updated_at TEXT');
   ensureColumn('distribution_requests', 'notes', 'notes TEXT');
   ensureColumn('distribution_requests', 'updated_at', 'updated_at TEXT');
@@ -344,6 +371,18 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
     `).run();
   }
 
+
+  // Workspace V2: preserve the legacy single-template stream setting as a
+  // STOPPED binding. Never auto-start transcoding during an upgrade.
+  conn.prepare(`
+    INSERT OR IGNORE INTO stream_transcode_bindings (
+      stream_id, template_id, role, output_suffix, sort_order, desired_state, runtime_state
+    )
+    SELECT s.id, s.transcode_template_id, 'main', 'main', 10, 'STOPPED', 'STOPPED'
+    FROM streams s
+    JOIN transcode_templates t ON t.id = s.transcode_template_id
+    WHERE s.transcode_template_id IS NOT NULL
+  `).run();
 
   // P3-B: migrate every legacy single-source PullTask into a one-to-many
   // source set without deleting the compatibility external_source_id column.

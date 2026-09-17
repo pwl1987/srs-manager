@@ -63,3 +63,24 @@ services:
       - PUSH_MAX_BACKOFF_MS=30000
       - PUSH_MAX_ATTEMPTS=8
     restart: always
+
+  transcode-worker:
+    build:
+      context: .
+      target: pull-worker
+    command: ["node", "transcode-worker.js"]
+    volumes:
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - SRS_API_URL=http://host.docker.internal:1985/api/v1
+      - SRS_API_TOKEN=${SRS_API_TOKEN}
+      - SRS_RTMP_PULL_BASE=rtmp://host.docker.internal:1935/live
+      - SRS_RTMP_PUBLISH_BASE=rtmp://host.docker.internal:1935/live
+      - TRANSCODE_WORKER_POLL_MS=2000
+      - TRANSCODE_STARTUP_TIMEOUT_MS=15000
+      - TRANSCODE_STOP_GRACE_MS=5000
+      - TRANSCODE_MAX_BACKOFF_MS=30000
+      - TRANSCODE_MAX_ATTEMPTS=8
+    restart: always

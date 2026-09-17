@@ -25,7 +25,10 @@
     "outputFormat": "Output Format",
     "enabled": "Enabled",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "gopSeconds": "GOP interval (sec)",
+    "sampleRate": "Sample rate (Hz)",
+    "channels": "Channels"
   },
   "actions": {
     "create": "Create Template",

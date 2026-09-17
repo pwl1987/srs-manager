@@ -25,7 +25,10 @@
     "outputFormat": "输出格式",
     "enabled": "启用",
     "save": "保存",
-    "cancel": "取消"
+    "cancel": "取消",
+    "gopSeconds": "GOP 间隔（秒）",
+    "sampleRate": "采样率（Hz）",
+    "channels": "声道数"
   },
   "actions": {
     "create": "新建模板",

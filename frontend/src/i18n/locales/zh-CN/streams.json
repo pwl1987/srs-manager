@@ -299,7 +299,26 @@
       "passthroughHint": "未重新编码时不能改变 GOP/keyint、分辨率或编码参数。",
       "legacyConfigured": "旧模板配置",
       "legacyHint": "该配置将在多转码 Runtime 上线后迁移为可观察的挂载项。",
-      "next": "多转码 Worker 建设中：支持 1080P、720P、纯音频和 GOP/keyint。"
+      "next": "多转码 Worker 建设中：支持 1080P、720P、纯音频和 GOP/keyint。",
+      "runtimeSubtitle": "一条业务流由一个 Transcode Pipeline 统一产生多个派生码流；只有 SRS 实际观测到派生流才视为运行成功。",
+      "workerOnline": "Transcode Worker 在线",
+      "workerOffline": "Transcode Worker 不可用",
+      "manageTemplates": "管理模板",
+      "mount": "挂载转码",
+      "template": "转码模板",
+      "selectTemplate": "选择模板…",
+      "role": "用途",
+      "suffix": "输出后缀",
+      "saveMount": "保存挂载",
+      "empty": "当前没有挂载派生转码。原始流仍可直通使用。",
+      "created": "转码挂载已创建",
+      "updated": "转码状态已更新",
+      "deleted": "转码挂载已删除",
+      "start": "启动转码",
+      "stop": "停止转码",
+      "retry": "重试转码",
+      "unmount": "卸载",
+      "pipelineHint": "同一源流的多个派生输出由一个 FFmpeg Pipeline 生成，共用时间基。增删/启停/改模板会重建该 Pipeline，其他派生输出可能短暂重启。"
     }
   },
   "modal": {

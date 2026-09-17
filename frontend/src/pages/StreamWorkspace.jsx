@@ -3,8 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
-  Activity, ArrowLeft, Cable, Clock3, Copy, Film, Gauge, QrCode,
-  Settings2, ShieldAlert, Square, Users, Video, Volume2
+  Activity, ArrowLeft, Cable, Clock3, Copy, Gauge, QrCode,
+  ShieldAlert, Square, Users, Video, Volume2
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from '../lib/utils';
@@ -23,6 +23,7 @@ import ManagedPushPanel from '../components/streams/ManagedPushPanel';
 import OutPullAccessPanel from '../components/streams/OutPullAccessPanel';
 import WorkspacePreviewPanel from '../components/streams/WorkspacePreviewPanel';
 import WorkspaceSignalPath from '../components/streams/WorkspaceSignalPath';
+import TranscodePipelinePanel from '../components/streams/TranscodePipelinePanel';
 import DistributionSection from './StreamsDistribution';
 import { btnSecondary, btnDangerGhost, btnGhost } from '../components/ui/styles';
 
@@ -75,32 +76,6 @@ function EndpointRow({ label, value, onCopy }) {
   );
 }
 
-function ProcessingPanel({ stream, t }) {
-  const legacy = stream.transcode_template_name;
-  return (
-    <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2"><Film size={15} className="text-[var(--info)]" /><h2 className="text-sm font-semibold">{t('streams:workspace.processing.title')}</h2></div>
-          <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">{t('streams:workspace.processing.subtitle')}</p>
-        </div>
-        <Link to="/transcode" className={btnSecondary}><Settings2 size={13} />{t('common:navigation.transcode')}</Link>
-      </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-[var(--success)]/18 bg-[var(--success-soft)]/14 p-3">
-          <div className="text-[10px] font-semibold text-[var(--success)]">PASSTHROUGH</div>
-          <div className="mt-1 text-sm font-medium">{t('streams:workspace.processing.passthroughTitle')}</div>
-          <p className="mt-1 text-[10px] leading-4 text-[var(--muted-foreground)]">{t('streams:workspace.processing.passthroughHint')}</p>
-        </div>
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/22 p-3">
-          <div className="text-[10px] font-semibold text-[var(--text-faint)]">{t('streams:workspace.processing.legacyConfigured')}</div>
-          <div className="mt-1 text-sm font-medium">{legacy || '—'}</div>
-          <p className="mt-1 text-[10px] leading-4 text-[var(--muted-foreground)]">{legacy ? t('streams:workspace.processing.legacyHint') : t('streams:workspace.processing.next')}</p>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export default function StreamWorkspace() {
   const { id } = useParams();
@@ -214,7 +189,7 @@ export default function StreamWorkspace() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
         <div className="space-y-6">
           <ManagedPullPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
-          <ProcessingPanel stream={stream} t={t} />
+          <TranscodePipelinePanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
           <ManagedPushPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
           <OutPullAccessPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onDisconnectViewers={() => setConfirmViewers(true)} />
           <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]"><DistributionSection stream={stream} /></section>

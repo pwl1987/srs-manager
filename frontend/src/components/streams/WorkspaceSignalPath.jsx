@@ -47,7 +47,9 @@ export default function WorkspaceSignalPath({ workspace, t }) {
   const cdn = workspace.outputs?.cdn_channels || [];
   const liveCdn = cdn.filter(item => item.remote_state === 'live').length;
   const players = observed.players?.count ?? 0;
-  const legacyTranscode = stream.transcode_template_name;
+  const transcodes = workspace.processing?.transcodes || [];
+  const runningTranscodes = transcodes.filter(item => item.observed?.online === true).length;
+  const desiredTranscodes = transcodes.filter(item => item.desired_state === 'RUNNING').length;
 
   return (
     <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--panel)]/65 p-4 shadow-[var(--shadow-panel)] md:p-5">
@@ -77,9 +79,9 @@ export default function WorkspaceSignalPath({ workspace, t }) {
         </Stage>
         <div className="hidden items-center justify-center text-[var(--text-faint)] xl:flex"><ArrowRight size={15} /></div>
 
-        <Stage index={3} icon={Film} title={t('streams:workspace.path.processing')} subtitle={t('streams:workspace.path.processingHint')} state={<Pill>{legacyTranscode ? 'LEGACY CONFIG' : 'PASSTHROUGH'}</Pill>}>
-          <div className="text-sm font-medium">{legacyTranscode || t('streams:workspace.path.passthrough')}</div>
-          <div className="mt-1 text-[10px] leading-4 text-[var(--muted-foreground)]">{legacyTranscode ? t('streams:workspace.path.legacyTranscodeNote') : t('streams:workspace.path.processingPending')}</div>
+        <Stage index={3} icon={Film} title={t('streams:workspace.path.processing')} subtitle={t('streams:workspace.path.processingHint')} tone={runningTranscodes ? 'live' : desiredTranscodes ? 'warning' : 'neutral'} state={<Pill live={runningTranscodes > 0} warning={!runningTranscodes && desiredTranscodes > 0}>{runningTranscodes ? `${runningTranscodes} OBSERVED` : desiredTranscodes ? `${desiredTranscodes} STARTING` : 'PASSTHROUGH'}</Pill>}>
+          <div className="text-sm font-medium">{transcodes.length ? `${runningTranscodes}/${transcodes.length} ${t('streams:workspace.path.processing')}` : t('streams:workspace.path.passthrough')}</div>
+          <div className="mt-1 text-[10px] leading-4 text-[var(--muted-foreground)]">{transcodes.length ? transcodes.map(item => item.output_suffix).join(' · ') : t('streams:workspace.processing.passthroughHint')}</div>
         </Stage>
         <div className="hidden items-center justify-center text-[var(--text-faint)] xl:flex"><ArrowRight size={15} /></div>
 

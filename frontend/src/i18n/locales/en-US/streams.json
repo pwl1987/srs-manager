@@ -299,7 +299,26 @@
       "passthroughHint": "Without re-encoding the system cannot change GOP/keyint, resolution or codec parameters.",
       "legacyConfigured": "Legacy profile configuration",
       "legacyHint": "This record will migrate to an observable binding when the multi-transcode runtime lands.",
-      "next": "Multi-transcode Worker next: 1080P, 720P, audio-only and GOP/keyint control."
+      "next": "Multi-transcode Worker next: 1080P, 720P, audio-only and GOP/keyint control.",
+      "runtimeSubtitle": "One Transcode Pipeline produces all renditions for this source. A rendition is healthy only when SRS actually observes its derived stream.",
+      "workerOnline": "Transcode Worker Online",
+      "workerOffline": "Transcode Worker Offline",
+      "manageTemplates": "Manage Templates",
+      "mount": "Mount Transcode",
+      "template": "Template",
+      "selectTemplate": "Select template…",
+      "role": "Role",
+      "suffix": "Output suffix",
+      "saveMount": "Save Mount",
+      "empty": "No derived transcodes are mounted. Source passthrough remains available.",
+      "created": "Transcode mount created",
+      "updated": "Transcode state updated",
+      "deleted": "Transcode mount removed",
+      "start": "Start transcode",
+      "stop": "Stop transcode",
+      "retry": "Retry transcode",
+      "unmount": "Unmount",
+      "pipelineHint": "All renditions of one source are produced by a single FFmpeg pipeline and share one timeline. Mount/start/stop/template changes rebuild that pipeline, so sibling renditions may restart briefly."
     }
   },
   "modal": {

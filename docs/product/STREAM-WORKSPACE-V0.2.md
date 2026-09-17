@@ -132,3 +132,10 @@ Workspace 默认前台 2 秒刷新运行快照；页面隐藏时降低频率，�
 ### W2-D：收口
 
 真实 SRS 媒体验收、移动/1440P/4K 可用性检查、删除过期入口和文案、发布版本。
+
+## 12. 实施进度
+
+- W2-A 已完成：灰阶播控视觉、导航收敛、直播运行台、业务信号路径、工作台内 IN-PULL/OUT-PUSH 控制。
+- W2-B 已完成：`stream_transcode_bindings`、独立 Transcode Worker、同源多输出单 Pipeline、1080P/720P/纯音频、GOP/keyint 参数、Desired/Runtime/Observed。
+- 2026-09-17 已在 `10.30.5.199` 使用真实 1080P 源流完成三路并发派生、ffprobe、Worker 重启恢复和单挂载 Stop 验证。
+- 当前进入 W2-C：管理员安全预览授权、本地预览音频电平和运行态细节。

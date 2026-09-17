@@ -58,3 +58,6 @@ jobs:
 
       - name: 验证 Push Worker 入口
         run: docker run --rm --entrypoint node srs-manager:pull-worker-ci --check push-worker.js
+
+      - name: 验证 Transcode Worker 入口
+        run: docker run --rm --entrypoint node srs-manager:pull-worker-ci --check transcode-worker.js

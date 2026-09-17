@@ -6,6 +6,7 @@ const pullTaskService = require('./pull-task-service');
 const operationService = require('./operation-service');
 const pushTaskService = require('./push-task-service');
 const outPullService = require('./out-pull-service');
+const transcodeBindingService = require('./transcode-binding-service');
 
 function isPublisher(client) {
   return String(client?.type || '').toLowerCase().includes('publish');
@@ -71,6 +72,8 @@ async function getWorkspace(streamId) {
   const pullWorker = pullTaskService.getWorkerHealth();
   const pushWorker = pushTaskService.getWorkerHealth();
   const outPull = outPullService.getOverview(id);
+  const transcodeBindings = transcodeBindingService.listBindingsByStream(id);
+  const transcodeWorker = transcodeBindingService.getWorkerHealth();
   const pullOperation = pullTask ? operationService.getActivePullSwitch(pullTask.id) : null;
   const pullOperationHistory = pullTask ? operationService.listPullOperations(pullTask.id, 5) : [];
 
@@ -123,6 +126,19 @@ async function getWorkspace(streamId) {
       && pullTask.worker_instance_id === pullWorker.instance_id
       && pullWorker.available
   );
+  const liveStreamsByName = new Map(srsStreams.map(item => [item.name, item]));
+  const enrichedTranscodes = transcodeBindings.map(binding => {
+    const derived = liveStreamsByName.get(binding.output_stream_name) || null;
+    return {
+      ...binding,
+      observed: derived ? {
+        online: true,
+        bitrate: liveStats(derived).bitrate,
+        viewers: liveStats(derived).viewers,
+        media: mediaEvidence(derived)
+      } : { online: srsAvailable ? false : null, bitrate: 0, viewers: 0, media: null }
+    };
+  });
 
   return {
     stream,
@@ -154,6 +170,10 @@ async function getWorkspace(streamId) {
         count: clientsAvailable ? players.length : null
       }
     },
+    processing: {
+      transcodes: enrichedTranscodes,
+      worker: transcodeWorker
+    },
     outputs: {
       forwards,
       push_worker: pushWorker,
@@ -172,6 +192,7 @@ async function getWorkspace(streamId) {
       disconnect_viewers: clientsAvailable && players.length > 0,
       in_pull_runtime: pullWorker.available,
       out_push_runtime: pushWorker.available,
+      transcode_runtime: transcodeWorker.available,
       out_pull_policy: Boolean(outPull)
     }
   };

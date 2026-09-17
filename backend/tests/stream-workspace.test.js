@@ -14,6 +14,8 @@ const streamService = require('../services/stream-service');
 const pullTaskService = require('../services/pull-task-service');
 const pushTaskService = require('../services/push-task-service');
 const outPullService = require('../services/out-pull-service');
+const transcodeService = require('../services/transcode-service');
+const transcodeBindingService = require('../services/transcode-binding-service');
 const workspaceService = require('../services/stream-workspace-service');
 
 const originals = {
@@ -56,6 +58,11 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
     clients: 3, frames: 1800, recv_bytes: 123456, send_bytes: 654321, kbps: { recv_30s: 7200 },
     video: { codec: 'H264', profile: 'High', level: '4.1', width: 1920, height: 1080 },
     audio: { codec: 'AAC', profile: 'LC', sample_rate: 48000, channel: 2 }
+  }, {
+    id: 'vid-derived-main', name: 'news-main__main', app: 'live', live_ms: Date.now() - 30000,
+    clients: 1, frames: 750, recv_bytes: 65432, send_bytes: 1234, kbps: { recv_30s: 5600 },
+    video: { codec: 'H264', profile: 'High', level: '4', width: 1920, height: 1080 },
+    audio: { codec: 'AAC', profile: 'LC', sample_rate: 48000, channel: 2 }
   }];
   cdnService.getBatchState = async () => [{ channel_id: 'cdn-1', is_live: true, bitrate: 6800, viewers: 40 }];
 
@@ -79,6 +86,18 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
   assert.deepEqual(kicked.sort((a, b) => a - b), [12, 13], 'viewer disconnect must not kick the publisher');
   assert.equal(viewersResult.scope, 'viewers');
   assert.equal(viewersResult.disconnected, 2);
+
+  const template = transcodeService.createTemplate({
+    name: 'Main 1080', vcodec: 'h264', acodec: 'aac',
+    video_config: JSON.stringify({ width: 1920, height: 1080, fps: 25, bitrate: 6000, gop_seconds: 2 }),
+    audio_config: JSON.stringify({ bitrate: 192 }), output_format: 'rtmp', enabled: 1
+  });
+  const transcode = transcodeBindingService.createBinding({
+    stream_id: streamId, template_id: template.id, role: 'main', output_suffix: 'main', sort_order: 10
+  });
+  transcodeBindingService.setDesiredState(transcode.id, 'RUNNING');
+  transcodeBindingService.updateRuntime(transcode.id, { runtime_state: 'RUNNING', worker_instance_id: 'tc-worker-a', attempt: 1 });
+  assert.equal(transcodeBindingService.claimWorkerLease('tc-worker-a', 10000).acquired, true);
 
   const pushTask = pushTaskService.createTask({
     stream_id: streamId,
@@ -113,6 +132,11 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
   assert.equal(workspace.observed.media.audio.codec, 'AAC');
   assert.equal(workspace.observed.media.audio.sample_rate, 48000);
   assert.ok(workspace.observed.uptime_seconds >= 60 && workspace.observed.uptime_seconds <= 70);
+  assert.equal(workspace.processing.transcodes.length, 1);
+  assert.equal(workspace.processing.transcodes[0].runtime_state, 'RUNNING');
+  assert.equal(workspace.processing.transcodes[0].observed.online, true);
+  assert.equal(workspace.processing.transcodes[0].observed.media.video.width, 1920);
+  assert.equal(workspace.processing.worker.available, true);
   assert.equal(workspace.outputs.forwards.length, 1);
   assert.equal(workspace.outputs.forwards[0].runtime_state, 'RUNNING');
   assert.equal(workspace.outputs.forwards[0].target_url, undefined);
@@ -125,10 +149,12 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
   assert.equal(workspace.capabilities.disconnect_viewers, true);
   assert.equal(workspace.capabilities.in_pull_runtime, true);
   assert.equal(workspace.capabilities.out_push_runtime, true);
+  assert.equal(workspace.capabilities.transcode_runtime, true);
   assert.equal(workspace.capabilities.out_pull_policy, true);
   assert.equal(workspace.inputs.managed_pull.worker.available, true);
   assert.equal(workspace.inputs.managed_pull.task.id, pullTask.id);
   assert.equal(workspace.inputs.managed_pull.task.source_url, undefined);
   assert.equal(workspace.inputs.managed_pull.observed_publisher, true);
   pushTaskService.clearWorkerHeartbeat('push-worker-a');
+  transcodeBindingService.clearWorkerHeartbeat('tc-worker-a');
 });
