@@ -121,6 +121,27 @@ CREATE TABLE IF NOT EXISTS external_sources (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS pull_tasks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_id INTEGER NOT NULL UNIQUE,
+  external_source_id INTEGER NOT NULL,
+  desired_state TEXT NOT NULL DEFAULT 'STOPPED' CHECK(desired_state IN ('RUNNING', 'STOPPED')),
+  runtime_state TEXT NOT NULL DEFAULT 'STOPPED' CHECK(runtime_state IN ('STOPPED', 'STARTING', 'RUNNING', 'RETRYING', 'FAILED', 'BLOCKED')),
+  attempt INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  last_started_at TEXT,
+  last_stopped_at TEXT,
+  next_retry_at TEXT,
+  worker_instance_id TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE,
+  FOREIGN KEY (external_source_id) REFERENCES external_sources(id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_pull_tasks_desired_runtime ON pull_tasks(desired_state, runtime_state);
+CREATE INDEX IF NOT EXISTS idx_pull_tasks_source ON pull_tasks(external_source_id);
+
 CREATE TABLE IF NOT EXISTS forward_tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   stream_id INTEGER NOT NULL,
@@ -189,6 +210,7 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   'default_change_me',
   'admin'
 );`);
+
   // Lightweight migrations for tables created by older versions.
   const ensureColumn = (table, column, ddl) => {
     const cols = conn.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
@@ -199,6 +221,7 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   ensureColumn('cdn_channels', 'updated_at', 'updated_at TEXT');
   ensureColumn('distribution_requests', 'notes', 'notes TEXT');
   ensureColumn('distribution_requests', 'updated_at', 'updated_at TEXT');
+
   const adminHash = process.env.ADMIN_PASSWORD_HASH || 'default_change_me';
   conn.prepare('UPDATE users SET password_hash = ? WHERE username = ? AND password_hash = ?')
     .run(adminHash, process.env.ADMIN_USER || 'admin', 'default_change_me');
