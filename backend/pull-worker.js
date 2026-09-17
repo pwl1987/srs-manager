@@ -5,6 +5,7 @@ const pullTaskService = require('./services/pull-task-service');
 const internalMediaService = require('./services/internal-media-service');
 const operationService = require('./services/operation-service');
 const { decidePullSwitchStep } = require('./services/pull-switch-machine');
+const { decidePullSwitchRecovery } = require('./services/pull-switch-recovery');
 const { decidePullFailure } = require('./services/pull-failover-policy');
 const { validateStreamUrl } = require('./utils/url-validation');
 
@@ -258,6 +259,8 @@ function spawnTask(task, switchOperationId = null) {
     }
 
     if (state.stopReason === 'switch operation failed') {
+      const operation = state.rollbackOperationId ? operationService.getOperation(state.rollbackOperationId) : null;
+      if (operation && startPreviousSourceRollback(fresh, operation, state.rollbackReason || 'Switch operation failed')) return;
       return;
     }
 
@@ -266,10 +269,9 @@ function spawnTask(task, switchOperationId = null) {
         ? 'Timed out waiting for SRS publisher observation'
         : `ffmpeg exited code=${code} signal=${signal || 'none'}`);
     if (state.switchOperationId) {
-      operationService.failOperation(state.switchOperationId, failure, {
-        target_source_id: state.sourceId
-      });
+      const operation = operationService.getOperation(state.switchOperationId);
       state.switchOperationId = null;
+      if (operation && failSwitchAndProtectProgram(fresh, null, false, operation, failure)) return;
     }
     scheduleRetry(fresh, failure);
   });
@@ -288,6 +290,87 @@ async function snapshotPublishers() {
   );
 }
 
+function startPreviousSourceRollback(task, operation, reason) {
+  const fromSourceId = Number(operation?.payload?.from_source_id);
+  if (!Number.isInteger(fromSourceId) || fromSourceId <= 0) return false;
+  try {
+    pullTaskService.switchActiveSource(
+      task.id,
+      fromSourceId,
+      `Rollback after failed source switch #${operation.id}: ${reason}`,
+      'RETRYING'
+    );
+    const restored = pullTaskService.getTask(task.id, { includeSecret: true });
+    const started = restored ? spawnTask(restored) : null;
+    if (!started) return false;
+    log(`switch operation ${operation.id} rollback started stream=${task.stream_name} source=${fromSourceId}`);
+    return true;
+  } catch (error) {
+    log(`switch operation ${operation.id} rollback failed stream=${task.stream_name}`, redactText(error.message || error));
+    return false;
+  }
+}
+
+function failSwitchAndProtectProgram(task, state, publisherObserved, operation, reason) {
+  const plan = decidePullSwitchRecovery({
+    operation,
+    processState: state,
+    publisherObserved,
+    activeSourceId: task.active_source_id
+  });
+  const result = {
+    from_source_id: operation.payload?.from_source_id || null,
+    target_source_id: operation.payload?.target_source_id || null,
+    recovery: plan.action,
+    recovery_source_id: plan.source_id || null
+  };
+  operationService.failOperation(operation.id, reason, result);
+
+  if (plan.action === 'preserve_current') {
+    pullTaskService.updateRuntime(task.id, {
+      active_source_id: plan.source_id,
+      runtime_state: publisherObserved ? 'RUNNING' : 'STARTING',
+      last_error: `Switch failed; previous Program preserved: ${reason}`,
+      next_retry_at: null,
+      worker_instance_id: INSTANCE_ID
+    });
+    if (state) state.switchOperationId = null;
+    log(`switch operation ${operation.id} failed; previous Program preserved stream=${task.stream_name} source=${plan.source_id}`, reason);
+    return true;
+  }
+
+  if (plan.action === 'preserve_observed') {
+    pullTaskService.updateRuntime(task.id, {
+      active_source_id: plan.source_id,
+      runtime_state: 'BLOCKED',
+      last_error: `Switch failed; previous publisher remains observed without managed process ownership: ${reason}`,
+      next_retry_at: null,
+      worker_instance_id: null
+    });
+    log(`switch operation ${operation.id} failed; observed previous Program left untouched stream=${task.stream_name} source=${plan.source_id}`, reason);
+    return true;
+  }
+
+  if (plan.action === 'rollback') {
+    if (state && !state.exited) {
+      state.rollbackOperationId = operation.id;
+      state.rollbackReason = reason;
+      state.switchOperationId = null;
+      if (!state.stopping) stopProcess(task.id, 'switch operation failed');
+      return true;
+    }
+    if (startPreviousSourceRollback(task, operation, reason)) return true;
+  }
+
+  pullTaskService.updateRuntime(task.id, {
+    runtime_state: 'FAILED',
+    last_error: reason,
+    next_retry_at: null,
+    worker_instance_id: null
+  });
+  return false;
+}
+
 function reconcileSwitchOperation(task, state, publisherObserved) {
   const operation = operationService.getActivePullSwitch(task.id);
   if (!operation) return false;
@@ -296,7 +379,8 @@ function reconcileSwitchOperation(task, state, publisherObserved) {
     operation,
     processState: state,
     publisherObserved,
-    stopTimeoutMs: SWITCH_STOP_TIMEOUT_MS
+    stopTimeoutMs: SWITCH_STOP_TIMEOUT_MS,
+    startupTimeoutMs: STARTUP_TIMEOUT_MS
   });
 
   try {
@@ -364,15 +448,7 @@ function reconcileSwitchOperation(task, state, publisherObserved) {
 
       case 'fail': {
         const reason = decision.reason || 'Pull source switch failed';
-        operationService.failOperation(operation.id, reason);
-        pullTaskService.updateRuntime(task.id, {
-          runtime_state: publisherObserved && !state ? 'BLOCKED' : 'FAILED',
-          last_error: reason,
-          next_retry_at: null,
-          worker_instance_id: state ? INSTANCE_ID : null
-        });
-        if (state && !state.stopping) stopProcess(task.id, 'switch operation failed');
-        log(`switch operation ${operation.id} failed stream=${task.stream_name}`, reason);
+        failSwitchAndProtectProgram(task, state, publisherObserved, operation, reason);
         return true;
       }
 
@@ -382,14 +458,7 @@ function reconcileSwitchOperation(task, state, publisherObserved) {
     }
   } catch (error) {
     const reason = redactText(error.message || error);
-    operationService.failOperation(operation.id, reason);
-    pullTaskService.updateRuntime(task.id, {
-      runtime_state: 'FAILED',
-      last_error: reason,
-      next_retry_at: null,
-      worker_instance_id: null
-    });
-    if (state && !state.stopping) stopProcess(task.id, 'switch operation failed');
+    failSwitchAndProtectProgram(task, state, publisherObserved, operation, reason);
     log(`switch operation ${operation.id} exception stream=${task.stream_name}`, reason);
     return true;
   }

@@ -10,7 +10,8 @@ function decidePullSwitchStep({
   processState,
   publisherObserved,
   nowMs = Date.now(),
-  stopTimeoutMs = 10000
+  stopTimeoutMs = 10000,
+  startupTimeoutMs = 15000
 }) {
   if (!operation) return { action: 'none' };
   const targetSourceId = Number(operation.payload?.target_source_id);
@@ -52,7 +53,13 @@ function decidePullSwitchStep({
         return { action: 'fail', reason: 'Managed process source does not match switch target' };
       }
       if (processState && publisherObserved) return { action: 'succeed', target_source_id: targetSourceId };
-      if (processState) return { action: 'wait', target_source_id: targetSourceId };
+      if (processState) {
+        const started = Number(processState.startedAt);
+        const expired = Number.isFinite(started) && started > 0 && nowMs - started > startupTimeoutMs;
+        return expired
+          ? { action: 'fail', reason: 'Timed out waiting for target publisher observation' }
+          : { action: 'wait', target_source_id: targetSourceId };
+      }
       if (publisherObserved) return { action: 'fail', reason: 'Publisher appeared without managed switch process ownership' };
       // Worker restart / lease takeover may lose the in-memory child map while
       // preserving the operation. If SRS observes no publisher, restarting the

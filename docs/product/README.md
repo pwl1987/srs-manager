@@ -22,6 +22,7 @@
 - [Workspace V3 实施计划](./STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md) — UI-00 → Phase 00–08 增量迁移、阶段 Gate、真实媒体验收与最终切换计划；
 - [Phase 02 Evidence / Capability / Operation](./contracts/workspace-v3/PHASE-02-EVIDENCE-CAPABILITY-OPERATION.md) — 三层 Capability、Evidence freshness、Health 与持久化 Operation Core 实施边界；
 - [Phase 03 Sources / Program / Secure Monitor](./contracts/workspace-v3/PHASE-03-SOURCES-PROGRAM-MONITOR.md) — IN-PUSH 凭证、Program attribution/switch、HTTP-FLV-first PGM 与按需 PVW；
+- [Phase 03 Field Gate](./contracts/workspace-v3/PHASE-03-FIELD-GATE.md) — 真实 live 主机隔离 Candidate 的 PGM/PVW、成功切源、失败 rollback、Ingest Hook 与清理证据；
 - [Workspace V3 Phase 00 Contract](./contracts/workspace-v3/PHASE-00-MIGRATION-CONTRACT.md) — V2→V3 无损映射、Aggregate、Capability/Evidence/Operation 词汇与迁移边界；
 - [Workspace V3 API Contract](./contracts/workspace-v3/API-CONTRACT.md) — V3 Read Model、Compatibility Explain、Operation/idempotency、错误与 secret 边界；
 - [Workspace V3 Phase 01 Adapter](./contracts/workspace-v3/PHASE-01-ADAPTER-NOTES.md) — 只读 Domain Adapter、Source/Program attribution、Rendition/Output reconciliation 与 no-mutation Gate；

@@ -39,3 +39,17 @@ test('manual switch fails if the old publisher never drains', () => {
   assert.equal(decision.action, 'fail');
   assert.match(decision.reason, /did not disappear/);
 });
+
+
+test('manual switch fails VERIFYING when target process never becomes an observed publisher', () => {
+  const now = 20000;
+  const decision = decidePullSwitchStep({
+    operation: op('VERIFYING'),
+    processState: { sourceId: 20, startedAt: 1000 },
+    publisherObserved: false,
+    nowMs: now,
+    startupTimeoutMs: 5000
+  });
+  assert.equal(decision.action, 'fail');
+  assert.match(decision.reason, /target publisher observation/);
+});

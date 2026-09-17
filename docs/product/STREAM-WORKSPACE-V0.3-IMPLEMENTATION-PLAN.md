@@ -68,7 +68,7 @@ Gate：**PASS**。现有 Runtime 状态经新 Evidence/Health 层解释后不出
 
 ## Phase 03 — Sources / Program / Secure Monitor
 
-状态：**IMPLEMENTED / FIELD GATE PENDING**。
+状态：**COMPLETE**。
 
 目标：先把左侧输入和中央监看切到 V3 业务模型，Output 仍可继续兼容展示。
 
@@ -80,7 +80,7 @@ Gate：**PASS**。现有 Runtime 状态经新 Evidence/Health 层解释后不出
 - Manager 安全预览优先 HTTP-FLV，HLS fallback，继续使用短时授权与同源代理边界；
 - 固定视频/音频/码率/L-R dBFS 一线证据。
 
-Gate：真实 PUSH、PULL、主备切换、Preview/Program 认知隔离和安全代理现场回归通过；切源失败不能破坏健康旧 Program。
+Gate：**PASS**。真实 PUSH/PULL、HTTP-FLV PGM + HLS fallback、按需 PVW、A→B 切换均在 `10.30.5.199` 隔离 Candidate 通过；故障注入确认目标源不可用时 Operation FAILED 后自动 rollback 旧 Program。证据见 `contracts/workspace-v3/PHASE-03-FIELD-GATE.md`。
 
 ## Phase 04 — Unified Output / Rendition / Scene Builder
 

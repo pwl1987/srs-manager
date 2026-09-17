@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00、Phase 01、Phase 02 均 COMPLETE；Current Task 已进入 Phase 03 Sources / Program / Secure Monitor，既有 Pull / Push / Transcode Runtime ownership 仍保持兼容。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00、Phase 01、Phase 02、Phase 03 均 COMPLETE；Current Task 已进入 Phase 04 Unified Output / Rendition / Scene Builder，既有 Pull / Push / Transcode Runtime ownership 继续兼容复用。**
 
 ## 已完成
 
@@ -148,11 +148,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase 02 — Capability / Evidence / Operation Core**。已接入 Product/Runtime/Destination Capability Registry、Evidence provenance/TTL/freshness、Expected-vs-Actual Health evaluator、持久化 Idempotency Operation Core，以及 `/api/v3/capabilities`、`/api/v3/output/validate`、`/api/v3/operations/:id`；Remote UNKNOWN 不冒充失败，SRS 不可达不伪造观测时间。Phase 02 focused 11/11、backend full regression 38/38、frontend i18n/build PASS。
+Last Completed：**Phase 03 — Sources / Program / Secure Monitor**。独立 IN-PUSH Credential、Publisher 归属、V3 Pull Program Switch、HTTP-FLV-first/HLS fallback 与按需 IN-PULL PVW 均完成。真实 `live` 主机隔离 Candidate Field Gate 已验证：PGM HTTP-FLV/HLS、PVW、A→B 成功切源、无效目标切源失败后自动 rollback 旧 Program、Ingest Hook 凭据拒绝/放行语义均成立；现场发现并修复 VERIFYING target publisher timeout 缺口。最终 backend `46/46 PASS`、frontend i18n/build PASS、生产 DB integrity `ok`，五个生产服务全 active；本轮未做生产 Manager/Worker cutover。
 
-Current Task：**Phase 03 — Sources / Program / Secure Monitor**（IMPLEMENTED / FIELD GATE PENDING）。独立 IN-PUSH Credential、Publisher 归属、V3 Pull Program Switch、HTTP-FLV-first/HLS fallback、按需 IN-PULL PVW 均已实现；本地 backend 42/42 与 frontend build PASS，等待 10.30.5.199 隔离真实媒体验收后再转 COMPLETE。
+Current Task：**Phase 04 — Unified Output / Rendition / Scene Builder**。在不重写现有 Push/OUT-PULL/Transcode Worker 的前提下，把 PUSH/SERVE 与共享 Rendition 收敛为统一 V3 Output，并接入 Scene/Professional Builder 与 Runtime Evidence。
 
-Next Task：**Phase 04 — Unified Output / Rendition / Scene Builder**。Phase 03 Gate 通过后再开放 V3 Unified Output mutation 与 Scene/Professional Builder，不提前把 Phase 02 Operation Core 暴露成假 Runtime 能力。
+Next Task：**Phase 05 — RECORD / Storage Runtime**。Phase 04 Gate 通过后再新增 RECORD sink、Finalize、分段与磁盘预算，不把录制混入本轮 Output 网络交付迁移。
 
 ## 验证债务 / 已知边界
 
