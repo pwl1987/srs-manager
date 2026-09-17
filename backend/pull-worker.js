@@ -2,6 +2,7 @@ const { spawn } = require('child_process');
 const { randomUUID } = require('crypto');
 const srsService = require('./services/srs');
 const pullTaskService = require('./services/pull-task-service');
+const { decidePullFailure } = require('./services/pull-failover-policy');
 const { validateStreamUrl } = require('./utils/url-validation');
 
 const INSTANCE_ID = randomUUID();
@@ -63,32 +64,28 @@ function isPublisher(client) {
 function scheduleRetry(task, error) {
   const attempt = Math.max(1, Number(task.attempt || 0));
   const safeError = redactText(error);
-  const enabledSources = (task.sources || []).filter(source => source.enabled && source.source_status === 'active');
+  const decision = decidePullFailure({
+    attempt,
+    maxAttempts: MAX_ATTEMPTS,
+    sourceMaxAttempts: SOURCE_MAX_ATTEMPTS,
+    sources: task.sources || [],
+    activeSourceId: task.active_source_id
+  });
 
-  // Multiple-source tasks fail over after a smaller per-source threshold.
-  // We intentionally move only toward lower-priority fallbacks and never wrap
-  // back to priority=1 automatically; that avoids failback flapping mid-live.
-  if (enabledSources.length > 1 && attempt >= SOURCE_MAX_ATTEMPTS) {
-    const next = pullTaskService.getNextEnabledSource(task.id, task.active_source_id);
-    if (next) {
-      const reason = `Source ${task.source_name || task.active_source_id} failed after ${attempt} attempts: ${safeError || 'unknown error'}`;
-      pullTaskService.switchActiveSource(task.id, next.external_source_id, reason, 'RETRYING');
-      log(`failover task ${task.id} stream=${task.stream_name} -> source=${next.source_name}`);
-      return;
-    }
-    pullTaskService.updateRuntime(task.id, {
-      runtime_state: 'FAILED',
-      last_error: `All enabled pull sources exhausted; last error: ${safeError || 'unknown error'}`,
-      next_retry_at: null,
-      worker_instance_id: null
-    });
+  if (decision.action === 'failover') {
+    const next = (task.sources || []).find(source => Number(source.external_source_id) === Number(decision.next_source_id));
+    const reason = `Source ${task.source_name || task.active_source_id} failed after ${attempt} attempts: ${safeError || 'unknown error'}`;
+    pullTaskService.switchActiveSource(task.id, decision.next_source_id, reason, 'RETRYING');
+    log(`failover task ${task.id} stream=${task.stream_name} -> source=${next?.source_name || decision.next_source_id}`);
     return;
   }
 
-  if (attempt >= MAX_ATTEMPTS) {
+  if (decision.action === 'failed') {
     pullTaskService.updateRuntime(task.id, {
       runtime_state: 'FAILED',
-      last_error: safeError || `Pull failed after ${attempt} attempts`,
+      last_error: decision.reason === 'all_sources_exhausted'
+        ? `All enabled pull sources exhausted; last error: ${safeError || 'unknown error'}`
+        : (safeError || `Pull failed after ${attempt} attempts`),
       next_retry_at: null,
       worker_instance_id: null
     });
@@ -207,8 +204,6 @@ function spawnTask(task) {
     if (state.killTimer) clearTimeout(state.killTimer);
     processes.delete(task.id);
 
-    // After lease loss another worker owns the control plane. Never overwrite
-    // its runtime state from this old instance while draining local FFmpeg.
     if (state.stopReason === 'lease lost') {
       if (shuttingDown) {
         if (processes.size === 0) finalizeShutdown(0);
@@ -244,11 +239,11 @@ function spawnTask(task) {
       return;
     }
 
-    const error = state.lastStderr
+    const failure = state.lastStderr
       || (state.stopReason === 'startup timeout'
         ? 'Timed out waiting for SRS publisher observation'
         : `ffmpeg exited code=${code} signal=${signal || 'none'}`);
-    scheduleRetry(fresh, error);
+    scheduleRetry(fresh, failure);
   });
 
   log(`starting task ${task.id} stream=${task.stream_name} source=${task.source_url_masked}`);
