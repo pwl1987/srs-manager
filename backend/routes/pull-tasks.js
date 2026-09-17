@@ -6,19 +6,23 @@ const router = express.Router();
 router.use(jwtAuth);
 
 function respondError(res, error) {
-  if (error.message === 'Stream not found') {
+  if (error.message === 'Stream not found' || error.message === 'Pull task not found') {
     return res.status(404).json({ code: 'NOT_FOUND_STREAM', error: error.message });
   }
-  if (error.message === 'Source not found or inactive') {
+  if (error.message === 'Source not found or inactive' || error.message === 'Pull task source not found') {
     return res.status(404).json({ code: 'NOT_FOUND_GENERAL', error: error.message });
   }
-  if (error.message.includes('already exists')) {
+  if (
+    error.message.includes('already exists')
+    || error.message.includes('must be stopped')
+    || error.message.includes('cannot be disabled')
+    || error.message.includes('cannot be removed')
+    || error.message.includes('must keep at least one')
+    || error.message.includes('has no enabled source')
+  ) {
     return res.status(409).json({ code: 'CONFLICT_GENERAL', error: error.message });
   }
-  if (error.message.includes('must be stopped')) {
-    return res.status(409).json({ code: 'CONFLICT_GENERAL', error: error.message });
-  }
-  if (error.message.startsWith('Invalid')) {
+  if (error.message.startsWith('Invalid') || error.message.includes('priority')) {
     return res.status(400).json({ code: 'VALIDATION_TEMPLATE_INVALID', error: error.message });
   }
   return res.status(500).json({ code: 'INTERNAL_GENERAL', error: error.message });
@@ -44,10 +48,58 @@ router.post('/', (req, res) => {
   }
 });
 
+router.get('/:id/sources', (req, res) => {
+  try {
+    const task = pullTaskService.getTask(req.params.id);
+    if (!task) return res.status(404).json({ code: 'NOT_FOUND_GENERAL', error: 'Pull task not found' });
+    res.json(task.sources || []);
+  } catch (error) {
+    respondError(res, error);
+  }
+});
+
+router.post('/:id/sources', (req, res) => {
+  try {
+    const task = pullTaskService.addTaskSource(
+      req.params.id,
+      req.body?.external_source_id,
+      req.body?.priority
+    );
+    res.status(201).json(task);
+  } catch (error) {
+    respondError(res, error);
+  }
+});
+
+router.put('/:id/sources/:sourceId', (req, res) => {
+  try {
+    const task = pullTaskService.updateTaskSource(req.params.id, req.params.sourceId, {
+      priority: req.body?.priority,
+      enabled: req.body?.enabled
+    });
+    res.json(task);
+  } catch (error) {
+    respondError(res, error);
+  }
+});
+
+router.delete('/:id/sources/:sourceId', (req, res) => {
+  try {
+    const task = pullTaskService.deleteTaskSource(req.params.id, req.params.sourceId);
+    res.json(task);
+  } catch (error) {
+    respondError(res, error);
+  }
+});
+
 router.post('/:id/start', (req, res) => {
   try {
-    const task = pullTaskService.setDesiredState(req.params.id, 'RUNNING');
+    let task = pullTaskService.ensureUsableActiveSource(req.params.id);
     if (!task) return res.status(404).json({ code: 'NOT_FOUND_GENERAL', error: 'Pull task not found' });
+    if (!task.sources?.some(source => source.enabled && source.source_status === 'active')) {
+      return res.status(409).json({ code: 'CONFLICT_GENERAL', error: 'Pull task has no enabled source' });
+    }
+    task = pullTaskService.setDesiredState(req.params.id, 'RUNNING');
     if (task.runtime_state === 'FAILED') {
       return res.json(pullTaskService.updateRuntime(task.id, {
         runtime_state: 'RETRYING',
@@ -75,8 +127,12 @@ router.post('/:id/stop', (req, res) => {
 
 router.post('/:id/retry', (req, res) => {
   try {
-    const task = pullTaskService.setDesiredState(req.params.id, 'RUNNING');
+    let task = pullTaskService.ensureUsableActiveSource(req.params.id);
     if (!task) return res.status(404).json({ code: 'NOT_FOUND_GENERAL', error: 'Pull task not found' });
+    if (!task.sources?.some(source => source.enabled && source.source_status === 'active')) {
+      return res.status(409).json({ code: 'CONFLICT_GENERAL', error: 'Pull task has no enabled source' });
+    }
+    task = pullTaskService.setDesiredState(req.params.id, 'RUNNING');
     res.json(pullTaskService.updateRuntime(task.id, {
       runtime_state: 'RETRYING',
       attempt: 0,
