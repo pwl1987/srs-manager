@@ -54,10 +54,6 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
       kickClient: originals.kickClient
     });
     cdnService.getBatchState = originals.getBatchState;
-    // better-sqlite3 11.x + Node 24 can assert if a Database is explicitly
-    // closed before all short-lived Statement wrappers have been finalized.
-    // node:test runs this file in an isolated process, so let process teardown
-    // release SQLite naturally and only remove the temporary files here.
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
@@ -86,7 +82,7 @@ test('scoped controls and workspace keep publisher/player and managed-pull seman
   const pullTask = pullTaskService.createTask({ stream_id: streamId, external_source_id: Number(source.lastInsertRowid) });
   pullTaskService.setDesiredState(pullTask.id, 'RUNNING');
   pullTaskService.updateRuntime(pullTask.id, { runtime_state: 'RUNNING', worker_instance_id: 'worker-a', attempt: 1 });
-  pullTaskService.writeWorkerHeartbeat('worker-a');
+  assert.equal(pullTaskService.claimWorkerLease('worker-a', 10000).acquired, true);
 
   const workspace = await workspaceService.getWorkspace(streamId);
   assert.equal(workspace.observed.online, true);
