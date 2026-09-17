@@ -111,11 +111,8 @@ export default function Sidebar({ onNavigate }) {
 
       <div className="mx-3 mb-3 rounded-xl border border-[var(--border-soft)] bg-[var(--card)]/45 px-3 py-3">
         <div className="flex items-center gap-2 text-xs font-medium">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-35 animate-ping" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--success)]" />
-          </span>
-          SRS Control Plane
+          <Radio size={13} className="text-[var(--primary)]" />
+          SRS Manager
         </div>
         <p className="text-[10px] leading-relaxed text-[var(--text-faint)] mt-1.5">
           {t('common:brand.subtitle')}
