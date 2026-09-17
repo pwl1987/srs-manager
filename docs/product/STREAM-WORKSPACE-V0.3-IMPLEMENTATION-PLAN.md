@@ -94,7 +94,7 @@ Gate：**PASS**。真实 PUSH/PULL、HTTP-FLV PGM + HLS fallback、按需 PVW、
 - Protection / Destination 动态配置与 compatibility explain；
 - 右侧高密度 Output 通道条、异常临时上浮、Evidence drill-down。
 
-Gate：现有 OUT-PUSH、OUT-PULL、Grant、Transcode 真实媒体回归全部通过；同一 Rendition 多 Output 不重复编码；旧 `/forwarding` 仍可兼容但不再承载新增能力。
+Gate：**PASS**。真实 `live` 主机隔离 Candidate 已验证：两个 Output 共用一个 canonical Rendition、真实 Transcode FFmpeg 仅一条；停止单个 consumer 不影响共享 Rendition，停止最后一个 consumer 后 derived stream 正确退出；PARTNER_PULL Grant admission 与 HLS 外部保护边界再次实证。证据见 `contracts/workspace-v3/PHASE-04-FIELD-GATE.md`。
 
 ## Phase 05 — RECORD / Storage Runtime
 
@@ -154,7 +154,7 @@ Gate：真实部署主机完成整场 PREP → ON AIR → INCIDENT → RECOVERY 
 
 ## 阶段依赖与推进纪律
 
-推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00、Phase 00 与 Phase 01 已 COMPLETE；Phase 03 与 Phase 04 的局部前端原型可以并行探索，但不得绕过 01/02 的 Domain/Evidence Authority 直接形成第二套状态逻辑。
+推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00、Phase 00–04 已 COMPLETE；Current Task 为 Phase 05 RECORD / Storage Runtime。后续阶段不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
 
 每阶段结尾必须同时更新：
 - `REDESIGN-STATUS.md` 的 Current Phase / Last Completed / Current Task / Next Task；

@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00、Phase 01、Phase 02、Phase 03 均 COMPLETE；Current Task 已进入 Phase 04 Unified Output / Rendition / Scene Builder，既有 Pull / Push / Transcode Runtime ownership 继续兼容复用。**
+**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00–04 均 COMPLETE；Current Task 已进入 Phase 05 RECORD / Storage Runtime，既有 Pull / Push / Transcode Runtime ownership 继续兼容复用。**
 
 ## 已完成
 
@@ -148,11 +148,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase 03 — Sources / Program / Secure Monitor**。独立 IN-PUSH Credential、Publisher 归属、V3 Pull Program Switch、HTTP-FLV-first/HLS fallback 与按需 IN-PULL PVW 均完成。真实 `live` 主机隔离 Candidate Field Gate 已验证：PGM HTTP-FLV/HLS、PVW、A→B 成功切源、无效目标切源失败后自动 rollback 旧 Program、Ingest Hook 凭据拒绝/放行语义均成立；现场发现并修复 VERIFYING target publisher timeout 缺口。最终 backend `46/46 PASS`、frontend i18n/build PASS、生产 DB integrity `ok`，五个生产服务全 active；本轮未做生产 Manager/Worker cutover。
+Last Completed：**Phase 04 — Unified Output / Rendition / Scene Builder**。PUSH/SERVE 已收敛到统一 V3 Output；canonical Rendition signature 可跨同参数模板复用同一 binding；Push Worker 支持 Program Original / derived stream；Scene/Professional Builder、Capability Explain、Output Operation 与生产 Workspace Output Rack 已接入。真实 `live` 主机隔离 Field Gate 验证一个 shared Rendition 同时服务两路 PUSH，仅存在一条 Transcode FFmpeg；停一路不影响另一路，停最后一路后 Rendition 正确退出。PARTNER_PULL Grant 与 HLS admission bypass 边界再次实证。最终 backend `50/50 PASS`、frontend i18n/build PASS，现场测试流零残留、生产 DB integrity `ok`、五个正式服务全 active。
 
-Current Task：**Phase 04 — Unified Output / Rendition / Scene Builder**。在不重写现有 Push/OUT-PULL/Transcode Worker 的前提下，把 PUSH/SERVE 与共享 Rendition 收敛为统一 V3 Output，并接入 Scene/Professional Builder 与 Runtime Evidence。
+Current Task：**Phase 05 — RECORD / Storage Runtime**。把本地文件保存作为正式 `RECORD` Output Mode 接入，优先完成安全 TS/MP4 录制、Finalize、Observed file-growth evidence、磁盘预算和共享 Rendition 复用。
 
-Next Task：**Phase 05 — RECORD / Storage Runtime**。Phase 04 Gate 通过后再新增 RECORD sink、Finalize、分段与磁盘预算，不把录制混入本轮 Output 网络交付迁移。
+Next Task：**Phase 06 — Session / Run Plan / Preflight**。Phase 05 Gate 通过后再进入一次真实直播的生命周期、开播方案与 Preflight 编排。
 
 ## 验证债务 / 已知边界
 

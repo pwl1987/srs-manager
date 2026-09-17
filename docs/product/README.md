@@ -4,7 +4,7 @@
 
 ## 当前版本基线
 
-当前实现版本基线为 **v0.5.1 直播工作台 V2**；Workspace V3 已完成 UI Freeze、Phase 00 Contract 与 Phase 01 只读 Domain Compatibility Foundation，当前进入 Phase 02 Capability / Evidence / Operation Core；既有 Runtime ownership 仍保持不变。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
+当前稳定发布基线仍为 **v0.5.1 直播工作台 V2**；Workspace V3 已完成 UI-00 与 Phase 00–04，当前进入 Phase 05 RECORD / Storage Runtime；既有 Runtime ownership 采用增量兼容迁移，不做 Big Bang 重写。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
 
 - **第三方推流到我方（IN-PUSH）**：生成推流地址、观察真实 Publisher、查看状态并进行精确控制；
 - **我方主动拉第三方（IN-PULL）**：外部来源、Pull Worker、FFmpeg、重试、主备切换和安全人工切源；
@@ -23,6 +23,8 @@
 - [Phase 02 Evidence / Capability / Operation](./contracts/workspace-v3/PHASE-02-EVIDENCE-CAPABILITY-OPERATION.md) — 三层 Capability、Evidence freshness、Health 与持久化 Operation Core 实施边界；
 - [Phase 03 Sources / Program / Secure Monitor](./contracts/workspace-v3/PHASE-03-SOURCES-PROGRAM-MONITOR.md) — IN-PUSH 凭证、Program attribution/switch、HTTP-FLV-first PGM 与按需 PVW；
 - [Phase 03 Field Gate](./contracts/workspace-v3/PHASE-03-FIELD-GATE.md) — 真实 live 主机隔离 Candidate 的 PGM/PVW、成功切源、失败 rollback、Ingest Hook 与清理证据；
+- [Phase 04 Unified Output / Rendition](./contracts/workspace-v3/PHASE-04-OUTPUT-RENDITION.md) — PUSH/SERVE 统一模型、共享 Rendition、Scene/Professional Builder 与真实保护边界；
+- [Phase 04 Field Gate](./contracts/workspace-v3/PHASE-04-FIELD-GATE.md) — 真实 live 主机共享编码、多 Output 生命周期、Grant/HLS 边界与清理证据；
 - [Workspace V3 Phase 00 Contract](./contracts/workspace-v3/PHASE-00-MIGRATION-CONTRACT.md) — V2→V3 无损映射、Aggregate、Capability/Evidence/Operation 词汇与迁移边界；
 - [Workspace V3 API Contract](./contracts/workspace-v3/API-CONTRACT.md) — V3 Read Model、Compatibility Explain、Operation/idempotency、错误与 secret 边界；
 - [Workspace V3 Phase 01 Adapter](./contracts/workspace-v3/PHASE-01-ADAPTER-NOTES.md) — 只读 Domain Adapter、Source/Program attribution、Rendition/Output reconciliation 与 no-mutation Gate；
@@ -43,7 +45,10 @@
 8. Phase UI-00 Product Design Lab：完成；高保真 UI Authority 已冻结，仍未接入真实 Runtime；
 9. Phase 00 Migration/API Contract：完成；Contract tests 5/5、backend regression 32/32、frontend i18n/build PASS；
 10. Phase 01 Domain Compatibility Foundation：完成；`/api/v3/rooms` 与 V3 Workspace Aggregate 已建立，Read-only reconciliation Gate 通过；
-11. v0.5.1 实现继续稳定维护；Workspace V3 当前进入 Phase 02，继续在既有 Runtime 上增加统一 Capability/Evidence/Operation 解释层。
+11. Phase 02 Capability / Evidence / Operation：完成；
+12. Phase 03 Sources / Program / Secure Monitor：完成并通过真实媒体 Gate；
+13. Phase 04 Unified Output / Rendition / Scene Builder：完成并通过真实媒体 Gate；
+14. v0.5.1 稳定发布继续维护；Workspace V3 Current Task 为 Phase 05 RECORD / Storage Runtime。
 
 ## 长期约束
 
