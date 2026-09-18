@@ -29,6 +29,14 @@ function getSrsApiToken() {
   return getSetting('srs_api_token') || config.srsApiToken;
 }
 
+function getSrsApiUsername() {
+  return config.srsApiUsername;
+}
+
+function getSrsApiPassword() {
+  return config.srsApiPassword;
+}
+
 function getRtmpPort() {
   const port = parseInt(getSetting('srs_rtmp_port'), 10);
   return Number.isInteger(port) && port > 0 && port <= 65535 ? port : 1935;
@@ -51,9 +59,12 @@ function isCdnDomainConfigured() {
   return Boolean(v) && !v.includes('example.com');
 }function getSrsConfig() {
   const token = getSrsApiToken();
+  const basicAuthSet = Boolean(getSrsApiUsername() && getSrsApiPassword());
   return {
     api_url: getSrsApiUrl(),
     api_token_set: Boolean(token),
+    api_basic_auth_set: basicAuthSet,
+    api_auth_mode: token ? 'bearer' : (basicAuthSet ? 'basic' : 'none'),
     rtmp_port: getRtmpPort(),
     hooks_enabled: true,
     forward_backend: `http://127.0.0.1:${config.port}/api/forward`
@@ -84,5 +95,6 @@ function getNtpStatus() {
 module.exports = {
   SETTABLE_KEYS,
   getSetting, setSetting, getAllSettings, getSrsConfig, getNtpStatus,
-  getSrsApiUrl, getSrsApiToken, getRtmpPort, getSrsHttpPort, getCdnDomain, isCdnDomainConfigured
+  getSrsApiUrl, getSrsApiToken, getSrsApiUsername, getSrsApiPassword,
+  getRtmpPort, getSrsHttpPort, getCdnDomain, isCdnDomainConfigured
 };

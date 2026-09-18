@@ -11,7 +11,9 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - SRS_API_URL=http://host.docker.internal:1985/api/v1
-      - SRS_API_TOKEN=${SRS_API_TOKEN}
+      - SRS_API_TOKEN=${SRS_API_TOKEN:-}
+      - SRS_API_USERNAME=${SRS_API_USERNAME:-}
+      - SRS_API_PASSWORD=${SRS_API_PASSWORD:-}
       - ADMIN_USER=admin
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
       - JWT_SECRET=${JWT_SECRET}
@@ -35,7 +37,9 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - SRS_API_URL=http://host.docker.internal:1985/api/v1
-      - SRS_API_TOKEN=${SRS_API_TOKEN}
+      - SRS_API_TOKEN=${SRS_API_TOKEN:-}
+      - SRS_API_USERNAME=${SRS_API_USERNAME:-}
+      - SRS_API_PASSWORD=${SRS_API_PASSWORD:-}
       - SRS_RTMP_PUBLISH_BASE=rtmp://host.docker.internal:1935/live
       - PULL_WORKER_POLL_MS=2000
       - PULL_STARTUP_TIMEOUT_MS=15000
@@ -55,7 +59,9 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - SRS_API_URL=http://host.docker.internal:1985/api/v1
-      - SRS_API_TOKEN=${SRS_API_TOKEN}
+      - SRS_API_TOKEN=${SRS_API_TOKEN:-}
+      - SRS_API_USERNAME=${SRS_API_USERNAME:-}
+      - SRS_API_PASSWORD=${SRS_API_PASSWORD:-}
       - SRS_RTMP_PULL_BASE=rtmp://host.docker.internal:1935/live
       - PUSH_WORKER_POLL_MS=2000
       - PUSH_STARTUP_CONFIRM_MS=3000
@@ -75,7 +81,9 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - SRS_API_URL=http://host.docker.internal:1985/api/v1
-      - SRS_API_TOKEN=${SRS_API_TOKEN}
+      - SRS_API_TOKEN=${SRS_API_TOKEN:-}
+      - SRS_API_USERNAME=${SRS_API_USERNAME:-}
+      - SRS_API_PASSWORD=${SRS_API_PASSWORD:-}
       - SRS_RTMP_PULL_BASE=rtmp://host.docker.internal:1935/live
       - SRS_RTMP_PUBLISH_BASE=rtmp://host.docker.internal:1935/live
       - TRANSCODE_WORKER_POLL_MS=2000
@@ -97,7 +105,9 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - SRS_API_URL=http://host.docker.internal:1985/api/v1
-      - SRS_API_TOKEN=${SRS_API_TOKEN}
+      - SRS_API_TOKEN=${SRS_API_TOKEN:-}
+      - SRS_API_USERNAME=${SRS_API_USERNAME:-}
+      - SRS_API_PASSWORD=${SRS_API_PASSWORD:-}
       - SRS_RTMP_PULL_BASE=rtmp://host.docker.internal:1935/live
       - RECORD_STORAGE_ROOT=/app/data/recordings
       - RECORD_WORKER_POLL_MS=2000

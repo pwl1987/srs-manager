@@ -1,13 +1,24 @@
 const settingsService = require('./settings-service');
 
+function authorizationHeader() {
+  const token = settingsService.getSrsApiToken();
+  if (token) return `Bearer ${token}`;
+  const username = settingsService.getSrsApiUsername();
+  const password = settingsService.getSrsApiPassword();
+  if (username && password) {
+    return `Basic ${Buffer.from(`${username}:${password}`, 'utf8').toString('base64')}`;
+  }
+  return null;
+}
+
 function request(method, path, body) {
   const baseUrl = settingsService.getSrsApiUrl();
-  const token = settingsService.getSrsApiToken();
+  const authorization = authorizationHeader();
   return fetch(`${baseUrl}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(authorization ? { Authorization: authorization } : {})
     },
     body: body ? JSON.stringify(body) : undefined
   }).then(res => {

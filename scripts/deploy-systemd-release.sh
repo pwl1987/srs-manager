@@ -33,13 +33,37 @@ dst_lock="$(sha256sum "$TARGET_DIR/backend/package-lock.json" | awk '{print $1}'
 }
 
 if [[ "${ALLOW_ACTIVE_MEDIA:-0}" != "1" ]]; then
-  python3 - "$TARGET_DIR/data/srs-manager.db" <<'PY'
-import json, sqlite3, sys, urllib.request
-db_path = sys.argv[1]
+  python3 - "$TARGET_DIR/data/srs-manager.db" "$TARGET_DIR/.env" <<'PY'
+import base64, json, pathlib, sqlite3, sys, urllib.request
+db_path, env_path = sys.argv[1], sys.argv[2]
 busy = []
+
+def load_env(path):
+    values = {}
+    for raw in pathlib.Path(path).read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values
+
+env = load_env(env_path)
+headers = {}
+if env.get('SRS_API_TOKEN'):
+    headers['Authorization'] = 'Bearer ' + env['SRS_API_TOKEN']
+elif env.get('SRS_API_USERNAME') and env.get('SRS_API_PASSWORD'):
+    raw = f"{env['SRS_API_USERNAME']}:{env['SRS_API_PASSWORD']}".encode()
+    headers['Authorization'] = 'Basic ' + base64.b64encode(raw).decode()
 try:
-    payload = json.load(urllib.request.urlopen(
-        "http://127.0.0.1:1985/api/v1/streams?start=0&count=10000", timeout=3))
+    request = urllib.request.Request(
+        "http://127.0.0.1:1985/api/v1/streams/?start=0&count=10000",
+        headers=headers,
+    )
+    payload = json.load(urllib.request.urlopen(request, timeout=3))
     streams = [str(item.get("name")) for item in payload.get("streams", []) if item.get("name")]
 except Exception as exc:
     raise SystemExit(f"无法确认 SRS 空闲状态，拒绝部署: {exc}")

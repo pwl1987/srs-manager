@@ -150,7 +150,7 @@ Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-
 
 Last Completed：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。生产 Workspace 代码已切到 V3 16:9 主工作面；1920×1080 五态、1366×768、2560×1440、3840×2160 UI Gate 通过；v0.5.1 数据 additive migration 与旧 backend 回退可读通过；真实 `live` 主机隔离 Candidate 完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED。Backend `69/69 PASS`、frontend build/i18n PASS、Container Release Gate `35294729038` SUCCESS。
 
-Current Task：**SRS 8080/1985 Origin Exposure Hardening / Field Gate**。应用侧已改为默认不返回原始 SRS `:8080` HLS/HTTP-FLV URL，管理员预览继续使用短期 Preview Token + Manager Proxy；已新增可回滚的 systemd Origin 硬化脚本与外部探针。当前真实 `10.30.5.199` 从开发 VM 仍可直接访问 `:8080` 与未鉴权 `:1985`，因此生产 Field Gate 仍为 **FAIL/BLOCKED**；在取得生产 SSH/root Authority、确认无活动流并执行主机硬化前不得宣称完成。
+Current Task：**SRS 8080/1985 Origin Exposure Hardening / Field Gate**。应用侧已改为默认不返回原始 SRS `:8080` HLS/HTTP-FLV URL；SSH 已确认可通过 `ubuntu` + 项目授权密钥进入生产且具备 NOPASSWD sudo，当前 streams=0、Pull/Push/Transcode/Record desired RUNNING=0。现场 SRS 6.0.191 实际只具备 Basic Auth，因此客户端和硬化脚本已修正为 Basic/Bearer 双栈并处理 DB `srs_api_url` loopback 迁移。生产 `10.30.5.199:8080/1985` 在执行硬化前仍可从开发 VM 直达，Field Gate 仍为 **FAIL**，必须以外部探针实际 PASS 才能收口。
 
 Next Task：**OUT-PUSH Remote Verification**。完成 HLS 暴露边界后，为第三方平台成功播放补充供应商 API 或独立观测证据，不把本地 FFmpeg RUNNING 冒充远端成功。
 

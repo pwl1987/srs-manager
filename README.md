@@ -179,7 +179,7 @@ sudo ./scripts/deploy-systemd-release.sh /tmp/srs-manager-release /home/ubuntu/s
 sudo ./scripts/harden-srs-origin-systemd.sh
 ```
 
-脚本会把 `1985/8080` 绑定到 `127.0.0.1`，为 SRS HTTP API 启用 Bearer Token，并在失败时恢复原 unit override。随后必须从另一台机器执行外部探针：
+脚本会把 `1985/8080` 绑定到 `127.0.0.1`。当前生产 SRS 6.0.191 使用其原生 Basic Auth；Manager/Workers 同时支持 Basic 与新版 SRS 的 Bearer，并由脚本自动生成本机 Basic 凭据、迁移 `srs_api_url` 到 loopback。`.env`、SRS 配置和相关数据库设置均有备份，失败会自动回滚。随后必须从另一台机器执行外部探针：
 
 ```bash
 ./scripts/probe-srs-origin-exposure.sh <SRS服务器IP>
