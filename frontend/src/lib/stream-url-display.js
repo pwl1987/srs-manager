@@ -1,15 +1,11 @@
-// Test-mode URL helpers. When the CDN domain is not configured the backend
-// returns null pull URLs and cdn_configured:false; playback then falls back to
-// SRS direct-connect addresses built from the host the panel is served from.
-// Backend URLs pointing at loopback hosts are rewritten the same way so
-// copy-paste works from any client machine during testing.
+// Public/display URL helpers.
+// Raw SRS HTTP origin URLs are intentionally not synthesized here: direct HLS
+// bypasses the Manager preview token path and SRS on_play admission. Operator
+// preview must use /api/preview; public playback must come from an explicitly
+// configured CDN/reverse-proxy endpoint.
 
 function isLoopbackHost(hostname) {
   return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]' || hostname === 'host.docker.internal';
-}
-
-export function directHlsUrl(name, httpPort = 8080) {
-  return `http://${window.location.hostname}:${httpPort}/live/${name}.m3u8`;
 }
 
 export function directFlvUrl(name, httpPort = 8080) {
@@ -19,7 +15,6 @@ export function directFlvUrl(name, httpPort = 8080) {
 export function directRtmpUrl(name, rtmpPort = 1935) {
   return `rtmp://${window.location.hostname}:${rtmpPort}/live/${name}`;
 }
-
 
 export function displayUrl(url) {
   if (!url) return '';
@@ -34,17 +29,15 @@ export function displayUrl(url) {
 
 export function resolvePullHls(stream) {
   if (!stream) return '';
-  if (stream.cdn_configured === false) return directHlsUrl(stream.name, stream.http_port || 8080);
-  return stream.pull_url_hls || directHlsUrl(stream.name, stream.http_port || 8080);
+  return displayUrl(stream.pull_url_hls || '');
 }
 
 export function resolvePullFlv(stream) {
   if (!stream) return '';
-  if (stream.cdn_configured === false) return directFlvUrl(stream.name, stream.http_port || 8080);
-  return stream.pull_url_flv || directFlvUrl(stream.name, stream.http_port || 8080);
+  return displayUrl(stream.pull_url_flv || '');
 }
 
 export function resolveOriginHls(stream) {
   if (!stream) return '';
-  return displayUrl(stream.origin_pull_url_hls) || directHlsUrl(stream.name, stream.http_port || 8080);
+  return displayUrl(stream.origin_pull_url_hls || '');
 }

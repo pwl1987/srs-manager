@@ -8,7 +8,8 @@
 - CI 强制执行 Backend Tests、Frontend Build、Static Analysis、Container Build、Delta Coverage、Contract Tests 六项门禁；Diff 可执行行覆盖率必须 ≥85%，整体覆盖率相对主线下降不得超过 0.5 个百分点；
 - API 实现变更必须同步真实集成测试，禁止仅以纯 Mock 单测替代；
 - 前端测试基础升级到 Vitest 4.1.11，并将 high/critical `npm audit` 纳入静态扫描；
-- ECharts 5.6.0 → 6.1.0，新增 Monitor 使用 API 兼容测试，production build 通过，npm audit 清零。
+- ECharts 5.6.0 → 6.1.0，新增 Monitor 使用 API 兼容测试，production build 通过，npm audit 清零；
+- 默认隐藏原始 SRS `:8080` HLS/HTTP-FLV Origin URL，旧 Monitor/二维码/无 CDN fallback 不再自动绕过 Manager Preview Proxy；新增 systemd Origin 硬化脚本与外部暴露探针，将 `1985/8080` 的生产网络边界纳入 Field Gate。
 
 ## v0.6.0 — Workspace V3 直播运维控制台
 

@@ -150,13 +150,13 @@ Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-
 
 Last Completed：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。生产 Workspace 代码已切到 V3 16:9 主工作面；1920×1080 五态、1366×768、2560×1440、3840×2160 UI Gate 通过；v0.5.1 数据 additive migration 与旧 backend 回退可读通过；真实 `live` 主机隔离 Candidate 完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED。Backend `69/69 PASS`、frontend build/i18n PASS、Container Release Gate `35294729038` SUCCESS。
 
-Current Task：**SRS 8080 HLS Exposure Hardening**。v0.6.0 发布后复核与工程治理收口均 PASS；ECharts 已从 5.6.0 升级到 6.1.0，兼容性测试、production build 与 `npm audit` 全部通过，既有 XSS advisory 已清零。下一步收敛 SRS 8080 直连 HLS 的暴露边界。
+Current Task：**SRS 8080/1985 Origin Exposure Hardening / Field Gate**。应用侧已改为默认不返回原始 SRS `:8080` HLS/HTTP-FLV URL，管理员预览继续使用短期 Preview Token + Manager Proxy；已新增可回滚的 systemd Origin 硬化脚本与外部探针。当前真实 `10.30.5.199` 从开发 VM 仍可直接访问 `:8080` 与未鉴权 `:1985`，因此生产 Field Gate 仍为 **FAIL/BLOCKED**；在取得生产 SSH/root Authority、确认无活动流并执行主机硬化前不得宣称完成。
 
 Next Task：**OUT-PUSH Remote Verification**。完成 HLS 暴露边界后，为第三方平台成功播放补充供应商 API 或独立观测证据，不把本地 FFmpeg RUNNING 冒充远端成功。
 
 ## 验证债务 / 已知边界
 
-- SRS 8080 直连 HLS 不受当前 `on_play` Hook 策略保护；若对外暴露 HLS，必须在反向代理/CDN 层增加鉴权与防盗链；
+- 生产主机 `10.30.5.199` 的 `8080` SRS HTTP Origin 与 `1985` HTTP API 当前仍可从开发 VM 直达；应用层默认暴露已关闭，但主机侧网络边界尚待安全窗口执行 `scripts/harden-srs-origin-systemd.sh` 并由外部 `scripts/probe-srs-origin-exposure.sh` 取得 PASS；
 - OUT-PUSH Runtime RUNNING 证明本地受管 FFmpeg 工作且输入在线，不等同于第三方平台已经成功播放；远端健康仍需供应商 API 或独立观测证据；
 - 浏览器音频电平是本地预览 RMS dBFS，不是 EBU R128 / LUFS 广播响度计；
 - `/forwarding` 与 `/monitor` 继续保留兼容深链接，但不作为正常值守工作流入口。

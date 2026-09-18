@@ -169,6 +169,24 @@ sudo ./scripts/deploy-systemd-release.sh /tmp/srs-manager-release /home/ubuntu/s
 
 该脚本会在停服务前备份当前代码与 SQLite，一直保留 `.env`、`data/` 和既有 backend dependencies；安装 Record Worker unit、迁移数据库并完成健康检查。如果升级失败，会自动恢复旧代码和升级前的 systemd 单元状态。
 
+### 3.1 SRS Origin 安全边界（systemd 同机部署）
+
+生产环境不应把 SRS `8080` HTTP Origin 或 `1985` HTTP API 直接暴露到业务网络。应用默认也不会再向浏览器返回原始 `:8080` HLS/HTTP-FLV 地址；管理员监看走 Manager 的短期 Preview Token + 同源代理。
+
+确认当前没有活动直播后，可在 SRS 与 Manager 同机、systemd 部署场景执行：
+
+```bash
+sudo ./scripts/harden-srs-origin-systemd.sh
+```
+
+脚本会把 `1985/8080` 绑定到 `127.0.0.1`，为 SRS HTTP API 启用 Bearer Token，并在失败时恢复原 unit override。随后必须从另一台机器执行外部探针：
+
+```bash
+./scripts/probe-srs-origin-exposure.sh <SRS服务器IP>
+```
+
+只有 `1985` 与 `8080` 均无法从外部直达才算 Field Gate PASS。Docker/分机部署不要机械套用 loopback 绑定，应改为可信管理网地址、防火墙或受保护反向代理，确保 Manager/Worker 仍能访问 SRS。
+
 默认访问地址：
 
 ```text
@@ -199,15 +217,18 @@ ADMIN_PASSWORD='管理员密码' node scripts/e2e-test.js
 
 ## CI 使用策略
 
-为了节省 GitHub Actions 用量，CI 从 v0.3.0 起按变更范围执行：
+`main` 是唯一开发分支，候选提交先以临时 `gate/<sha>` tag 运行完整门禁，同一 SHA 只有在全部 required checks 通过后才允许进入受保护 `main`。管理员同样不能绕过门禁。
 
-- **后端快速检查**：只有 `backend/**` 变化时运行；
-- **前端快速检查**：只有 `frontend/**` 变化时运行；
-- **容器发布检查**：普通业务代码提交不自动构建镜像，仅 Docker / Compose / 依赖清单变化、版本标签或人工触发时运行；
-- 同一分支有新提交时，旧的同类 CI 自动取消，避免重复消耗；
-- 纯文档与 CHANGELOG 更新不触发构建类 CI。
+强制检查包括：
 
-发布前仍建议执行一次「容器发布检查」，确保 Web 镜像、媒体 Worker 镜像、Compose、Push Worker 入口与 FFmpeg 运行时完整通过。
+- **Backend Tests**：语法检查 + 全部后端/集成测试；
+- **Frontend Build**：i18n 校验与 production build；
+- **Static Analysis**：后端/前端高危依赖审计、全部 Shell 脚本语法检查、CodeQL；
+- **Container Build**：Compose、Web/Worker 镜像和 FFmpeg/Worker 入口；
+- **Delta Coverage**：本次新增/修改可执行行覆盖率必须 ≥85%，整体覆盖率相对 `main` 不得下降超过 0.5 个百分点；
+- **Contract Tests**：API 实现变更必须同步真实集成测试，禁止只用纯 Mock 单测代替。
+
+任一 required check 失败都禁止进入 `main`。
 
 ## 文档导航
 
