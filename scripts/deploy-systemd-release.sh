@@ -75,6 +75,13 @@ systemctl stop srs-manager-record-worker.service srs-manager-transcode-worker.se
 
 rsync -a --delete   --exclude '.git/' --exclude '.env' --exclude 'data/'   --exclude 'backend/node_modules/' --exclude 'frontend/node_modules/'   "$SOURCE_DIR/" "$TARGET_DIR/"
 
+# systemd 直跑 backend/server.js 时，SPA 静态目录是 backend/public；
+# Docker 镜像在 build 阶段完成同样复制，这里必须显式安装已验证的 frontend/dist。
+rm -rf "$TARGET_DIR/backend/public"
+install -d -o ubuntu -g ubuntu -m 0755 "$TARGET_DIR/backend/public"
+rsync -a --delete "$SOURCE_DIR/frontend/dist/" "$TARGET_DIR/backend/public/"
+chown -R ubuntu:ubuntu "$TARGET_DIR/backend/public"
+
 install -m 0644 "$SOURCE_DIR/deploy/systemd/$UNIT_NAME" "$UNIT_TARGET"
 install -d -o ubuntu -g ubuntu -m 0750 "$TARGET_DIR/data/recordings"
 systemctl daemon-reload
