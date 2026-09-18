@@ -144,7 +144,7 @@ Active-media preflight 已在真实业务流 `22` 在线时验证：
 - `CHECK_ONLY=1 ALLOW_ACTIVE_MEDIA=1`：环境预检 PASS，但不执行任何 restart；
 - 因 `22` 为真实 `10.128.0.251 → /live/22` Publisher，最终固定脚本的第二次正式切换延后到安全窗口，不为 release 收口中断业务流。
 
-固定脚本二次生产执行：**PENDING SAFE WINDOW**。在其自然获得 Manager health、SPA HTTP 200、六服务 active、Record heartbeat fresh 与 DB integrity `ok` 前，不创建 `v0.6.0` tag。
+固定脚本二次生产执行：**PASS**。业务流 `22` 自然结束后，固定脚本重新执行自身 active-media preflight 并通过；本次未设置 `ALLOW_ACTIVE_MEDIA=1`。部署事务备份目录为 `/home/ubuntu/srs-manager-backups/20260918T023052Z`，随后自动取得 Manager health、SPA、六服务、Record heartbeat、DB integrity 与 release parity 全部 PASS。
 
 ## 8. 当前 RC 内容一致性与 post-deploy Gate
 
@@ -158,7 +158,7 @@ Active-media preflight 已在真实业务流 `22` 在线时验证：
 - release deploy script 已把 post-deploy smoke 纳入同一 rollback 事务，smoke 失败即触发现有 rollback；
 - 固定脚本 `CHECK_ONLY=1` 在真实流 `22` 在线时返回 **42**，继续证明 active-media preflight 会阻断 cutover。
 
-因此当前不是“生产仍运行旧版本”，而是 v0.6.0 candidate payload 已在生产运行；仍需等待安全窗口，把修正后的完整 deploy transaction 再执行一次，取得脚本自身的最终生产证据后再创建 `v0.6.0` tag / GitHub Release。禁止通过 `ALLOW_ACTIVE_MEDIA=1` 为发布收口打断业务。
+因此生产已取得修正后完整 deploy transaction 的最终证据：事务内 post-deploy smoke PASS；事务结束后独立复核仍为六服务 active、SRS 在线流 0、DB integrity `ok`、Manager health 200、SPA 200，Record Worker heartbeat fresh。`v0.6.0` 的生产 cutover blocker 已解除，可进入 tag / GitHub Release 发布。
 
 ## 结论
 

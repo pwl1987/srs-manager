@@ -29,6 +29,7 @@
 - GitHub Container Release Gate `35294729038` 在 `b0c74af` 成功，Web / Pull / Push / Transcode / Record Worker 均通过；
 - 真实 v0.5.1 SQLite 副本执行 additive migration 后，旧表/旧列/旧数据 SHA-256 100% 保持；旧版 backend 可直接读取升级后的数据库；
 - `live` 主机隔离候选完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED，Required PUSH 与 MP4 RECORD 均有真实媒体/文件证据；
+- 正式 systemd cutover 在安全窗口完成，备份目录 `/home/ubuntu/srs-manager-backups/20260918T023052Z`；事务内 post-deploy smoke 与独立复核均 PASS，六服务 active、DB integrity `ok`、Manager / SPA HTTP 200、Record heartbeat fresh；
 - SRS 直连 HLS 仍是独立安全边界；Managed PUSH 的本地 RUNNING/Observed 不冒充第三方 Remote Verified。
 
 ## v0.5.1 — Workspace V2 安全收口
