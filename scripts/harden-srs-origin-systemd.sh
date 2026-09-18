@@ -259,7 +259,15 @@ PY
 
 for unit in "${MANAGER_UNITS[@]}"; do systemctl restart "$unit"; done
 for unit in "${MANAGER_UNITS[@]}"; do systemctl is-active --quiet "$unit"; done
-curl -fsS --max-time 3 http://127.0.0.1:3001/api/health >/dev/null
+manager_ready=0
+for _ in $(seq 1 30); do
+  if curl -fsS --max-time 2 http://127.0.0.1:3001/api/health 2>/dev/null | grep -q '"status":"ok"'; then
+    manager_ready=1
+    break
+  fi
+  sleep 1
+done
+[[ "$manager_ready" -eq 1 ]] || fail "Manager health did not recover after restart"
 
 systemctl restart "$SRS_UNIT"
 systemctl is-active --quiet "$SRS_UNIT"
