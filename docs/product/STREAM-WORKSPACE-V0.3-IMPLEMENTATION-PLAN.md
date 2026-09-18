@@ -154,7 +154,7 @@ Gate：**PASS**。真实 `live` 主机隔离 Candidate 已完成 PREP → ON AIR
 
 ## 阶段依赖与推进纪律
 
-推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。**UI-00 与 Phase 00–08 已全部 COMPLETE**；当前进入 v0.6.0 正式生产升级与发布收口。后续 V3.x 不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
+推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。**UI-00 与 Phase 00–08 已全部 COMPLETE，v0.6.0 已完成正式生产升级并发布**；当前进入 Stable Maintenance / V3.x Backlog。后续 V3.x 不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
 
 每阶段结尾必须同时更新：
 - `REDESIGN-STATUS.md` 的 Current Phase / Last Completed / Current Task / Next Task；

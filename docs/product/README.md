@@ -4,7 +4,7 @@
 
 ## 当前版本基线
 
-当前发布候选基线为 **v0.6.0 Workspace V3 直播运维控制台**；UI-00 与 Phase 00–08 已全部完成并通过真实主机 Field Gate，当前进入正式生产升级与 release closure；既有 Runtime ownership 继续采用增量兼容迁移，不做 Big Bang 重写。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
+当前正式发布基线为 **v0.6.0 Workspace V3 直播运维控制台**；UI-00 与 Phase 00–08、正式生产 systemd cutover、post-deploy smoke 与 GitHub Release 均已完成，当前进入稳定维护；既有 Runtime ownership 继续采用增量兼容迁移，不做 Big Bang 重写。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
 
 - **第三方推流到我方（IN-PUSH）**：生成推流地址、观察真实 Publisher、查看状态并进行精确控制；
 - **我方主动拉第三方（IN-PULL）**：外部来源、Pull Worker、FFmpeg、重试、主备切换和安全人工切源；
@@ -58,7 +58,7 @@
 14. Phase 05 RECORD / Storage Runtime：完成并通过真实文件 Field Gate；
 15. Phase 06 Session / Run Plan / Preflight：完成并通过真实 Session 编排 Field Gate；
 16. Phase 07 Incident / Health / Closing Workflow：完成并通过故障注入 Field Gate；
-17. Phase 08 16:9 Cutover / Compatibility Cleanup / Release Gate：完成；当前进入 v0.6.0 正式生产升级与发布收口。
+17. Phase 08 16:9 Cutover / Compatibility Cleanup / Release Gate：完成；v0.6.0 已完成正式生产升级并发布。
 
 ## 长期约束
 

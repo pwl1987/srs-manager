@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**Workspace V3：UI-00、Phase 00–08 全部 COMPLETE，Phase 08 Field Gate 与正式生产 systemd cutover 均 PASS；当前进入 v0.6.0 Release Publication。v0.5.1 继续作为已验证回退基线。**
+**Workspace V3：UI-00、Phase 00–08 全部 COMPLETE，Phase 08 Field Gate 与正式生产 systemd cutover 均 PASS；v0.6.0 已正式发布，当前进入 Stable Maintenance / V3.x Backlog。v0.5.1 继续作为已验证回退基线。**
 
 ## 已完成
 
@@ -150,9 +150,9 @@ Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-
 
 Last Completed：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。生产 Workspace 代码已切到 V3 16:9 主工作面；1920×1080 五态、1366×768、2560×1440、3840×2160 UI Gate 通过；v0.5.1 数据 additive migration 与旧 backend 回退可读通过；真实 `live` 主机隔离 Candidate 完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED。Backend `69/69 PASS`、frontend build/i18n PASS、Container Release Gate `35294729038` SUCCESS。
 
-Current Task：**v0.6.0 Release Publication**。修正后的 systemd deploy transaction 已在安全窗口正式执行 PASS，备份 `/home/ubuntu/srs-manager-backups/20260918T023052Z`；事务内与独立 post-deploy smoke 均 PASS，六服务 active、DB integrity `ok`、Manager/SPA 200、Record heartbeat fresh。当前只剩创建 `v0.6.0` annotated tag 与 GitHub Release。
+Current Task：**Stable Maintenance / v0.6.0 Post-Release Observation**。`v0.6.0` annotated tag 与 GitHub Release 已发布；生产 deploy transaction、事务内/独立 post-deploy smoke、六服务、DB、Manager/SPA 与 Record heartbeat 均已取得 PASS 证据。当前默认只接受稳定性修复、回归与已知边界收敛。
 
-Next Task：**Stable Maintenance / V3.x Backlog**。v0.6.0 正式发布后进入稳定维护；Design Freeze 后的新功能默认进入 V3.x backlog，不回插 Phase 00–08。
+Next Task：**V3.x Backlog Triage**。按实际优先级处理稳定维护债务与 Design Freeze 后新增需求，不回插 Phase 00–08，不改变已冻结 Domain/Evidence/Capability Authority。
 
 ## 验证债务 / 已知边界
 

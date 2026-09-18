@@ -275,4 +275,4 @@ npm run dev
 
 ---
 
-> 当前状态：**v0.6.0 Workspace V3 release candidate**。Phase 00–08 已完成，进入正式生产升级与发布收口；后续默认稳定维护 / bugfix，新增想法进入 V3.x backlog。
+> 当前状态：**v0.6.0 Workspace V3 已正式发布**。Phase 00–08、正式生产 systemd cutover 与 GitHub Release 均已完成；当前进入稳定维护 / bugfix，新增想法默认进入 V3.x backlog。
