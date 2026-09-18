@@ -1,6 +1,38 @@
-export const CURRENT_VERSION = '0.5.1';
+export const CURRENT_VERSION = '0.6.0';
 
 export const RELEASES = [
+  {
+    version: '0.6.0',
+    date: '2026-09-18',
+    stage: { zh: 'Workspace V3', en: 'Workspace V3' },
+    title: { zh: '直播运维控制台 V3', en: 'Live Operations Console V3' },
+    summary: {
+      zh: '完成 Room / Session / Run Plan、可信 PGM/PVW、统一 PUSH/SERVE/RECORD Output、共享 Rendition、Incident/Closing 与 16:9 播控工作面的完整闭环。',
+      en: 'Completes the Room / Session / Run Plan model, trusted PGM/PVW monitoring, unified PUSH/SERVE/RECORD outputs, shared renditions, incident/closing workflows and the 16:9 operations surface.'
+    },
+    highlights: {
+      zh: [
+        '生产 Workspace 切换为固定 Input / Program / Output / Signal Route / Operations Dock 的 16:9 播控工作面。',
+        'Program 默认 HTTP-FLV 低延迟安全预览，HLS fallback；按需 PGM + PVW，切源失败自动回滚旧 Program。',
+        'PUSH / SERVE / RECORD 统一到 Output 模型，场景模式与专业模式共用 Capability Explain，不再展示假能力。',
+        'Canonical Rendition 可被多个 Output/Recording 复用，真实验证两路 PUSH 只需要一条转码 FFmpeg。',
+        '新增 Record Worker：安全 TS 分段、MP4 Finalize、RECOVERABLE 恢复、文件增长证据与磁盘预算。',
+        '新增 Session / Run Plan / Preflight，Required/Optional 输出与真实运行证据共同决定本场健康状态。',
+        '新增 Incident 影响链、ACK≠RECOVERED、自动恢复时间线与安全收播 Closing 编排。',
+        'Phase 08 实机闭环通过：backend 69/69、UI 多分辨率 Gate、升级/旧二进制回退、完整 PREP→ON AIR→INCIDENT→RECOVERY→CLOSING。'
+      ],
+      en: [
+        'Cut over the production workspace to a fixed 16:9 Input / Program / Output / Signal Route / Operations Dock control surface.',
+        'Added secure HTTP-FLV-first Program monitoring with HLS fallback, on-demand PGM + PVW and automatic rollback on failed source switching.',
+        'Unified PUSH / SERVE / RECORD under one Output model with shared capability validation for scene and professional modes.',
+        'Added canonical shared Renditions so multiple outputs and recordings reuse one media-processing pipeline.',
+        'Added the Record Worker with recoverable TS segments, MP4 finalization, file-growth evidence and storage budgeting.',
+        'Added Session / Run Plan / Preflight with Required/Optional intent tied to observed runtime truth.',
+        'Added incident impact chains, ACK vs RECOVERED semantics, recovery timelines and safe closing orchestration.',
+        'Passed Phase 08 field gates including 69/69 backend regression, multi-resolution UI checks, upgrade/rollback evidence and a full live-session cycle.'
+      ]
+    }
+  },
   {
     version: '0.5.1',
     date: '2026-09-17',

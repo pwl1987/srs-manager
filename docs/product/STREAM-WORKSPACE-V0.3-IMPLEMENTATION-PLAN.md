@@ -150,11 +150,11 @@ Gate：**PASS（功能/影响链）**。真实 `live` 主机隔离 Candidate 已
 - 对旧 `/forwarding`、旧 Monitor、旧单模板字段做使用审计，只有确认无依赖后才标记 deprecated；
 - 完整真实媒体、升级、回滚、重启恢复、权限、安全、CI、部署验收与发布说明。
 
-Gate：真实部署主机完成整场 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING 闭环；v0.5.1 数据升级无损，旧兼容入口无阻断性回归，才能宣布 V3 COMPLETE。
+Gate：**PASS**。真实 `live` 主机隔离 Candidate 已完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED；v0.5.1 数据升级无损、旧 backend 回退可读、UI 多分辨率 Gate 与容器发布 Gate 均通过。证据见 `contracts/workspace-v3/PHASE-08-FIELD-GATE.md`。
 
 ## 阶段依赖与推进纪律
 
-推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。UI-00、Phase 00–06 已 COMPLETE；Current Task 为 Phase 07 Incident / Health / Closing Workflow。后续阶段不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
+推荐顺序固定为：`UI-00 → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08`。**UI-00 与 Phase 00–08 已全部 COMPLETE**；当前进入 v0.6.0 正式生产升级与发布收口。后续 V3.x 不得绕过既有 Domain/Evidence/Capability Authority 形成第二套状态逻辑。
 
 每阶段结尾必须同时更新：
 - `REDESIGN-STATUS.md` 的 Current Phase / Last Completed / Current Task / Next Task；

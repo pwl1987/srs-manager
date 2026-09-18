@@ -1,0 +1,23 @@
+[Unit]
+Description=SRS Manager Record Worker
+After=network.target srs.service srs-manager.service
+Wants=srs.service srs-manager.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/srs-manager/backend
+EnvironmentFile=/home/ubuntu/srs-manager/.env
+Environment=SRS_RTMP_PULL_BASE=rtmp://127.0.0.1:1935/live
+Environment=FFMPEG_BIN=/usr/bin/ffmpeg
+Environment=FFPROBE_BIN=/usr/bin/ffprobe
+Environment=RECORD_STORAGE_ROOT=/home/ubuntu/srs-manager/data/recordings
+Environment=RECORD_WORKER_POLL_MS=2000
+Environment=RECORD_STOP_GRACE_MS=5000
+Environment=RECORD_STALL_MS=30000
+ExecStart=/usr/local/bin/node ./record-worker.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

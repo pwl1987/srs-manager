@@ -2,6 +2,35 @@
 
 本文件记录用户能够感知到的产品能力、运维机制、界面体验和重要工程变化。版本记录以“现在能做什么”为核心，不把纯代码重构包装成功能更新。
 
+## v0.6.0 — Workspace V3 直播运维控制台
+
+发布日期：2026-09-18
+
+### 核心目标
+
+把此前按技术模块分散的直播管理能力收敛成真正的一屏直播运维控制台：长期 Room、一次 Session、Program、共享 Rendition、PUSH / SERVE / RECORD Output、Incident 与 Closing 全部围绕真实值班流程组织。
+
+### 新增与改进
+
+- Workspace 切换为 16:9 播控工作面：顶部 Session Command Bar，左侧 Input Rack，中间 PGM/PVW，右侧 Output Rack，下方 Signal Route 与 Operations Dock；
+- Source / Program 模型支持独立 Ingest Credential、Managed Pull 主备与安全切源；切源目标不可用时自动 rollback 旧 Program；
+- Program Preview 默认 HTTP-FLV，HLS fallback；备用源按需 PVW，不再用预监画面冒充 Program；
+- PUSH / SERVE / RECORD 统一为 Output，场景模式与专业模式共用 Product / Runtime / Destination Capability 校验；
+- Canonical Rendition signature 允许多个 Output/Recording 复用同一处理规格，避免重复转码；
+- 新增 Record Worker：安全 TS 分段、MP4 finalize、异常 RECOVERABLE、文件增长证据、磁盘剩余可录时长与共享 Rendition 复用；
+- 新增 Session / Run Plan / Preflight，区分 Required / Optional，支持幂等开播和局部成功；
+- 新增 Incident 影响链、ACK ≠ RECOVERED、恢复时间线，以及按网络输出 → Record Finalize → Pull → Program 的安全 Closing 编排；
+- 旧 `/forwarding`、`/monitor` 与旧 Runtime 控制仍作为兼容深链/Advanced 保留，不再作为正常工作流。
+
+### Phase 08 发布证据
+
+- Backend 回归：69/69 PASS；前端 i18n / production build PASS；
+- 1920×1080 五态以及 1366×768、2560×1440、3840×2160 布局 Gate 通过；
+- GitHub Container Release Gate `35294729038` 在 `b0c74af` 成功，Web / Pull / Push / Transcode / Record Worker 均通过；
+- 真实 v0.5.1 SQLite 副本执行 additive migration 后，旧表/旧列/旧数据 SHA-256 100% 保持；旧版 backend 可直接读取升级后的数据库；
+- `live` 主机隔离候选完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED，Required PUSH 与 MP4 RECORD 均有真实媒体/文件证据；
+- SRS 直连 HLS 仍是独立安全边界；Managed PUSH 的本地 RUNNING/Observed 不冒充第三方 Remote Verified。
+
 ## v0.5.1 — Workspace V2 安全收口
 
 发布日期：2026-09-17

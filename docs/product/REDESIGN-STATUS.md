@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-**v0.5.1 Workspace V2：COMPLETE 并继续稳定维护。Workspace V3：UI-00、Phase 00–07 均 COMPLETE；Current Task 已进入 Phase 08 16:9 Cutover / Compatibility Cleanup / Release Gate，既有 Pull / Push / Transcode / Record Runtime ownership 继续兼容复用。**
+**Workspace V3：UI-00、Phase 00–08 全部 COMPLETE，Phase 08 Field Gate 已 PASS；当前为 v0.6.0 release candidate，Current Task 是正式生产 systemd 升级、post-deploy smoke 与 GitHub Release 收口。v0.5.1 继续作为已验证回退基线。**
 
 ## 已完成
 
@@ -148,11 +148,11 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase 07 — Incident / Health / Closing Workflow**。Incident 统一从现有 Health Reasons 派生，完成影响链、Required severity 提升、ACK≠RECOVERED、Recovered Timeline 与 Session Closing 编排；生产 Workspace 已接 Operations Dock 和收播控制。真实 `live` 主机隔离 Field Gate 验证 Program Source Lost、Single Required Output Failed、Rendition Failed、Disk Low、Worker Lost 五类故障，Closing Gate `2/2 PASS`。最终 backend `69/69 PASS`、frontend i18n/build PASS；`p7_gate_*` 流与 Hook 零残留，生产 DB integrity `ok`，五个正式服务全 active。
+Last Completed：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。生产 Workspace 代码已切到 V3 16:9 主工作面；1920×1080 五态、1366×768、2560×1440、3840×2160 UI Gate 通过；v0.5.1 数据 additive migration 与旧 backend 回退可读通过；真实 `live` 主机隔离 Candidate 完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED。Backend `69/69 PASS`、frontend build/i18n PASS、Container Release Gate `35294729038` SUCCESS。
 
-Current Task：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。按 UI-00 Authority 完成最终生产 Workspace 16:9 主工作面切换、密度/响应式/状态五态验收、Legacy 入口使用审计、升级回退与最终发布门禁。
+Current Task：**v0.6.0 Release Closure / Production Cutover**。补齐 systemd Record Worker 正式单元与可回退部署脚本，执行正式生产升级、post-deploy health/DB/service/UI smoke，再创建 v0.6.0 tag 与 GitHub Release。
 
-Next Task：**Phase 08 closure / release decision**。只有 1920×1080 3 秒扫描、10 秒故障识别、1366/1440P/4K 降级、真实全场回归和升级回退均通过后，才决定 V3 release 与 Legacy deprecation。
+Next Task：**Stable Maintenance / V3.x Backlog**。v0.6.0 正式发布后进入稳定维护；Design Freeze 后的新功能默认进入 V3.x backlog，不回插 Phase 00–08。
 
 ## 验证债务 / 已知边界
 

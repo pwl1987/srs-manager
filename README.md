@@ -4,7 +4,7 @@
 
 **面向 SRS 的推流、拉流、监看、分发与直播值守控制台**
 
-`v0.5.1` · `React 19` · `Node.js 24` · `SQLite WAL` · `FFmpeg Media Workers`
+`v0.6.0` · `React 19` · `Node.js 24` · `SQLite WAL` · `FFmpeg Media Workers`
 
 > 当前目标：**一条直播业务在一个工作台完成采集、处理、转码、分发、访问控制与实时监看。**
 
@@ -12,18 +12,18 @@
 
 ---
 
-## 当前版本：v0.5.1 · 直播工作台 V2 安全收口
+## 当前版本：v0.6.0 · Workspace V3 直播运维控制台
 
-v0.5.1 是 v0.5.0 Workspace V2 的安全收口版：管理员预览 Token 默认缩短为 10 分钟，并加强 Preview Proxy 的跨流隔离与真实 HLS 回归；业务工作台模型保持不变。
+v0.6.0 完成从“技术模块管理后台”到“直播运维控制台”的 V3 收敛。直播间不再围绕 Pull / Forward / Transcode 页面组织，而是围绕 **Room → Session → Sources → Program → Renditions → Outputs** 的真实值守流程组织。
 
-v0.5.0 已将 SRS Manager 从“四向链路控制”收敛为一条直播业务的完整工作站：
-
-- **采集**：外部编码器主动推入（IN-PUSH），或 Pull Worker 主动拉取第三方源（IN-PULL）；
-- **SRS 原始流**：真实 Publisher、码率、观众、在线时长、视频/音频格式在同一上下文观察；
-- **处理 / 转码**：一条源流可挂多个模板，由独立 Transcode Worker 在同一个 FFmpeg Pipeline 中生成 1080P、720P、纯音频等派生流；
-- **输出**：Push Worker 主动外推（OUT-PUSH），或第三方通过 SRS Origin / CDN 拉取（OUT-PULL）；
-- **访问控制**：RTMP / HTTP-FLV 等会触发 `on_play` 的 Origin 路径支持 Access Grant；SRS 8080 直连 HLS 是独立安全边界，必须由反向代理/CDN 另做鉴权；
-- **实时监看**：管理员 HLS 预览通过 Manager 同源短时保护代理，附带本地 L/R RMS dBFS 电平，不把内部 Worker 读流误算成观众。
+- **16:9 播控工作面**：Input Rack / Program PGM-PVW / Output Rack / Signal Route / Operations Dock 固定空间映射；
+- **可信监看**：Program 默认 HTTP-FLV 低延迟安全预览，HLS fallback；Source PVW 按需建立，绝不冒充当前 Program；
+- **统一 Output**：PUSH / SERVE / RECORD 共用场景模式、专业模式、Capability Explain、Operation 与 Evidence；
+- **共享 Rendition**：相同处理规格只编码一次，可同时服务多个外推与录制 Consumer；
+- **安全录制**：Record Worker 使用可恢复 TS 分段，正常停止后 MP4 finalize，异常中断保留 RECOVERABLE 产物；
+- **Session / Run Plan / Preflight**：Required / Optional、幂等开播、局部成功和本场意图与真实 Runtime 分离；
+- **Incident / Closing**：影响链、ACK ≠ RECOVERED、自动恢复时间线与安全收播编排；
+- **兼容迁移**：v0.5.1 SQLite additive migration 保留旧表/旧列/旧数据，旧 backend 已验证可读取升级后数据库。
 
 完整版本记录见 [CHANGELOG.md](./CHANGELOG.md)，产品内也可直接打开「版本更新」页面查看。
 
@@ -62,7 +62,7 @@ SRS /live/<stream>
 | 能力域 | 当前能力 |
 |---|---|
 | 运营中心 | 系统状态、正在直播、码率/观众、事件时间线、MVP 推流/拉流快捷入口 |
-| 直播工作台 | 采集 → SRS → 多路转码 → 输出分发的完整业务路径、二维码、安全预览、实时指标与精确控制 |
+| 直播工作台 | 16:9 Input / Program / Output / Signal Route / Operations Dock；PREP / ON AIR / INCIDENT / CLOSING 固定空间值守 |
 | 单流运行台 | Publisher/Viewer、码率/时长/观众、Managed Pull/Push、多转码、OUT-PULL、CDN、分发、活动记录 |
 | Managed Pull | 独立 Pull Worker、FFmpeg 拉流、重试退避、Worker Lease、主备源、人工安全切源 |
 | Managed Push | 独立 Push Worker、RTMP/RTMPS/SRT 外推、WAITING_INPUT、重试退避、Worker Lease、真启动/真停止 |
@@ -71,8 +71,9 @@ SRS /live/<stream>
 | DNS | 阿里云 DNS 与域名记录管理 |
 | 来源与外推 | 外部输入源、Managed OUT-PUSH、旧 SRS Dynamic Forward 兼容 |
 | 鉴权 | 推流/拉流密钥、时间戳防盗链、密钥轮换 |
-| 转码 | 全局模板 + 工作台多挂载；独立 Transcode Worker；1080P/720P/纯音频；GOP/keyint；真实派生流观测 |
-| 监看 | 工作台同源安全 HLS 预览、L/R RMS dBFS 电平、码率/观众/运行时长、真实媒体格式 |
+| 媒体规格 / Rendition | Canonical shared Rendition；H.264/H.265/音频规格；多个 Output/Recording 复用同一处理管线 |
+| 监看 | HTTP-FLV-first 安全 Program Preview + HLS fallback、按需 PGM/PVW、L/R RMS dBFS、Evidence freshness |
+| Session / Incident / Record | Run Plan / Preflight、Incident 影响链、Closing、Record Worker 安全分段与 MP4 Finalize |
 | 版本更新 | 产品内版本时间线、当前版本亮点、仓库中文 CHANGELOG |
 
 ## 架构概览
@@ -106,7 +107,8 @@ flowchart LR
 - **Pull Worker**：独立容器，持有唯一 Worker Lease，负责 Managed Pull 生命周期；
 - **Push Worker**：独立容器，持有独立 Lease，负责 Managed OUT-PUSH 生命周期；
 - **Transcode Worker**：独立执行器，一条源流一个 FFmpeg Pipeline，负责多派生转码与恢复；
-- **Preview Proxy**：Web 内的同源受保护 HLS 代理，只为已登录值班员签发短时单流预览访问；
+- **Record Worker**：独立执行器，负责安全 TS 分段、MP4 Finalize、异常可恢复资产与磁盘预算；
+- **Preview Proxy**：Web 内的同源受保护 HTTP-FLV/HLS 代理，只为已登录值班员签发短时单流预览访问；
 - **媒体执行**：FFmpeg；拉流/外推默认不偷偷转码，只有明确挂载转码模板时才重新编码；
 - **状态事实源**：SRS streams / clients / hooks 与 Worker Runtime 共同组成真实运行证据。
 
@@ -133,7 +135,7 @@ ADMIN_PASSWORD='请设置一个强密码' ./scripts/deploy.sh
 - 创建权限为 `0600` 的 `.env`；
 - 生成 `JWT_SECRET`；
 - 使用项目镜像内的 `bcryptjs` 生成管理员密码哈希，无需宿主机安装 Node/npm；
-- 构建并启动 Web、Pull Worker、Push Worker、Transcode Worker；
+- 构建并启动 Web、Pull Worker、Push Worker、Transcode Worker、Record Worker；
 - 等待 `/api/health` 健康检查通过；
 - 启动失败时打印最近 Compose 日志。
 
@@ -158,6 +160,14 @@ ADMIN_PASSWORD='请设置一个强密码' ./scripts/deploy.sh
 ```bash
 docker compose up -d --build
 ```
+
+现有 `live` 生产节点如果采用 systemd 直跑 Node，可先把 release 候选同步到独立 staging 目录，再执行可回退升级脚本：
+
+```bash
+sudo ./scripts/deploy-systemd-release.sh /tmp/srs-manager-release /home/ubuntu/srs-manager
+```
+
+该脚本会在停服务前备份当前代码与 SQLite，一直保留 `.env`、`data/` 和既有 backend dependencies；安装 Record Worker unit、迁移数据库并完成健康检查。如果升级失败，会自动恢复旧代码和升级前的 systemd 单元状态。
 
 默认访问地址：
 
@@ -226,7 +236,7 @@ srs-manager/
 ├── docs/product/             # 中文产品、工作流和架构设计
 ├── scripts/                  # 部署与验证脚本
 ├── Dockerfile                # Web / 媒体 Worker 多阶段镜像
-├── docker-compose.yml        # Web + Pull / Push / Transcode Worker 编排
+├── docker-compose.yml        # Web + Pull / Push / Transcode / Record Worker 编排
 ├── srs-hooks-config.conf     # SRS Hooks 配置片段
 └── CHANGELOG.md              # 中文版本更新记录
 ```
@@ -236,10 +246,10 @@ srs-manager/
 - Access Token + Refresh Token + bcrypt 登录认证；
 - 登录失败锁定与请求限流；
 - 外部 Source URL 在普通 API 与 Worker 日志中默认脱敏；
-- Pull Worker、Push Worker 与 Transcode Worker 分别使用 Lease 保证单执行者；
+- Pull Worker、Push Worker、Transcode Worker 与 Record Worker 分别使用 Lease 保证单执行者；
 - Access Grant 数据库只保存 token 哈希，完整 token 仅签发时返回一次；
 - OUT-PULL Hook 授权只覆盖真实触发 `on_play` 的 Origin 路径；SRS 8080 直连 HLS 与第三方 CDN 必须单独鉴权；
-- 管理员 HLS 监看通过 Manager 短时单流 Preview Token + 同源代理，不暴露内部媒体凭据；
+- 管理员 Program 监看通过 Manager 短时单流 Preview Token + 同源 HTTP-FLV/HLS 代理，不暴露内部媒体凭据；
 - 危险操作必须区分配置状态、期望状态、运行状态和真实观测状态；
 - 人工安全切源不会直接改一个字段后宣称成功，而是经过完整 Operation 状态机验证。
 
@@ -265,4 +275,4 @@ npm run dev
 
 ---
 
-> 当前状态：**v0.5.1 Workspace V2 安全收口版**。默认进入稳定维护 / 现场验收 / bugfix 模式，不再把这个小项目继续扩成大型直播平台。
+> 当前状态：**v0.6.0 Workspace V3 release candidate**。Phase 00–08 已完成，进入正式生产升级与发布收口；后续默认稳定维护 / bugfix，新增想法进入 V3.x backlog。

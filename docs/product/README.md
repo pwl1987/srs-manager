@@ -4,7 +4,7 @@
 
 ## 当前版本基线
 
-当前稳定发布基线仍为 **v0.5.1 直播工作台 V2**；Workspace V3 已完成 UI-00 与 Phase 00–06，当前进入 Phase 07 Incident / Health / Closing Workflow；既有 Runtime ownership 采用增量兼容迁移，不做 Big Bang 重写。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
+当前发布候选基线为 **v0.6.0 Workspace V3 直播运维控制台**；UI-00 与 Phase 00–08 已全部完成并通过真实主机 Field Gate，当前进入正式生产升级与 release closure；既有 Runtime ownership 继续采用增量兼容迁移，不做 Big Bang 重写。四向链路已经进入同一个单流业务工作站，并补齐真实多转码与安全预览：
 
 - **第三方推流到我方（IN-PUSH）**：生成推流地址、观察真实 Publisher、查看状态并进行精确控制；
 - **我方主动拉第三方（IN-PULL）**：外部来源、Pull Worker、FFmpeg、重试、主备切换和安全人工切源；
@@ -25,6 +25,7 @@
 - [Phase 03 Field Gate](./contracts/workspace-v3/PHASE-03-FIELD-GATE.md) — 真实 live 主机隔离 Candidate 的 PGM/PVW、成功切源、失败 rollback、Ingest Hook 与清理证据；
 - [Phase 07 Incident / Closing](./contracts/workspace-v3/PHASE-07-INCIDENT-CLOSING.md) — Incident 影响链、ACK/Recovered 与收播编排 Authority；
 - [Phase 07 Field Gate](./contracts/workspace-v3/PHASE-07-FIELD-GATE.md) — 五类真实故障注入、Closing、清理与生产复核证据；
+- [Phase 08 Field Gate](./contracts/workspace-v3/PHASE-08-FIELD-GATE.md) — 16:9 Cutover、多分辨率 UI、升级/回退、完整 Session 闭环与 release evidence；
 - [Phase 05 RECORD Runtime](./contracts/workspace-v3/PHASE-05-RECORD-RUNTIME.md) — Record Task/Asset、TS 安全分段、Finalize、RECOVERABLE、磁盘预算与 Shared Rendition 边界；
 - [Phase 05 Field Gate](./contracts/workspace-v3/PHASE-05-FIELD-GATE.md) — 真实 MP4/TS、Manager/Worker 重启、异常恢复与磁盘不足现场证据；
 - [Phase 06 Session / Run Plan](./contracts/workspace-v3/PHASE-06-SESSION-RUNPLAN.md) — Session 生命周期、Run Plan Snapshot、Preflight 与 Start 编排边界；
@@ -56,7 +57,8 @@
 13. Phase 04 Unified Output / Rendition / Scene Builder：完成并通过真实媒体 Gate；
 14. Phase 05 RECORD / Storage Runtime：完成并通过真实文件 Field Gate；
 15. Phase 06 Session / Run Plan / Preflight：完成并通过真实 Session 编排 Field Gate；
-16. v0.5.1 稳定发布继续维护；Workspace V3 Current Task 为 Phase 07 Incident / Health / Closing Workflow。
+16. Phase 07 Incident / Health / Closing Workflow：完成并通过故障注入 Field Gate；
+17. Phase 08 16:9 Cutover / Compatibility Cleanup / Release Gate：完成；当前进入 v0.6.0 正式生产升级与发布收口。
 
 ## 长期约束
 
