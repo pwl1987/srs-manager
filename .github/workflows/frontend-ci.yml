@@ -2,12 +2,13 @@ name: 前端快速检查
 
 on:
   push:
-    branches: [master]
+    branches: [main]
+    tags: ['gate/**']
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
   pull_request:
-    branches: [master]
+    branches: [main]
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-ci.yml'
@@ -22,6 +23,7 @@ permissions:
 
 jobs:
   build:
+    name: Frontend Build
     runs-on: ubuntu-latest
     timeout-minutes: 8
     defaults:

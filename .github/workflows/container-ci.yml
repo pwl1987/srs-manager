@@ -4,8 +4,8 @@ name: 容器发布检查
 # 仅 Docker/Compose/依赖清单变化、版本标签发布，或人工触发时运行。
 on:
   push:
-    branches: [master]
-    tags: ['v*']
+    branches: [main]
+    tags: ['v*', 'gate/**']
     paths:
       - 'Dockerfile'
       - 'docker-compose.yml'
@@ -14,7 +14,7 @@ on:
       - 'frontend/package.json'
       - 'frontend/package-lock.json'
   pull_request:
-    branches: [master]
+    branches: [main]
     paths:
       - 'Dockerfile'
       - 'docker-compose.yml'
@@ -33,6 +33,7 @@ permissions:
 
 jobs:
   build:
+    name: Container Build
     runs-on: ubuntu-latest
     timeout-minutes: 12
 

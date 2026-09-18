@@ -1,0 +1,34 @@
+name: 静态代码扫描
+
+on:
+  push:
+    branches: [main]
+    tags: ['gate/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: static-analysis-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: 执行 CodeQL 分析
+        uses: github/codeql-action/analyze@v3
