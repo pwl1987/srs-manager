@@ -40,6 +40,14 @@ function outputHealthy(output) {
   if (output.mode === 'RECORD') return ['RECORDING', 'COMPLETE'].includes(output.runtime_state);
   return output.runtime_state === 'RUNNING';
 }
+
+function preflightMeta(status) {
+  if (['PASS', 'READY'].includes(status)) return ['通过', 'text-[var(--success)]'];
+  if (['WARNING', 'READY_WITH_WARNING'].includes(status)) return ['有警告', 'text-[var(--warning)]'];
+  if (status === 'BLOCKED') return ['被阻断', 'text-[var(--destructive)]'];
+  return ['未运行', 'text-[var(--muted-foreground)]'];
+}
+
 export default function SessionCommandBar({ roomId, workspace, onChanged, compact = false, readOnly = false, initialShowQuickPlan = false, initialConfirmClose = false }) {
   const [plans, setPlans] = useState([]);
   const [planId, setPlanId] = useState('');
@@ -47,13 +55,21 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   const [busy, setBusy] = useState(false);
   const [showQuickPlan, setShowQuickPlan] = useState(initialShowQuickPlan);
   const [quickName, setQuickName] = useState('标准开播方案');
+  const [quickSourceId, setQuickSourceId] = useState('');
   const [selectedOutputs, setSelectedOutputs] = useState({});
   const [optionalOutputs, setOptionalOutputs] = useState({});
   const [confirmClose, setConfirmClose] = useState(initialConfirmClose);
   const session = workspace?.session || null;
   const outputs = workspace?.outputs || [];
-  const sourceId = workspace?.program?.source_id || null;
-  const sourceName = workspace?.sources?.find(source => source.id === sourceId)?.name || sourceId || '未确认';
+  const sources = workspace?.sources || [];
+  const availableSources = sources.filter(source => source.configured !== false);
+  const observedSourceId = workspace?.program?.source_id || null;
+  const plannedSourceId = session?.planned_program_source_id || observedSourceId;
+  const sourceName = sources.find(source => source.id === plannedSourceId)?.name || plannedSourceId || '未选择';
+
+  useEffect(() => {
+    if (!quickSourceId && availableSources.some(source => source.id === observedSourceId)) setQuickSourceId(observedSourceId);
+  }, [availableSources, observedSourceId, quickSourceId]);
 
   async function loadPlans() {
     try {
@@ -74,6 +90,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
       healthy: required.filter(item => outputHealthy(outputs.find(output => output.id === item.output_ref))).length
     };
   }, [session, outputs]);
+  const [preflightLabel, preflightTone] = preflightMeta(session?.preflight_status);
   async function createSession() {
     if (!planId) return toast.error('请选择开播方案');
     setBusy(true);
@@ -91,12 +108,13 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   async function createQuickPlan() {
     const chosen = outputs.filter(output => selectedOutputs[output.id]);
     if (!quickName.trim()) return toast.error('请填写方案名称');
-    if (!chosen.length) return toast.error('至少选择一个 Output');
+    if (!quickSourceId || !availableSources.some(source => source.id === quickSourceId)) return toast.error('请选择已配置的节目源');
+    if (!chosen.length) return toast.error('至少选择一路输出');
     setBusy(true);
     try {
       const result = await api.post(`/v3/rooms/${roomId}/run-plans`, {
         name: quickName.trim(),
-        program_source_id: sourceId,
+        program_source_id: quickSourceId,
         outputs: chosen.map((output, index) => ({
           output_ref: output.id,
           importance: optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED',
@@ -118,7 +136,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
     try {
       const result = await api.post(`/v3/sessions/${session.legacy_session_id}/preflight`, { mark_ready: true });
       if (result.status === 'BLOCKED') toast.error('Preflight 存在阻断项');
-      else if (result.status === 'WARNING') toast.warning('Preflight 通过，但存在警告');
+      else if (result.status === 'READY_WITH_WARNING' || result.status === 'WARNING') toast.warning('Preflight 通过，但存在警告');
       else toast.success('Preflight 通过，Session 已 READY');
       await onChanged();
     } catch (error) { toast.error(error.message || 'Preflight 失败'); }
@@ -179,7 +197,9 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
     </div>
     {!plans.length && !showQuickPlan && <div className="mt-3 rounded-xl border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2.5 text-xs"><div className="font-semibold text-[var(--foreground)]">还没有开播方案</div><div className="mt-1 leading-5 text-[var(--muted-foreground)]">开播方案会记录本场使用的节目源、输出渠道，以及哪些输出是必须成功的。先创建方案，才能创建本场直播。</div></div>}
     {showQuickPlan && <div className="mt-3 border-t border-[var(--border-soft)] pt-3">
-      <div className="mb-3 grid gap-3 md:grid-cols-[minmax(180px,0.7fr)_minmax(0,1.3fr)]"><div><label className={labelClass}>方案名称</label><input className={inputClass} value={quickName} onChange={event => setQuickName(event.target.value)} /></div><div className="text-[10px] leading-5 text-[var(--muted-foreground)]">方案会记录当前节目源和所选输出。保存后，可以用它创建本场直播；本场创建后仍可独立调整。</div></div>
+      <div className="mb-3 grid gap-3 md:grid-cols-[minmax(160px,0.7fr)_minmax(180px,0.85fr)_minmax(0,1.25fr)]"><div><label className={labelClass}>方案名称</label><input className={inputClass} value={quickName} onChange={event => setQuickName(event.target.value)} /></div><div><label className={labelClass}>节目源</label><select className={inputClass} value={quickSourceId} onChange={event => setQuickSourceId(event.target.value)}><option value="">选择节目源</option>{availableSources.map(source => <option key={source.id} value={source.id}>{source.name} · {source.kind === 'IN_PULL' ? '本系统主动拉取' : '第三方推送给本系统'}</option>)}</select></div><div className="text-[10px] leading-5 text-[var(--muted-foreground)]">方案会记录指定节目源和所选输出。保存后，可以用它创建本场直播；本场创建后仍可独立调整。</div></div>
+      {!availableSources.length && <div className="mb-2 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2 text-[10px] text-[var(--muted-foreground)]">还没有可用节目源，请先在“输入来源”里配置第三方推送或本系统主动拉取的来源。</div>}
+      {!outputs.length && <div className="mb-2 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2 text-[10px] text-[var(--muted-foreground)]">还没有可用输出，请先在右侧“输出”区域创建推送、对外提供或本地录制。</div>}
       <div className="space-y-2">{outputs.map(output => <label key={output.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2 text-xs"><input type="checkbox" checked={Boolean(selectedOutputs[output.id])} onChange={event => setSelectedOutputs(current => ({ ...current, [output.id]: event.target.checked }))}/><span className="min-w-0 flex-1 truncate">{output.name}</span><span className="text-[10px] text-[var(--text-faint)]">{output.mode === 'PUSH' ? '主动推送给第三方' : output.mode === 'SERVE' ? '提供地址给第三方拉取' : '本地录制'}</span><select className="rounded-md border border-[var(--border-soft)] bg-[var(--background)] px-2 py-1 text-[10px]" disabled={!selectedOutputs[output.id]} value={optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED'} onChange={event => setOptionalOutputs(current => ({ ...current, [output.id]: event.target.value === 'OPTIONAL' }))}><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>)}</div>
       <div className="mt-3 flex justify-end"><button className={btnPrimary} disabled={busy} onClick={createQuickPlan}>保存方案</button></div>
     </div>}
@@ -191,7 +211,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
       <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">本场直播</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold">{session.title}</span><span className={`rounded-md bg-[var(--secondary)] px-2 py-1 text-[10px] font-semibold ${stateTone(session.lifecycle_state)}`}>{SESSION_STATE_LABELS[session.lifecycle_state] || session.lifecycle_state}</span></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">开播方案：{plan?.name || session.plan_snapshot?.name || '—'} · 节目源：{sourceName} · 下一步：{nextStep(session)}</div></div>
       <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">必需输出</div><div className="mt-1 text-sm font-semibold tabular-nums">{requiredSummary.healthy}/{requiredSummary.total}</div></div>
-      <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">预检</div><div className="mt-1 text-sm font-semibold">{session.preflight_status === 'PASS' ? '通过' : session.preflight_status === 'WARNING' ? '有警告' : session.preflight_status === 'BLOCKED' ? '被阻断' : '未运行'}</div></div>
+      <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">预检</div><div className={`mt-1 text-sm font-semibold ${preflightTone}`}>{preflightLabel}</div></div>
       {sessionSeconds != null && <div className="flex items-center gap-1.5 text-xs tabular-nums text-[var(--muted-foreground)]"><Clock3 size={13}/>{Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:{Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:{(sessionSeconds%60).toString().padStart(2,'0')}</div>}
       {['PREP','READY'].includes(session.lifecycle_state) && <button className={btnSecondary} disabled={busy} onClick={runPreflight}><RefreshCw size={13}/>运行预检</button>}
       {session.lifecycle_state === 'READY' && <button className={btnPrimary} disabled={busy} onClick={startSession}><Play size={13}/>开始播出</button>}
