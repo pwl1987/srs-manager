@@ -125,6 +125,27 @@ Field Gate 结束后：
 - 既有 `echarts < 6.1.0` moderate advisory 需独立 major-upgrade 任务处理；
 - GitHub Actions 对 `actions/checkout@v4` Node 20 deprecation 和 ubuntu-latest 未来迁移的提示为基础设施告警，不影响本次 Gate。
 
+## 7. 正式生产 systemd Cutover
+
+2026-09-18 在生产节点执行第一轮 v0.6.0 RC systemd 正式升级：
+
+- 升级前 SRS 在线流为 0，Pull / Push / Transcode / Record Desired RUNNING 均为 0；
+- 升级脚本先以 SQLite backup API 生成一致性备份，备份目录：`/home/ubuntu/srs-manager-backups/20260918T015222Z`；
+- Manager、Pull Worker、Push Worker、Transcode Worker 升级成功；新增 Record Worker unit 安装、enable 并进入 active；
+- 生产 DB migration 后 `integrity_check=ok`，Record Worker heartbeat < 1s；
+- 首次现场执行发现 systemd 直跑 `backend/server.js` 时 SPA 必须位于 `backend/public`，而候选脚本仅同步了 `frontend/dist`，导致 API healthy 但 `/` 返回 404；
+- 现场立即将已验证 `frontend/dist` 安装到 `backend/public` 并重启 Manager，Web 恢复 HTTP 200；媒体 Runtime 与生产 DB 未受损；
+- 根因已永久修复到 release deploy script：systemd cutover 显式执行 `frontend/dist → backend/public`，并保持 rollback 会恢复升级前静态文件；
+- 进一步增加 active-media preflight：默认发现任何 SRS 在线流或 Managed Desired RUNNING 时拒绝重启控制面。
+
+Active-media preflight 已在真实业务流 `22` 在线时验证：
+
+- 默认 `CHECK_ONLY=1`：检测 `SRS online streams=22`，返回 `42`，拒绝部署；
+- `CHECK_ONLY=1 ALLOW_ACTIVE_MEDIA=1`：环境预检 PASS，但不执行任何 restart；
+- 因 `22` 为真实 `10.128.0.251 → /live/22` Publisher，最终固定脚本的第二次正式切换延后到安全窗口，不为 release 收口中断业务流。
+
+固定脚本二次生产执行：**PENDING SAFE WINDOW**。在其自然获得 Manager health、SPA HTTP 200、六服务 active、Record heartbeat fresh 与 DB integrity `ok` 前，不创建 `v0.6.0` tag。
+
 ## 结论
 
 UI-00 与 Phase 00–08 全部满足冻结 Authority 和阶段 Gate。Workspace V3 可标记为 **COMPLETE**，并具备发布 **v0.6.0** 的证据基础。
