@@ -7,12 +7,6 @@ import ErrorBanner from '../components/ui/ErrorBanner';
 import { CardSkeleton } from '../components/ui/Skeleton';
 import { btnSecondary } from '../components/ui/styles';
 
-function planStatusLabel(status) {
-  if (status === 'ACTIVE') return '可用';
-  if (status === 'DISABLED') return '已停用';
-  return status || '未知';
-}
-
 export default function RunPlans() {
   const [rooms,setRooms] = useState([]);
   const [plans,setPlans] = useState([]);
@@ -43,7 +37,7 @@ export default function RunPlans() {
       const required=plan.outputs.filter(x => x.importance === 'REQUIRED');
       const optional=plan.outputs.filter(x => x.importance === 'OPTIONAL');
       return <article key={plan.room.room.id + ':' + plan.id} className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
-        <div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2"><ClipboardList size={15} className="text-[var(--primary)]"/><h2 className="text-sm font-semibold">{plan.name}</h2></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">{plan.room.room.name}</div></div><span className="rounded-md bg-[var(--success-soft)] px-2 py-1 text-[9px] font-semibold text-[var(--success)]">{planStatusLabel(plan.status)}</span></div>
+        <div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2"><ClipboardList size={15} className="text-[var(--primary)]"/><h2 className="text-sm font-semibold">{plan.name}</h2></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">{plan.room.room.name}</div></div><span className="rounded-md bg-[var(--success-soft)] px-2 py-1 text-[9px] font-semibold text-[var(--success)]">{plan.status}</span></div>
         <div className="mt-4 grid grid-cols-2 gap-2"><div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/25 p-3"><div className="text-[9px] font-semibold tracking-[.12em] text-[var(--text-faint)]">必需输出</div><div className="mt-2 text-xs font-medium">{required.length} 路</div></div><div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/25 p-3"><div className="text-[9px] font-semibold tracking-[.12em] text-[var(--text-faint)]">可选输出</div><div className="mt-2 text-xs font-medium">{optional.length} 路</div></div></div>
         <div className="mt-3 rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/20 p-3 text-[10px] text-[var(--muted-foreground)]"><div className="flex items-center gap-2"><Radio size={12}/>节目源 · {plan.program_source_id || '本场创建时再选择'}</div><div className="mt-1 flex items-center gap-2"><ShieldCheck size={12}/>故障切换 · {plan.failover_source_ids?.length || 0} 个候选源</div></div>
         <div className="mt-3"><Link to={'/streams/' + plan.room.room.legacy_stream_id} className={btnSecondary}>进入直播间工作台</Link></div>

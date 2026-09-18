@@ -67,10 +67,6 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   const plannedSourceId = session?.planned_program_source_id || observedSourceId;
   const sourceName = sources.find(source => source.id === plannedSourceId)?.name || plannedSourceId || '未选择';
 
-  useEffect(() => {
-    if (!quickSourceId && availableSources.some(source => source.id === observedSourceId)) setQuickSourceId(observedSourceId);
-  }, [availableSources, observedSourceId, quickSourceId]);
-
   async function loadPlans() {
     try {
       const data = await api.get(`/v3/rooms/${roomId}/run-plans`);
@@ -108,8 +104,6 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   async function createQuickPlan() {
     const chosen = outputs.filter(output => selectedOutputs[output.id]);
     if (!quickName.trim()) return toast.error('请填写方案名称');
-    if (!quickSourceId || !availableSources.some(source => source.id === quickSourceId)) return toast.error('请选择已配置的节目源');
-    if (!chosen.length) return toast.error('至少选择一路输出');
     setBusy(true);
     try {
       const result = await api.post(`/v3/rooms/${roomId}/run-plans`, {
@@ -201,7 +195,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
       {!availableSources.length && <div className="mb-2 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2 text-[10px] text-[var(--muted-foreground)]">还没有可用节目源，请先在“输入来源”里配置第三方推送或本系统主动拉取的来源。</div>}
       {!outputs.length && <div className="mb-2 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2 text-[10px] text-[var(--muted-foreground)]">还没有可用输出，请先在右侧“输出”区域创建推送、对外提供或本地录制。</div>}
       <div className="space-y-2">{outputs.map(output => <label key={output.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2 text-xs"><input type="checkbox" checked={Boolean(selectedOutputs[output.id])} onChange={event => setSelectedOutputs(current => ({ ...current, [output.id]: event.target.checked }))}/><span className="min-w-0 flex-1 truncate">{output.name}</span><span className="text-[10px] text-[var(--text-faint)]">{output.mode === 'PUSH' ? '主动推送给第三方' : output.mode === 'SERVE' ? '提供地址给第三方拉取' : '本地录制'}</span><select className="rounded-md border border-[var(--border-soft)] bg-[var(--background)] px-2 py-1 text-[10px]" disabled={!selectedOutputs[output.id]} value={optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED'} onChange={event => setOptionalOutputs(current => ({ ...current, [output.id]: event.target.value === 'OPTIONAL' }))}><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>)}</div>
-      <div className="mt-3 flex justify-end"><button className={btnPrimary} disabled={busy} onClick={createQuickPlan}>保存方案</button></div>
+      <div className="mt-3 flex justify-end"><button className={btnPrimary} disabled={busy || !quickSourceId || !availableSources.some(source => source.id === quickSourceId) || !outputs.some(output => selectedOutputs[output.id])} onClick={createQuickPlan}>保存方案</button></div>
     </div>}
   </section>;
 

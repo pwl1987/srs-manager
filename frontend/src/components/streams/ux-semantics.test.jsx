@@ -106,9 +106,11 @@ function renderWorkspace(overrides = {}) {
       const html = renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ session: { title: '测试场', lifecycle_state: state, preflight_status: 'WARNING', outputs: [] }, outputs: [], program: {} }} onChanged={async () => {}} compact readOnly />);
       expect(html).toContain(state === 'PREP' ? '准备中' : state === 'READY' ? '待开播' : '收播中');
     }
-    const quickPlan = renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ outputs: [{ id: 'push-1', name: '视频号', mode: 'PUSH' }], program: { source_id: 'program' } }} onChanged={async () => {}} compact readOnly initialShowQuickPlan />);
+    const quickPlan = renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ outputs: [{ id: 'push-1', name: '视频号', mode: 'PUSH' }], sources: [{ id: 'program', name: '主编码器', kind: 'IN_PUSH', configured: true }, { id: 'unattributed', name: '未归属推流', kind: 'IN_PUSH', configured: false }], program: { source_id: 'program' } }} onChanged={async () => {}} compact readOnly initialShowQuickPlan />);
     expect(quickPlan).toContain('方案会记录指定节目源和所选输出');
     expect(quickPlan).toContain('选择节目源');
+    expect(quickPlan).toContain('主编码器');
+    expect(quickPlan).not.toContain('未归属推流');
     const empty = renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ outputs: [], program: {} }} onChanged={async () => {}} compact readOnly />);
     expect(empty).toContain('创建本场直播');
     expect(empty).toContain('还没有开播方案');
