@@ -2,6 +2,14 @@
 
 本文件记录用户能够感知到的产品能力、运维机制、界面体验和重要工程变化。版本记录以“现在能做什么”为核心，不把纯代码重构包装成功能更新。
 
+## 未发布 — v0.6.x 稳定维护
+
+- 仓库开发 Authority 收敛为唯一 `main`，禁止 force push / 分支删除，管理员同样受 required checks 约束；
+- CI 强制执行 Backend Tests、Frontend Build、Static Analysis、Container Build、Delta Coverage、Contract Tests 六项门禁；Diff 可执行行覆盖率必须 ≥85%，整体覆盖率相对主线下降不得超过 0.5 个百分点；
+- API 实现变更必须同步真实集成测试，禁止仅以纯 Mock 单测替代；
+- 前端测试基础升级到 Vitest 4.1.11，并将 high/critical `npm audit` 纳入静态扫描；
+- ECharts 5.6.0 → 6.1.0，新增 Monitor 使用 API 兼容测试，production build 通过，npm audit 清零。
+
 ## v0.6.0 — Workspace V3 直播运维控制台
 
 发布日期：2026-09-18

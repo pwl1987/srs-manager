@@ -150,13 +150,11 @@ Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-
 
 Last Completed：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。生产 Workspace 代码已切到 V3 16:9 主工作面；1920×1080 五态、1366×768、2560×1440、3840×2160 UI Gate 通过；v0.5.1 数据 additive migration 与旧 backend 回退可读通过；真实 `live` 主机隔离 Candidate 完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED。Backend `69/69 PASS`、frontend build/i18n PASS、Container Release Gate `35294729038` SUCCESS。
 
-Current Task：**V3.x Backlog Triage / Security Debt**。v0.6.0 发布后复核已再次 PASS：生产六服务连续运行且 NRestarts=0，Manager/SPA 200，SRS 当前无残留流，DB integrity `ok`，Record Worker heartbeat fresh，cutover 后相关服务无 warning/alert。Git Authority 已收敛到唯一 `main`，并启用 Backend Tests / Frontend Build / Static Analysis / Container Build / Delta Coverage / Contract Tests 六项强制门禁。
+Current Task：**SRS 8080 HLS Exposure Hardening**。v0.6.0 发布后复核与工程治理收口均 PASS；ECharts 已从 5.6.0 升级到 6.1.0，兼容性测试、production build 与 `npm audit` 全部通过，既有 XSS advisory 已清零。下一步收敛 SRS 8080 直连 HLS 的暴露边界。
 
-Next Task：**ECharts 6.1 Compatibility Hardening**。先处理现存 `echarts < 6.1.0` moderate XSS advisory，并保持 UI/Workspace 行为兼容；随后处理 SRS 8080 HLS 暴露边界与 OUT-PUSH remote verification。
+Next Task：**OUT-PUSH Remote Verification**。完成 HLS 暴露边界后，为第三方平台成功播放补充供应商 API 或独立观测证据，不把本地 FFmpeg RUNNING 冒充远端成功。
 
 ## 验证债务 / 已知边界
-
-- 前端依赖审计存在既有 `echarts < 6.1.0` moderate XSS advisory；修复需要 ECharts major upgrade，应作为独立兼容性任务处理，非本轮 `flv.js` 引入；
 
 - SRS 8080 直连 HLS 不受当前 `on_play` Hook 策略保护；若对外暴露 HLS，必须在反向代理/CDN 层增加鉴权与防盗链；
 - OUT-PUSH Runtime RUNNING 证明本地受管 FFmpeg 工作且输入在线，不等同于第三方平台已经成功播放；远端健康仍需供应商 API 或独立观测证据；
