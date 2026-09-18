@@ -10,11 +10,27 @@ function opKey(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+const SESSION_STATE_LABELS = {
+  PREP: '准备中',
+  READY: '待开播',
+  ON_AIR: '播出中',
+  CLOSING: '收播中',
+  ENDED: '已结束'
+};
+
 function stateTone(state) {
   if (state === 'ON_AIR') return 'text-[var(--success)]';
   if (state === 'READY') return 'text-[var(--primary)]';
   if (state === 'PREP' || state === 'CLOSING') return 'text-[var(--warning)]';
   return 'text-[var(--muted-foreground)]';
+}
+
+function nextStep(session) {
+  if (session.lifecycle_state === 'PREP') return '运行预检';
+  if (session.lifecycle_state === 'READY') return '开始播出';
+  if (session.lifecycle_state === 'ON_AIR') return '保持监控';
+  if (session.lifecycle_state === 'CLOSING') return '完成收播';
+  return '查看状态';
 }
 
 function outputHealthy(output) {
@@ -114,7 +130,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
       const op = await api.post(`/v3/sessions/${session.legacy_session_id}/start`, {}, {
         headers: { 'Idempotency-Key': opKey(`session-start-${session.legacy_session_id}`) }
       });
-      toast.success(op?.phase === 'SUCCEEDED' ? '本场直播已进入 ON AIR' : '已提交开播操作');
+      toast.success(op?.phase === 'SUCCEEDED' ? '本场直播已开始播出' : '已提交开播操作');
       await onChanged();
     } catch (error) { toast.error(error.message || '启动本场直播失败'); }
     finally { setBusy(false); }
@@ -160,8 +176,8 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
       <button className={btnPrimary} disabled={busy || !planId} onClick={createSession}>创建本场直播</button>
     </div>
     {showQuickPlan && <div className="mt-3 border-t border-[var(--border-soft)] pt-3">
-      <div className="mb-3 grid gap-3 md:grid-cols-[minmax(180px,0.7fr)_minmax(0,1.3fr)]"><div><label className={labelClass}>方案名称</label><input className={inputClass} value={quickName} onChange={event => setQuickName(event.target.value)} /></div><div className="text-[10px] leading-5 text-[var(--muted-foreground)]">当前 Program 来源会保存为计划意图。Output 只保存引用，不复制 Runtime；以后修改长期方案也不会改写已经创建的 Session。</div></div>
-      <div className="space-y-2">{outputs.map(output => <label key={output.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2 text-xs"><input type="checkbox" checked={Boolean(selectedOutputs[output.id])} onChange={event => setSelectedOutputs(current => ({ ...current, [output.id]: event.target.checked }))}/><span className="min-w-0 flex-1 truncate">{output.name}</span><span className="text-[10px] text-[var(--text-faint)]">{output.mode}</span><select className="rounded-md border border-[var(--border-soft)] bg-[var(--background)] px-2 py-1 text-[10px]" disabled={!selectedOutputs[output.id]} value={optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED'} onChange={event => setOptionalOutputs(current => ({ ...current, [output.id]: event.target.value === 'OPTIONAL' }))}><option value="REQUIRED">Required</option><option value="OPTIONAL">Optional</option></select></label>)}</div>
+      <div className="mb-3 grid gap-3 md:grid-cols-[minmax(180px,0.7fr)_minmax(0,1.3fr)]"><div><label className={labelClass}>方案名称</label><input className={inputClass} value={quickName} onChange={event => setQuickName(event.target.value)} /></div><div className="text-[10px] leading-5 text-[var(--muted-foreground)]">当前节目源会保存为计划意图。输出只保存引用，不复制运行实例；以后修改长期方案也不会改写已经创建的本场直播。</div></div>
+      <div className="space-y-2">{outputs.map(output => <label key={output.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2 text-xs"><input type="checkbox" checked={Boolean(selectedOutputs[output.id])} onChange={event => setSelectedOutputs(current => ({ ...current, [output.id]: event.target.checked }))}/><span className="min-w-0 flex-1 truncate">{output.name}</span><span className="text-[10px] text-[var(--text-faint)]">{output.mode === 'PUSH' ? '主动推送' : output.mode === 'SERVE' ? '播放服务' : '本地录制'}</span><select className="rounded-md border border-[var(--border-soft)] bg-[var(--background)] px-2 py-1 text-[10px]" disabled={!selectedOutputs[output.id]} value={optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED'} onChange={event => setOptionalOutputs(current => ({ ...current, [output.id]: event.target.value === 'OPTIONAL' }))}><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>)}</div>
       <div className="mt-3 flex justify-end"><button className={btnPrimary} disabled={busy} onClick={createQuickPlan}>保存方案</button></div>
     </div>}
   </section>;
@@ -170,15 +186,15 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   const sessionSeconds = session.started_at ? Math.max(0, Math.floor((Date.now() - Date.parse(session.started_at)) / 1000)) : null;
   return <section className={compact ? "rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-3 py-2" : "mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]"}>
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-      <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">SESSION COMMAND BAR</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold">{session.title}</span><span className={`text-[10px] font-bold tracking-[.08em] ${stateTone(session.lifecycle_state)}`}>{session.lifecycle_state}</span></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">Run Plan: {plan?.name || session.plan_snapshot?.name || '—'} · Program: {workspace?.program?.source_id || '未观测'}</div></div>
-      <div className="text-center"><div className="text-[9px] uppercase tracking-[.1em] text-[var(--text-faint)]">Required</div><div className="mt-1 text-sm font-semibold tabular-nums">{requiredSummary.healthy}/{requiredSummary.total}</div></div>
-      <div className="text-center"><div className="text-[9px] uppercase tracking-[.1em] text-[var(--text-faint)]">Preflight</div><div className="mt-1 text-sm font-semibold">{session.preflight_status || 'NOT RUN'}</div></div>
+      <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">本场直播</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold">{session.title}</span><span className={`rounded-md bg-[var(--secondary)] px-2 py-1 text-[10px] font-semibold ${stateTone(session.lifecycle_state)}`}>{SESSION_STATE_LABELS[session.lifecycle_state] || session.lifecycle_state}</span></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">开播方案：{plan?.name || session.plan_snapshot?.name || '—'} · 节目源：{workspace?.program?.source_id || '未观测'} · 下一步：{nextStep(session)}</div></div>
+      <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">必需输出</div><div className="mt-1 text-sm font-semibold tabular-nums">{requiredSummary.healthy}/{requiredSummary.total}</div></div>
+      <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">预检</div><div className="mt-1 text-sm font-semibold">{session.preflight_status === 'PASS' ? '通过' : session.preflight_status === 'WARNING' ? '有警告' : session.preflight_status === 'BLOCKED' ? '被阻断' : '未运行'}</div></div>
       {sessionSeconds != null && <div className="flex items-center gap-1.5 text-xs tabular-nums text-[var(--muted-foreground)]"><Clock3 size={13}/>{Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:{Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:{(sessionSeconds%60).toString().padStart(2,'0')}</div>}
-      {['PREP','READY'].includes(session.lifecycle_state) && <button className={btnSecondary} disabled={busy} onClick={runPreflight}><RefreshCw size={13}/>Preflight</button>}
-      {session.lifecycle_state === 'READY' && <button className={btnPrimary} disabled={busy} onClick={startSession}><Play size={13}/>启动本场直播</button>}
-      {session.lifecycle_state === 'ON_AIR' && <div className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--success-soft)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--success)]"><CheckCircle2 size={13}/>ON AIR</div>}
+      {['PREP','READY'].includes(session.lifecycle_state) && <button className={btnSecondary} disabled={busy} onClick={runPreflight}><RefreshCw size={13}/>运行预检</button>}
+      {session.lifecycle_state === 'READY' && <button className={btnPrimary} disabled={busy} onClick={startSession}><Play size={13}/>开始播出</button>}
+      {session.lifecycle_state === 'ON_AIR' && <div className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--success-soft)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--success)]"><CheckCircle2 size={13}/>正在播出</div>}
       {session.lifecycle_state === 'ON_AIR' && <button className={btnDangerGhost} disabled={busy} onClick={() => setConfirmClose(true)}><Square size={12}/>结束本场直播</button>}
-      {session.lifecycle_state === 'CLOSING' && <button className={btnSecondary} disabled={busy} onClick={closeSession}><RefreshCw size={12}/>继续收播</button>}
+      {session.lifecycle_state === 'CLOSING' && <button className={btnSecondary} disabled={busy} onClick={closeSession}><RefreshCw size={12}/>继续完成收播</button>}
       {session.preflight_status === 'BLOCKED' && <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-[var(--destructive)]"><CircleAlert size={13}/>存在阻断项</div>}
     </div>
     <ConfirmDialog open={confirmClose} onClose={() => setConfirmClose(false)} onConfirm={closeSession} confirming={busy} title="结束本场直播" description="将按顺序停止本 Session 的网络输出，等待录像 Finalize，再停止 Managed Pull。外部 IN-PUSH Publisher 不会被自动断开；任何残留都会保持 CLOSING，而不会假装结束成功。" confirmLabel="确认收播" />

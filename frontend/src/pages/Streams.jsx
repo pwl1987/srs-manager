@@ -111,6 +111,7 @@ export default function Streams() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', protocol: 'rtmp' });
@@ -141,10 +142,13 @@ export default function Streams() {
   usePolling(() => loadStreams(true), 10000);
 
   const q = search.trim().toLowerCase();
-  const filtered = q
-    ? streams.filter(stream => stream.name.toLowerCase().includes(q))
-    : streams;
+  const filtered = streams.filter(stream => {
+    const statusText = stream.status === 'online' ? '直播中 在线 online' : '空闲 离线 offline';
+    const haystack = [stream.name, stream.protocol, stream.status, statusText].filter(Boolean).join(' ').toLowerCase();
+    return (!q || haystack.includes(q)) && (statusFilter === 'all' || stream.status === statusFilter);
+  });
   const liveCount = streams.filter(stream => stream.status === 'online').length;
+  const hasFilter = Boolean(q) || statusFilter !== 'all';
 
   function openCreate() {
     setEditing(null);
@@ -223,7 +227,7 @@ export default function Streams() {
         subtitle={t('streams:subtitle')}
         actions={
           <>
-            <SearchInput value={search} onChange={setSearch} placeholder={t('common:labels.searchPlaceholder')} />
+            <SearchInput value={search} onChange={setSearch} placeholder="搜索名称、协议或状态" />
             <button className={btnPrimary} onClick={openCreate}>
               <Plus size={16} />
               {t('common:actions.create')}
@@ -243,6 +247,14 @@ export default function Streams() {
             <div className="mt-0.5 text-[10px] uppercase tracking-[0.08em] text-[var(--text-faint)]">{label}</div>
           </div>
         ))}
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-[var(--border-soft)] pb-4">
+        <span className="mr-1 text-[10px] font-semibold tracking-[.08em] text-[var(--text-faint)]">快速筛选</span>
+        {[['all', '全部'], ['online', '正在直播'], ['offline', '空闲']].map(([value, label]) => (
+          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={statusFilter === value ? btnSecondary : btnGhost}>{label}</button>
+        ))}
+        <span className="ml-auto text-xs text-[var(--muted-foreground)]">{hasFilter ? `找到 ${filtered.length} / ${streams.length} 路` : `${streams.length} 路直播流`}</span>
       </div>
 
       {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => loadStreams()} />}
@@ -281,9 +293,11 @@ export default function Streams() {
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)]">
           <EmptyState
-            title={search ? t('common:page.emptyTitle') : t('streams:empty.title')}
-            description={search ? undefined : t('streams:empty.description')}
-            action={search ? undefined : (
+            title={hasFilter ? '没有找到匹配的直播流' : t('streams:empty.title')}
+            description={hasFilter ? '可以换一个名称、协议或状态，或清除筛选条件。' : t('streams:empty.description')}
+            action={hasFilter ? (
+              <button className={btnSecondary} onClick={() => { setSearch(''); setStatusFilter('all'); }}>清除筛选</button>
+            ) : (
               <button className={btnPrimary} onClick={openCreate}>{t('streams:empty.createButton')}</button>
             )}
           />

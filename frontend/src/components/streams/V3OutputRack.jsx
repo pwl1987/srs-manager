@@ -20,19 +20,43 @@ function opKey(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+const MODE_LABELS = { PUSH: '主动推送', SERVE: '播放服务', RECORD: '本地录制' };
+const STATUS_LABELS = {
+  FAILED: '启动失败',
+  STALLED: '已停滞',
+  RETRYING: '重试中',
+  STARTING: '启动中',
+  STOPPING: '停止中',
+  WAITING_INPUT: '等待输入',
+  FINALIZING: '整理文件',
+  RUNNING: '运行中',
+  AVAILABLE: '可播放',
+  ACTIVE: '进行中',
+  RECORDING: '录制中',
+  COMPLETE: '已完成',
+  STOPPED: '已停止',
+  UNKNOWN: '待确认'
+};
+
 function stateMeta(output) {
   const raw = String(output.runtime_state || output.desired_state || 'UNKNOWN').toUpperCase();
-  if (['FAILED', 'STALLED'].includes(raw)) return { label: raw, tone: 'text-[var(--destructive)]', dot: 'bg-[var(--destructive)]' };
-  if (['RETRYING', 'STARTING', 'STOPPING', 'WAITING_INPUT', 'FINALIZING'].includes(raw)) return { label: raw, tone: 'text-[var(--warning)]', dot: 'bg-[var(--warning)]' };
-  if (['RUNNING', 'AVAILABLE', 'ACTIVE', 'RECORDING', 'COMPLETE'].includes(raw)) return { label: raw, tone: 'text-[var(--success)]', dot: 'bg-[var(--success)]' };
-  return { label: raw, tone: 'text-[var(--muted-foreground)]', dot: 'bg-[var(--text-faint)]' };
+  const desired = String(output.desired_state || '').toUpperCase();
+  const tone = ['FAILED', 'STALLED'].includes(raw) ? 'text-[var(--destructive)]'
+    : ['RETRYING', 'STARTING', 'STOPPING', 'WAITING_INPUT', 'FINALIZING'].includes(raw) ? 'text-[var(--warning)]'
+      : ['RUNNING', 'AVAILABLE', 'ACTIVE', 'RECORDING', 'COMPLETE'].includes(raw) ? 'text-[var(--success)]'
+        : 'text-[var(--muted-foreground)]';
+  const dot = tone.includes('destructive') ? 'bg-[var(--destructive)]'
+    : tone.includes('warning') ? 'bg-[var(--warning)]'
+      : tone.includes('success') ? 'bg-[var(--success)]' : 'bg-[var(--text-faint)]';
+  const failedIntent = ['FAILED', 'STALLED'].includes(raw) && desired === 'RUNNING';
+  return { raw, label: failedIntent ? '启动失败 · 可重试' : STATUS_LABELS[raw] || raw, tone, dot, retry: failedIntent };
 }
 
 function mediaLabel(output, renditionMap) {
   const r = renditionMap.get(output.media_ref);
-  if (!r) return 'Program Original';
-  if (r.kind === 'PASSTHROUGH') return 'Program Original';
-  return r.media_profile_id?.replace('media-profile:', 'Profile #') || 'Shared Rendition';
+  if (!r) return '节目原始码流';
+  if (r.kind === 'PASSTHROUGH') return '节目原始码流';
+  return r.media_profile_id?.replace('media-profile:', '媒体规格 ') || '共享媒体规格';
 }
 
 function Evidence({ output }) {
@@ -40,14 +64,14 @@ function Evidence({ output }) {
   const remote = output.evidence?.remote || {};
   return <div className="mt-2 grid gap-2 border-t border-[var(--border-soft)] pt-2 text-[10px] md:grid-cols-2">
     <div className="rounded-lg bg-[var(--background)]/28 p-2.5">
-      <div className="font-semibold tracking-[.1em] text-[var(--text-faint)]">LOCAL</div>
-      <div className="mt-1.5 text-[var(--muted-foreground)]">{local.state || 'UNKNOWN'} · {local.source || '—'}</div>
-      <div className="mt-1 text-[var(--text-faint)]">{local.freshness || 'UNKNOWN'}{local.observed_at ? ` · ${local.observed_at}` : ''}</div>
+      <div className="font-semibold tracking-[.1em] text-[var(--text-faint)]">本地证据</div>
+      <div className="mt-1.5 text-[var(--muted-foreground)]">{STATUS_LABELS[local.state] || local.state || '待确认'} · {local.source || '—'}</div>
+      <div className="mt-1 text-[var(--text-faint)]">{local.freshness || '待确认'}{local.observed_at ? ` · ${local.observed_at}` : ''}</div>
     </div>
     <div className="rounded-lg bg-[var(--background)]/28 p-2.5">
-      <div className="font-semibold tracking-[.1em] text-[var(--text-faint)]">REMOTE</div>
-      <div className="mt-1.5 text-[var(--muted-foreground)]">{remote.state || 'UNKNOWN'} · {remote.source || '未接入远端验证'}</div>
-      <div className="mt-1 text-[var(--text-faint)]">{remote.freshness || 'UNKNOWN'}</div>
+      <div className="font-semibold tracking-[.1em] text-[var(--text-faint)]">远端证据</div>
+      <div className="mt-1.5 text-[var(--muted-foreground)]">{STATUS_LABELS[remote.state] || remote.state || '待确认'} · {remote.source || '尚未接入远端验证'}</div>
+      <div className="mt-1 text-[var(--text-faint)]">{remote.freshness || '待确认'}</div>
     </div>
   </div>;
 }
@@ -55,21 +79,22 @@ function Evidence({ output }) {
 function OutputRow({ output, renditionMap, busy, onToggle }) {
   const [open, setOpen] = useState(false);
   const meta = stateMeta(output);
-  const isRunning = output.mode === 'SERVE'
-    ? output.runtime_state === 'AVAILABLE'
-    : output.desired_state === 'RUNNING';
+  const runtime = String(output.runtime_state || '').toUpperCase();
+  const wantsRunning = String(output.desired_state || '').toUpperCase() === 'RUNNING' || (output.mode === 'SERVE' && runtime === 'AVAILABLE');
+  const action = meta.retry ? 'start' : wantsRunning ? 'stop' : 'start';
+  const actionLabel = meta.retry ? '重试' : wantsRunning ? '停止' : '启动';
   const canControl = output.control_mode !== 'LEGACY_UNMANAGED';
   return <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2.5">
     <div className="flex items-center gap-2">
       <button className={btnGhost} onClick={() => setOpen(v => !v)} aria-label="展开运行证据">{open ? <ChevronDown size={13}/> : <ChevronRight size={13}/>}</button>
       <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2"><span className="truncate text-xs font-semibold">{output.name}</span><span className="text-[9px] font-semibold tracking-[.08em] text-[var(--text-faint)]">{output.mode}</span></div>
+        <div className="flex min-w-0 items-center gap-2"><span className="truncate text-xs font-semibold">{output.name}</span><span className="text-[9px] font-semibold tracking-[.04em] text-[var(--text-faint)]">{MODE_LABELS[output.mode] || output.mode}</span></div>
         <div className="mt-1 truncate text-[10px] text-[var(--muted-foreground)]">{mediaLabel(output, renditionMap)} · {output.transport || output.format || output.endpoints?.filter(x => x.advertised !== false).map(x => x.transport).join('/') || '—'}{output.scene ? ` · ${SCENE_LABELS[output.scene] || output.scene}` : ''}</div>
       </div>
       <div className={`w-24 text-right text-[9px] font-semibold ${meta.tone}`}>{meta.label}</div>
-      {canControl && <button className={isRunning ? btnDangerGhost : btnSecondary} disabled={busy} onClick={() => onToggle(output, isRunning ? 'stop' : 'start')}>
-        {isRunning ? <Square size={12}/> : <Radio size={12}/>} {isRunning ? '停止' : '启动'}
+      {canControl && <button className={wantsRunning && !meta.retry ? btnDangerGhost : btnSecondary} disabled={busy} onClick={() => onToggle(output, action)}>
+        {wantsRunning && !meta.retry ? <Square size={12}/> : <Radio size={12}/>} {actionLabel}
       </button>}
     </div>
     {output.mode === 'RECORD' && <div className="mt-2 flex flex-wrap gap-1.5 pl-10 text-[9px] text-[var(--muted-foreground)]"><span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{output.format?.toUpperCase()} · {output.asset?.state || 'NO ASSET'}</span>{output.asset?.size_bytes > 0 && <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{(output.asset.size_bytes / 1024 / 1024).toFixed(1)} MB</span>}{output.asset?.duration_seconds != null && <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{Math.round(output.asset.duration_seconds)} s</span>}</div>}
@@ -197,7 +222,7 @@ export default function V3OutputRack({ roomId, workspace, scenes = [], onChanged
   const renditionMap = useMemo(() => new Map((workspace?.renditions || []).map(r => [r.id, r])), [workspace]);
   const outputs = workspace?.outputs || [];
   const incidents = outputs.filter(o => ['FAILED', 'RETRYING', 'STALLED'].includes(String(o.runtime_state || '').toUpperCase()));
-  const running = outputs.filter(o => o.mode === 'SERVE' ? o.runtime_state === 'AVAILABLE' : o.desired_state === 'RUNNING').length;
+  const running = outputs.filter(o => o.mode === 'SERVE' ? o.runtime_state === 'AVAILABLE' : ['RUNNING', 'RECORDING'].includes(String(o.runtime_state || '').toUpperCase())).length;
 
   async function toggle(output, action) {
     setBusyId(output.id);
@@ -210,7 +235,7 @@ export default function V3OutputRack({ roomId, workspace, scenes = [], onChanged
   }
 
   return <section className={embedded ? "h-full bg-transparent p-3" : "rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]"}>
-    <div className="mb-3 flex items-start justify-between gap-4"><div><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">OUTPUT RACK · V3</div><div className="mt-1 text-sm font-semibold">统一输出</div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">{running} Running / Available · {incidents.length} Incident · {(workspace?.renditions || []).filter(r => r.kind === 'TRANSCODE').length} Renditions</div></div><button className={btnPrimary} onClick={() => setDrawer(true)}><Plus size={13}/>新建输出</button></div>
+    <div className="mb-3 flex items-start justify-between gap-4"><div><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">输出分发</div><div className="mt-1 text-sm font-semibold">所有输出</div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">{running} 路运行中 · {incidents.length} 路异常 · {(workspace?.renditions || []).filter(r => r.kind === 'TRANSCODE').length} 个共享规格</div></div><button className={btnPrimary} onClick={() => setDrawer(true)}><Plus size={13}/>新建输出</button></div>
     {incidents.length > 0 && <div className="mb-3 rounded-xl border border-[var(--warning)]/20 bg-[var(--warning-soft)]/8 p-3"><div className="flex items-center gap-2 text-xs font-semibold text-[var(--warning)]"><AlertTriangle size={13}/>{incidents.length} 个输出需要处理</div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">异常只提升对应通道，不影响其他健康输出。</div></div>}
     <div className="space-y-2">{outputs.length ? outputs.map(output => <OutputRow key={output.id} output={output} renditionMap={renditionMap} busy={busyId === output.id} onToggle={toggle}/>) : <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-8 text-center text-xs text-[var(--muted-foreground)]">还没有 V3 Output。使用“新建输出”从场景开始。</div>}</div>
     {drawer && <BuilderDrawer roomId={roomId} scenes={scenes} capabilities={workspace?.capabilities} onClose={() => setDrawer(false)} onCreated={onChanged}/>}

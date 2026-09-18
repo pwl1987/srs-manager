@@ -13,35 +13,35 @@
   --elevated: oklch(0.275 0.014 258);
 
   /* Interaction */
-  --primary: oklch(0.66 0.18 252);
-  --primary-foreground: oklch(0.99 0 0);
-  --accent: oklch(0.72 0.16 246);
-  --accent-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.285 0.014 258);
-  --secondary-foreground: oklch(0.84 0.010 258);
-  --muted: oklch(0.205 0.010 258);
-  --muted-foreground: oklch(0.67 0.012 258);
-  --input: oklch(0.235 0.012 258);
-  --ring: oklch(0.69 0.17 250);
+  --primary: oklch(0.70 0.09 205);
+  --primary-foreground: oklch(0.98 0.006 258);
+  --accent: oklch(0.74 0.08 195);
+  --accent-foreground: oklch(0.98 0.006 258);
+  --secondary: oklch(0.275 0.010 258);
+  --secondary-foreground: oklch(0.84 0.008 258);
+  --muted: oklch(0.20 0.008 258);
+  --muted-foreground: oklch(0.68 0.009 258);
+  --input: oklch(0.23 0.009 258);
+  --ring: oklch(0.70 0.09 205);
 
-  /* Semantic status */
-  --success: oklch(0.74 0.16 151);
-  --warning: oklch(0.80 0.15 82);
-  --info: oklch(0.72 0.12 235);
-  --destructive: oklch(0.67 0.22 25);
+  /* Semantic status: quiet by default; text and shape carry the meaning too. */
+  --success: oklch(0.72 0.10 151);
+  --warning: oklch(0.76 0.10 82);
+  --info: oklch(0.70 0.08 205);
+  --destructive: oklch(0.66 0.14 25);
   --destructive-foreground: oklch(0.99 0 0);
 
   /* Structure */
-  --border: oklch(0.335 0.012 258);
-  --border-soft: color-mix(in oklab, var(--border), transparent 38%);
-  --surface-hover: color-mix(in oklab, var(--secondary), var(--foreground) 6%);
-  --surface-active: color-mix(in oklab, var(--primary), transparent 84%);
+  --border: oklch(0.30 0.008 258);
+  --border-soft: color-mix(in oklab, var(--border), transparent 30%);
+  --surface-hover: color-mix(in oklab, var(--secondary), var(--foreground) 5%);
+  --surface-active: color-mix(in oklab, var(--primary), transparent 88%);
   --text-muted: var(--muted-foreground);
   --text-faint: color-mix(in oklab, var(--muted-foreground), transparent 32%);
   --danger: var(--destructive);
 
-  --shadow-panel: 0 14px 34px rgb(0 0 0 / 0.12);
-  --shadow-elevated: 0 22px 54px rgb(0 0 0 / 0.24);
+  --shadow-panel: 0 10px 24px rgb(0 0 0 / 0.10);
+  --shadow-elevated: 0 16px 36px rgb(0 0 0 / 0.18);
 
   --duration-instant: 80ms;
   --duration-fast: 150ms;
@@ -57,10 +57,7 @@ body,
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 72% -15%, color-mix(in oklab, var(--primary), transparent 90%), transparent 34rem),
-    radial-gradient(circle at 12% 18%, color-mix(in oklab, var(--info), transparent 95%), transparent 28rem),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC',
@@ -139,57 +136,21 @@ textarea {
   }
 }
 
-/* v0.3.0：科技感界面层。保持信息安静，重点状态与关键动作才发光。 */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  opacity: 0.12;
-  background-image:
-    linear-gradient(color-mix(in oklab, var(--primary), transparent 94%) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in oklab, var(--primary), transparent 94%) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(to bottom, black 0%, transparent 72%);
-}
-
+/* v0.3.0：安静的深灰工作台。背景不抢注意力，状态由文字、形状和轻量色彩共同表达。 */
+body::before,
 body::after {
-  content: '';
-  position: fixed;
-  inset: -20vh -10vw auto auto;
-  width: 52vw;
-  height: 52vw;
-  min-width: 420px;
-  min-height: 420px;
-  pointer-events: none;
-  z-index: -1;
-  border-radius: 999px;
-  background: radial-gradient(circle, color-mix(in oklab, var(--primary), transparent 83%), transparent 66%);
-  filter: blur(50px);
-  opacity: 0.18;
+  content: none;
 }
 
 .lux-panel {
   position: relative;
-  border: 1px solid color-mix(in oklab, var(--border), var(--primary) 10%);
-  background:
-    linear-gradient(145deg, color-mix(in oklab, var(--card), white 2%), color-mix(in oklab, var(--panel), transparent 8%)),
-    var(--card);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.035),
-    0 22px 70px rgb(0 0 0 / 0.22);
-  backdrop-filter: blur(18px);
+  border: 1px solid var(--border-soft);
+  background: var(--card);
+  box-shadow: var(--shadow-panel);
 }
 
 .lux-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0 10% auto 10%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--primary), white 16%), transparent);
-  opacity: 0.42;
-  pointer-events: none;
+  content: none;
 }
 
 .ambient-orb {
@@ -204,7 +165,7 @@ body::after {
 .ambient-orb-primary {
   right: -90px;
   top: -130px;
-  background: color-mix(in oklab, var(--primary), transparent 78%);
+  background: color-mix(in oklab, var(--primary), transparent 92%);
 }
 
 .tech-label {

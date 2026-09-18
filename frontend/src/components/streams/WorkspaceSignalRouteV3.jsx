@@ -17,15 +17,15 @@ export default function WorkspaceSignalRouteV3({ workspace }) {
   const programTone = workspace?.program?.state === 'LIVE' ? 'healthy' : workspace?.program?.state === 'NO_PROGRAM' ? 'danger' : 'warning';
 
   return <section data-workspace-region="route" className="flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto border-y border-[var(--border-soft)] bg-[var(--panel)]/65 px-3 py-2">
-    <div className="mr-1 flex shrink-0 items-center gap-1.5 text-[8px] font-semibold tracking-[.14em] text-[var(--text-faint)]"><GitBranch size={11}/>SIGNAL ROUTE</div>
-    <Node tone={source ? 'healthy' : 'muted'}><Radio size={10}/>{source?.name || 'NO SOURCE'}</Node>
+    <div className="mr-1 flex shrink-0 items-center gap-1.5 text-[8px] font-semibold tracking-[.14em] text-[var(--text-faint)]"><GitBranch size={11}/>信号路径</div>
+    <Node tone={source ? 'healthy' : 'muted'}><Radio size={10}/>{source?.name || '无输入来源'}</Node>
     <ArrowRight size={11} className="shrink-0 text-[var(--text-faint)]"/>
-    <Node tone={programTone}><Server size={10}/>PROGRAM</Node>
+    <Node tone={programTone}><Server size={10}/>节目</Node>
     {renditions.length ? renditions.map(r => {
       const dependents = outputs.filter(o => o.media_ref === r.id);
       const tone = r.runtime_state === 'FAILED' ? 'danger' : r.observed?.online === true ? 'healthy' : r.desired_state === 'RUNNING' ? 'warning' : 'muted';
-      return <span key={r.id} className="contents"><ArrowRight size={11} className="shrink-0 text-[var(--text-faint)]"/><Node tone={tone}>{r.media_profile_id?.replace('media-profile:','Profile #') || 'Rendition'} · {dependents.length}</Node></span>;
-    }) : <><ArrowRight size={11} className="shrink-0 text-[var(--text-faint)]"/><Node tone="blue">Original</Node></>}
+      return <span key={r.id} className="contents"><ArrowRight size={11} className="shrink-0 text-[var(--text-faint)]"/><Node tone={tone}>{r.media_profile_id?.replace('media-profile:','媒体规格 ') || '共享媒体规格'} · {dependents.length}</Node></span>;
+    }) : <><ArrowRight size={11} className="shrink-0 text-[var(--text-faint)]"/><Node tone="blue">原始码流</Node></>}
     <ArrowRight size={11} className="shrink-0 text-[var(--text-faint)]"/>
     <div className="flex min-w-0 items-center gap-1.5">{outputs.slice(0,8).map(o => {
       const state=String(o.runtime_state || '').toUpperCase();
