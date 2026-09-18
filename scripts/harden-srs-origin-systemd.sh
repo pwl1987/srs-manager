@@ -9,6 +9,8 @@ MANAGER_ENV="${MANAGER_ENV:-$TARGET_DIR/.env}"
 BACKUP_ROOT="${BACKUP_ROOT:-/home/ubuntu/srs-manager-backups}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_DIR="$BACKUP_ROOT/origin-hardening-$STAMP"
+ROLLBACK_ARMED=0
+ROLLBACK_COMPLETE=0
 MANAGER_UNITS=(
   srs-manager.service
   srs-manager-pull-worker.service
@@ -109,8 +111,12 @@ with open(sys.argv[2], 'w') as f:
 PY
 
 rollback() {
-  local rc=$?
-  trap - ERR
+  local rc="${1:-$?}"
+  trap - ERR EXIT
+  if [[ "$ROLLBACK_ARMED" -ne 1 || "$ROLLBACK_COMPLETE" -eq 1 ]]; then
+    exit "$rc"
+  fi
+  ROLLBACK_ARMED=0
   echo "hardening failed; restoring previous Manager env and SRS config" >&2
   cp -a "$BACKUP_DIR/manager.env" "$MANAGER_ENV"
   cp -a "$BACKUP_DIR/srs.conf" "$SRS_CONF"
@@ -129,7 +135,8 @@ PY
   for unit in "${MANAGER_UNITS[@]}"; do systemctl restart "$unit" || true; done
   exit "$rc"
 }
-trap rollback ERR
+ROLLBACK_ARMED=1
+trap 'rollback $?' ERR EXIT
 
 python3 - "$MANAGER_ENV" <<'PY'
 import os, pathlib, re, secrets, sys
@@ -171,9 +178,11 @@ for line in lines:
 for key, value in updates.items():
     if key not in seen:
         out.append(f'{key}={value}')
+stat = path.stat()
 tmp = path.with_suffix(path.suffix + '.tmp')
 tmp.write_text('\n'.join(out) + '\n')
-os.chmod(tmp, 0o600)
+os.chmod(tmp, stat.st_mode & 0o777)
+os.chown(tmp, stat.st_uid, stat.st_gid)
 os.replace(tmp, path)
 PY
 
@@ -272,8 +281,17 @@ done
 systemctl restart "$SRS_UNIT"
 systemctl is-active --quiet "$SRS_UNIT"
 
-unauth_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:1985/api/v1/versions || true)"
-[[ "$unauth_code" == "401" ]] || fail "SRS API still accepts unauthenticated requests: HTTP $unauth_code"
+srs_ready=0
+unauth_code=000
+for _ in $(seq 1 30); do
+  unauth_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:1985/api/v1/versions 2>/dev/null || true)"
+  if [[ "$unauth_code" == "401" ]]; then
+    srs_ready=1
+    break
+  fi
+  sleep 1
+done
+[[ "$srs_ready" -eq 1 ]] || fail "SRS API did not become ready with auth; last HTTP $unauth_code"
 
 auth_body="$(curl -fsS --max-time 3 -u "$api_user:$api_pass" http://127.0.0.1:1985/api/v1/versions)"
 python3 - "$auth_body" <<'PY'
@@ -321,7 +339,9 @@ if streams:
 print('active_streams_after=0')
 PY
 
-trap - ERR
+ROLLBACK_COMPLETE=1
+ROLLBACK_ARMED=0
+trap - ERR EXIT
 echo "SRS origin hardening PASS"
 echo "http_api=127.0.0.1:1985 basic-auth"
 echo "http_server=127.0.0.1:8080"
