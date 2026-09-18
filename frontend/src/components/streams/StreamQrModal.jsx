@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Copy } from 'lucide-react';
 import { resolvePullHls } from '../../lib/stream-url-display';

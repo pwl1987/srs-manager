@@ -1,3 +1,5 @@
+import React from 'react';
+
 export default function PageHeader({ title, subtitle, actions, eyebrow }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-4 mb-7">

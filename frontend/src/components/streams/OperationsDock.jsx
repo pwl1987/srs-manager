@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { Activity, AlertTriangle, Check, Cpu, History, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,8 +18,30 @@ function severityClass(value) {
   return 'text-[var(--muted-foreground)] border-[var(--border-soft)] bg-[var(--background)]/20';
 }
 
-export default function OperationsDock({ roomId, workspace, incidentState, onChanged, compact = false, embedded = false }) {
-  const [tab, setTab] = useState('incidents');
+export async function acknowledgeIncident(roomId, incident, onChanged) {
+  try {
+    await api.post(`/v3/rooms/${roomId}/incidents/${incident.id}/ack`, {});
+    toast.success('告警已确认；恢复状态仍以运行证据为准');
+    await onChanged();
+  } catch (error) { toast.error(error.message || '告警确认失败'); }
+}
+
+export function OperationsResources({ workers = {}, workspace }) {
+  return <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{['pull','push','transcode','record'].map(name => {
+    const worker = workers[name];
+    return <div key={name} className="rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 p-3">
+      <div className="text-[9px] font-semibold tracking-[.1em] text-[var(--text-faint)]">{name === 'pull' ? '拉流' : name === 'push' ? '推流' : name === 'transcode' ? '转码' : '录像'} 工作进程</div>
+      <div className={`mt-2 text-xs font-semibold ${worker?.available ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>{worker?.available ? '可用' : '不可用'}</div>
+      <div className="mt-1 truncate text-[9px] text-[var(--text-faint)]">{worker?.instance_id || '—'}</div>
+    </div>;
+  })}<div className="rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 p-3">
+    <div className="text-[9px] font-semibold tracking-[.1em] text-[var(--text-faint)]">录像存储</div>
+    <div className="mt-2 text-xs font-semibold">{workspace?.capabilities?.runtime?.record?.storage?.low_space ? '空间不足' : '正常 / 待确认'}</div>
+  </div></div>;
+}
+
+export default function OperationsDock({ roomId, workspace, incidentState, onChanged, compact = false, embedded = false, initialTab = 'incidents' }) {
+  const [tab, setTab] = useState(initialTab);
   const [expanded, setExpanded] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const active = incidentState?.active || [];
@@ -28,11 +51,7 @@ export default function OperationsDock({ roomId, workspace, incidentState, onCha
   const workers = workspace?.evidence?.workers || {};
   async function acknowledge(incident) {
     setBusyId(incident.id);
-    try {
-      await api.post(`/v3/rooms/${roomId}/incidents/${incident.id}/ack`, {});
-      toast.success('告警已确认；恢复状态仍以运行证据为准');
-      await onChanged();
-    } catch (error) { toast.error(error.message || '告警确认失败'); }
+    try { await acknowledgeIncident(roomId, incident, onChanged); }
     finally { setBusyId(null); }
   }
 
@@ -46,7 +65,7 @@ export default function OperationsDock({ roomId, workspace, incidentState, onCha
       {tab === 'incidents' && <div className="space-y-2">{active.length ? active.map(item => <div key={item.id} className={`rounded-xl border p-3 ${severityClass(item.severity)}`}><div className="flex items-start gap-3"><Activity size={13} className="mt-0.5 shrink-0"/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-semibold">{item.title}</span><span className="text-[9px] font-bold">{item.severity}</span><span className="text-[9px] opacity-70">{item.status}</span></div><div className="mt-1 text-[10px] leading-5 opacity-80">{item.message}</div><div className="mt-1 text-[10px] opacity-70">影响：{item.impact?.program_affected ? 'Program / 全部输出' : (item.impact?.output_ids || []).join(', ') || '局部'} · {item.impact?.can_still_broadcast ? '当前仍可播' : '当前播出受影响'}</div><div className="mt-1 text-[10px] opacity-70">建议：{item.impact?.suggested_action || '查看运行证据'}</div></div>{item.status === 'OPEN' && <button className={btnSecondary} disabled={busyId===item.id} onClick={() => acknowledge(item)}><Check size={11}/>确认</button>}</div></div>) : <div className="py-7 text-center text-xs text-[var(--muted-foreground)]">当前没有活动告警</div>}{recent.filter(item => item.status === 'RECOVERED').slice(0,5).map(item => <div key={`r-${item.id}`} className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-[10px] text-[var(--text-faint)]">已恢复 · {item.title}</div>)}</div>}
       {tab === 'events' && <div className="space-y-2">{events.length ? events.map((item,index) => <div key={`${item.type}-${index}`} className="rounded-lg border border-[var(--border-soft)] px-3 py-2 text-[10px]"><span className="font-semibold">{item.type}</span><span className="ml-2 text-[var(--text-faint)]">{item.occurred_at || '—'}</span></div>) : <div className="py-7 text-center text-xs text-[var(--muted-foreground)]">暂无事件</div>}</div>}
       {tab === 'operations' && <div className="space-y-2">{operations.length ? operations.map(item => <div key={item.id} className="flex items-center justify-between rounded-lg border border-[var(--border-soft)] px-3 py-2 text-[10px]"><span className="font-semibold">{item.type}</span><span className="text-[var(--muted-foreground)]">{item.phase} · {item.step || '—'}</span></div>) : <div className="py-7 text-center text-xs text-[var(--muted-foreground)]">暂无活动操作</div>}</div>}
-      {tab === 'resources' && <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{['pull','push','transcode','record'].map(name => { const worker=workers[name]; return <div key={name} className="rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 p-3"><div className="text-[9px] font-semibold tracking-[.1em] text-[var(--text-faint)]">{name === 'pull' ? '拉流' : name === 'push' ? '推流' : name === 'transcode' ? '转码' : '录像'} 工作进程</div><div className={`mt-2 text-xs font-semibold ${worker?.available ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>{worker?.available ? '可用' : '不可用'}</div><div className="mt-1 truncate text-[9px] text-[var(--text-faint)]">{worker?.instance_id || '—'}</div></div>; })}<div className="rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 p-3"><div className="text-[9px] font-semibold tracking-[.1em] text-[var(--text-faint)]">录像存储</div><div className="mt-2 text-xs font-semibold">{workspace?.capabilities?.runtime?.record?.storage?.low_space ? '空间不足' : '正常 / 待确认'}</div></div></div>}
+      {tab === 'resources' && <OperationsResources workers={workers} workspace={workspace} />}
     </div>}
   </section>;
 }

@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronRight, Layers3, Plus, Radio, Server, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -38,7 +39,7 @@ const STATUS_LABELS = {
   UNKNOWN: '待确认'
 };
 
-function stateMeta(output) {
+export function stateMeta(output) {
   const raw = String(output.runtime_state || output.desired_state || 'UNKNOWN').toUpperCase();
   const desired = String(output.desired_state || '').toUpperCase();
   const tone = ['FAILED', 'STALLED'].includes(raw) ? 'text-[var(--destructive)]'
@@ -59,7 +60,7 @@ function mediaLabel(output, renditionMap) {
   return r.media_profile_id?.replace('media-profile:', '媒体规格 ') || '共享媒体规格';
 }
 
-function Evidence({ output }) {
+export function Evidence({ output }) {
   const local = output.evidence?.local || {};
   const remote = output.evidence?.remote || {};
   return <div className="mt-2 grid gap-2 border-t border-[var(--border-soft)] pt-2 text-[10px] md:grid-cols-2">
@@ -76,7 +77,7 @@ function Evidence({ output }) {
   </div>;
 }
 
-function OutputRow({ output, renditionMap, busy, onToggle }) {
+export function OutputRow({ output, renditionMap, busy, onToggle }) {
   const [open, setOpen] = useState(false);
   const meta = stateMeta(output);
   const runtime = String(output.runtime_state || '').toUpperCase();

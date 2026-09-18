@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import flvjs from 'flv.js';

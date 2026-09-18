@@ -1,3 +1,4 @@
+import React from 'react';
 import { Eye, Plus, Radio, ShieldCheck } from 'lucide-react';
 import { btnGhost, btnSecondary } from '../ui/styles';
 import { cn } from '../../lib/utils';

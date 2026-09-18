@@ -1,3 +1,4 @@
+import React from 'react';
 import { ArrowRight, GitBranch, Radio, Server } from 'lucide-react';
 import { cn } from '../../lib/utils';
 

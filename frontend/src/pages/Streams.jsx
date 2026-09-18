@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import {
   Activity, AlertTriangle, ArrowUpRight, Clock3, Copy, Edit3,
-  Plus, QrCode, Radio, Trash2, Users
+  QrCode, Radio, Trash2, Users
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { cn } from '../lib/utils';
@@ -14,10 +14,8 @@ import { getErrorCode } from '../lib/error-mapper';
 import { usePolling } from '../lib/use-polling';
 import { displayUrl } from '../lib/stream-url-display';
 import PageHeader from '../components/ui/PageHeader';
-import EmptyState from '../components/ui/EmptyState';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import { CardSkeleton } from '../components/ui/Skeleton';
-import SearchInput from '../components/ui/SearchInput';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import StreamPreviewModal from '../components/streams/StreamPreviewModal';
@@ -25,6 +23,12 @@ import StreamQrModal from '../components/streams/StreamQrModal';
 import {
   inputClass, labelClass, btnPrimary, btnSecondary, btnGhost, btnDangerGhost
 } from '../components/ui/styles';
+import {
+  filterStreams,
+  StreamDiscoveryFilters,
+  StreamFilteredEmptyState,
+  StreamHeaderActions
+} from './stream-discovery';
 
 function Metric({ icon: Icon, label, value }) {
   return (
@@ -142,11 +146,7 @@ export default function Streams() {
   usePolling(() => loadStreams(true), 10000);
 
   const q = search.trim().toLowerCase();
-  const filtered = streams.filter(stream => {
-    const statusText = stream.status === 'online' ? '直播中 在线 online' : '空闲 离线 offline';
-    const haystack = [stream.name, stream.protocol, stream.status, statusText].filter(Boolean).join(' ').toLowerCase();
-    return (!q || haystack.includes(q)) && (statusFilter === 'all' || stream.status === statusFilter);
-  });
+  const filtered = filterStreams(streams, q, statusFilter);
   const liveCount = streams.filter(stream => stream.status === 'online').length;
   const hasFilter = Boolean(q) || statusFilter !== 'all';
 
@@ -225,15 +225,7 @@ export default function Streams() {
         eyebrow={t('streams:list.eyebrow')}
         title={t('streams:title')}
         subtitle={t('streams:subtitle')}
-        actions={
-          <>
-            <SearchInput value={search} onChange={setSearch} placeholder="搜索名称、协议或状态" />
-            <button className={btnPrimary} onClick={openCreate}>
-              <Plus size={16} />
-              {t('common:actions.create')}
-            </button>
-          </>
-        }
+        actions={<StreamHeaderActions search={search} onSearch={setSearch} onCreate={openCreate} createLabel={t('common:actions.create')} />}
       />
 
       <div className="mb-5 grid grid-cols-3 gap-2 sm:max-w-xl">
@@ -249,13 +241,7 @@ export default function Streams() {
         ))}
       </div>
 
-      <div className="mb-5 flex flex-wrap items-center gap-2 border-b border-[var(--border-soft)] pb-4">
-        <span className="mr-1 text-[10px] font-semibold tracking-[.08em] text-[var(--text-faint)]">快速筛选</span>
-        {[['all', '全部'], ['online', '正在直播'], ['offline', '空闲']].map(([value, label]) => (
-          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={statusFilter === value ? btnSecondary : btnGhost}>{label}</button>
-        ))}
-        <span className="ml-auto text-xs text-[var(--muted-foreground)]">{hasFilter ? `找到 ${filtered.length} / ${streams.length} 路` : `${streams.length} 路直播流`}</span>
-      </div>
+      <StreamDiscoveryFilters statusFilter={statusFilter} onStatusFilter={setStatusFilter} resultCount={filtered.length} totalCount={streams.length} hasFilter={hasFilter} />
 
       {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => loadStreams()} />}
 
@@ -291,17 +277,7 @@ export default function Streams() {
           {[1, 2, 3, 4].map(item => <CardSkeleton key={item} className="h-24" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)]">
-          <EmptyState
-            title={hasFilter ? '没有找到匹配的直播流' : t('streams:empty.title')}
-            description={hasFilter ? '可以换一个名称、协议或状态，或清除筛选条件。' : t('streams:empty.description')}
-            action={hasFilter ? (
-              <button className={btnSecondary} onClick={() => { setSearch(''); setStatusFilter('all'); }}>清除筛选</button>
-            ) : (
-              <button className={btnPrimary} onClick={openCreate}>{t('streams:empty.createButton')}</button>
-            )}
-          />
-        </div>
+        <StreamFilteredEmptyState hasFilter={hasFilter} onClear={() => { setSearch(''); setStatusFilter('all'); }} onCreate={openCreate} t={t} />
       ) : (
         <div className="space-y-3">
           {filtered.map(stream => (

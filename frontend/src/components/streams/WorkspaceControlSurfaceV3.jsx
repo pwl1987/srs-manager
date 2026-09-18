@@ -1,3 +1,4 @@
+import React from 'react';
 import { useState } from 'react';
 import { ArrowLeft, QrCode, Settings2, Users, Video, Gauge, Cable, X } from 'lucide-react';
 import { Link } from 'react-router-dom';

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { resolvePullHls } from '../../lib/stream-url-display';
 import Modal from '../ui/Modal';

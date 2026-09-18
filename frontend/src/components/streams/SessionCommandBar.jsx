@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CircleAlert, Clock3, Play, Plus, RefreshCw, Square } from 'lucide-react';
 import { toast } from 'sonner';
@@ -39,12 +40,12 @@ function outputHealthy(output) {
   if (output.mode === 'RECORD') return ['RECORDING', 'COMPLETE'].includes(output.runtime_state);
   return output.runtime_state === 'RUNNING';
 }
-export default function SessionCommandBar({ roomId, workspace, onChanged, compact = false, readOnly = false }) {
+export default function SessionCommandBar({ roomId, workspace, onChanged, compact = false, readOnly = false, initialShowQuickPlan = false }) {
   const [plans, setPlans] = useState([]);
   const [planId, setPlanId] = useState('');
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
-  const [showQuickPlan, setShowQuickPlan] = useState(false);
+  const [showQuickPlan, setShowQuickPlan] = useState(initialShowQuickPlan);
   const [quickName, setQuickName] = useState('标准开播方案');
   const [selectedOutputs, setSelectedOutputs] = useState({});
   const [optionalOutputs, setOptionalOutputs] = useState({});

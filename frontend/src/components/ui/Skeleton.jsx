@@ -1,3 +1,5 @@
+import React from 'react';
+
 // Animated placeholder rows for list pages.
 export function TableSkeleton({ rows = 4 }) {
   return (
