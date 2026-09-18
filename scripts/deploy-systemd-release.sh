@@ -31,6 +31,44 @@ dst_lock="$(sha256sum "$TARGET_DIR/backend/package-lock.json" | awk '{print $1}'
   exit 1
 }
 
+if [[ "${ALLOW_ACTIVE_MEDIA:-0}" != "1" ]]; then
+  python3 - "$TARGET_DIR/data/srs-manager.db" <<'PY'
+import json, sqlite3, sys, urllib.request
+db_path = sys.argv[1]
+busy = []
+try:
+    payload = json.load(urllib.request.urlopen(
+        "http://127.0.0.1:1985/api/v1/streams?start=0&count=10000", timeout=3))
+    streams = [str(item.get("name")) for item in payload.get("streams", []) if item.get("name")]
+except Exception as exc:
+    raise SystemExit(f"无法确认 SRS 空闲状态，拒绝部署: {exc}")
+if streams:
+    busy.append("SRS online streams=" + ",".join(streams[:20]))
+with sqlite3.connect(db_path) as db:
+    for table in ("pull_tasks", "forward_tasks", "stream_transcode_bindings", "record_tasks"):
+        try:
+            columns = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
+            if "desired_state" not in columns:
+                continue
+            count = db.execute(f"SELECT COUNT(*) FROM {table} WHERE desired_state='RUNNING'").fetchone()[0]
+            if count:
+                busy.append(f"{table} desired RUNNING={count}")
+        except sqlite3.DatabaseError as exc:
+            raise SystemExit(f"无法确认 {table} 状态，拒绝部署: {exc}")
+if busy:
+    print("检测到活动直播/任务，默认拒绝重启控制面:", file=sys.stderr)
+    for item in busy:
+        print(" - " + item, file=sys.stderr)
+    print("如确需带业务升级，显式设置 ALLOW_ACTIVE_MEDIA=1。", file=sys.stderr)
+    raise SystemExit(42)
+PY
+fi
+
+if [[ "${CHECK_ONLY:-0}" == "1" ]]; then
+  echo "systemd release preflight PASS"
+  exit 0
+fi
+
 mkdir -p "$BACKUP_DIR/code"
 rsync -a --delete   --exclude '.git/' --exclude '.env' --exclude 'data/'   --exclude 'backend/node_modules/' --exclude 'frontend/node_modules/'   "$TARGET_DIR/" "$BACKUP_DIR/code/"
 python3 - "$TARGET_DIR/data/srs-manager.db" "$BACKUP_DIR/srs-manager.db" <<'PY'
