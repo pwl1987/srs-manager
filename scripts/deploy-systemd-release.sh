@@ -20,6 +20,7 @@ for cmd in rsync curl python3 sha256sum systemctl; do need "$cmd"; done
 [[ -f "$SOURCE_DIR/backend/server.js" ]] || { echo "release backend 不完整" >&2; exit 1; }
 [[ -f "$SOURCE_DIR/frontend/dist/index.html" ]] || { echo "release frontend/dist 未构建" >&2; exit 1; }
 [[ -f "$SOURCE_DIR/deploy/systemd/$UNIT_NAME" ]] || { echo "缺少 Record Worker unit" >&2; exit 1; }
+[[ -f "$SOURCE_DIR/scripts/post-deploy-smoke.sh" ]] || { echo "缺少 post-deploy smoke Gate" >&2; exit 1; }
 [[ -f "$TARGET_DIR/.env" && -d "$TARGET_DIR/data" ]] || { echo "目标 .env/data 不完整" >&2; exit 1; }
 [[ -d "$TARGET_DIR/backend/node_modules" ]] || { echo "目标 backend/node_modules 不存在" >&2; exit 1; }
 
@@ -148,6 +149,8 @@ with sqlite3.connect(sys.argv[1]) as db:
     if not row or row[0] != "ok":
         raise SystemExit("production SQLite integrity_check failed")
 PY
+
+bash "$SOURCE_DIR/scripts/post-deploy-smoke.sh" "$TARGET_DIR" "$SOURCE_DIR"
 
 trap - ERR
 echo "SRS Manager systemd release 部署成功"

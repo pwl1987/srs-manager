@@ -146,6 +146,20 @@ Active-media preflight 已在真实业务流 `22` 在线时验证：
 
 固定脚本二次生产执行：**PENDING SAFE WINDOW**。在其自然获得 Manager health、SPA HTTP 200、六服务 active、Record heartbeat fresh 与 DB integrity `ok` 前，不创建 `v0.6.0` tag。
 
+## 8. 当前 RC 内容一致性与 post-deploy Gate
+
+在业务流 `22` 在线、禁止再次重启控制面的前提下，完成一次纯只读生产复核：
+
+- 当前生产 `backend/server.js`、`record-worker.js`、`v3-output-service.js`、backend lockfile 与 release staging 内容哈希一致；
+- 当前生产 `backend/public` 与当前 `frontend/dist` 内容一致，只有文件时间戳差异；
+- Record Worker systemd unit 与 release staging 内容一致；
+- 新增 `scripts/post-deploy-smoke.sh`，统一检查 Manager API、SPA、六服务、SQLite integrity、V3 表结构、Record Worker heartbeat 与 release payload parity；
+- 真实生产执行 post-deploy smoke：**PASS**，Record Worker heartbeat 约 1–2 秒；
+- release deploy script 已把 post-deploy smoke 纳入同一 rollback 事务，smoke 失败即触发现有 rollback；
+- 固定脚本 `CHECK_ONLY=1` 在真实流 `22` 在线时返回 **42**，继续证明 active-media preflight 会阻断 cutover。
+
+因此当前不是“生产仍运行旧版本”，而是 v0.6.0 candidate payload 已在生产运行；仍需等待安全窗口，把修正后的完整 deploy transaction 再执行一次，取得脚本自身的最终生产证据后再创建 `v0.6.0` tag / GitHub Release。禁止通过 `ALLOW_ACTIVE_MEDIA=1` 为发布收口打断业务。
+
 ## 结论
 
 UI-00 与 Phase 00–08 全部满足冻结 Authority 和阶段 Gate。Workspace V3 可标记为 **COMPLETE**，并具备发布 **v0.6.0** 的证据基础。
