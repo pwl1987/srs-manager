@@ -16,7 +16,7 @@ UNIT_TARGET="/etc/systemd/system/$UNIT_NAME"
 SOURCE_DIR="$(cd "$SOURCE_DIR" && pwd)"
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "缺少依赖：$1" >&2; exit 1; }; }
-for cmd in rsync curl python3 sha256sum systemctl; do need "$cmd"; done
+for cmd in rsync curl python3 systemctl; do need "$cmd"; done
 [[ -f "$SOURCE_DIR/backend/server.js" ]] || { echo "release backend 不完整" >&2; exit 1; }
 [[ -f "$SOURCE_DIR/frontend/dist/index.html" ]] || { echo "release frontend/dist 未构建" >&2; exit 1; }
 [[ -f "$SOURCE_DIR/deploy/systemd/$UNIT_NAME" ]] || { echo "缺少 Record Worker unit" >&2; exit 1; }
@@ -24,13 +24,29 @@ for cmd in rsync curl python3 sha256sum systemctl; do need "$cmd"; done
 [[ -f "$TARGET_DIR/.env" && -d "$TARGET_DIR/data" ]] || { echo "目标 .env/data 不完整" >&2; exit 1; }
 [[ -d "$TARGET_DIR/backend/node_modules" ]] || { echo "目标 backend/node_modules 不存在" >&2; exit 1; }
 
-src_lock="$(sha256sum "$SOURCE_DIR/backend/package-lock.json" | awk '{print $1}')"
-dst_lock="$(sha256sum "$TARGET_DIR/backend/package-lock.json" | awk '{print $1}')"
-[[ "$src_lock" == "$dst_lock" ]] || {
-  echo "backend 依赖锁发生变化；拒绝在生产节点临时联网 npm install。" >&2
-  echo "请先准备经过 CI 验证的依赖产物。" >&2
-  exit 1
-}
+python3 - "$SOURCE_DIR/backend/package-lock.json" "$TARGET_DIR/backend/package-lock.json" <<'PY'
+import json, sys
+
+def runtime_lock(path):
+    with open(path) as f:
+        data = json.load(f)
+    packages = data.get('packages') or {}
+    root_dependencies = (packages.get('') or {}).get('dependencies') or {}
+    runtime = {}
+    for name, meta in packages.items():
+        if not name or meta.get('dev') is True:
+            continue
+        runtime[name] = {k: v for k, v in meta.items() if k != 'dev'}
+    return root_dependencies, runtime
+
+source = runtime_lock(sys.argv[1])
+target = runtime_lock(sys.argv[2])
+if source != target:
+    raise SystemExit(
+        'backend 生产依赖闭包发生变化；拒绝复用旧 node_modules。请准备经过 CI 验证的运行时依赖产物。'
+    )
+print('backend runtime dependency parity=ok')
+PY
 
 if [[ "${ALLOW_ACTIVE_MEDIA:-0}" != "1" ]]; then
   python3 - "$TARGET_DIR/data/srs-manager.db" "$TARGET_DIR/.env" <<'PY'

@@ -10,7 +10,7 @@
 - 前端测试基础升级到 Vitest 4.1.11，并将 high/critical `npm audit` 纳入静态扫描；
 - ECharts 5.6.0 → 6.1.0，新增 Monitor 使用 API 兼容测试，production build 通过，npm audit 清零；
 - 默认隐藏原始 SRS `:8080` HLS/HTTP-FLV Origin URL，旧 Monitor/二维码/无 CDN fallback 不再自动绕过 Manager Preview Proxy；新增 systemd Origin 硬化脚本与外部暴露探针，将 `1985/8080` 的生产网络边界纳入 Field Gate；
-- SRS API 客户端增加 Bearer/Basic 双栈认证：当前生产 SRS 6.0.191 使用 Basic，硬化脚本同步迁移持久化 `srs_api_url` 到 loopback，并使后续 systemd release preflight 能在 API 鉴权后继续检测活动流。
+- SRS API 客户端增加 Bearer/Basic 双栈认证：当前生产 SRS 6.0.191 使用 Basic，硬化脚本同步迁移持久化 `srs_api_url` 到 loopback，并使后续 systemd release preflight 能在 API 鉴权后继续检测活动流；systemd release 依赖门禁改为比较完整生产依赖闭包，允许仅 dev/test 依赖变化复用既有生产 `node_modules`，运行时依赖一旦漂移仍直接拒绝部署。
 
 ## v0.6.0 — Workspace V3 直播运维控制台
 
