@@ -20,10 +20,27 @@ jobs:
   analyze:
     name: Static Analysis
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+
+      - name: 准备 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 审计后端高危依赖
+        working-directory: backend
+        run: |
+          npm ci
+          npm audit --audit-level=high
+
+      - name: 审计前端高危依赖
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --audit-level=high
 
       - name: 初始化 CodeQL
         uses: github/codeql-action/init@v3

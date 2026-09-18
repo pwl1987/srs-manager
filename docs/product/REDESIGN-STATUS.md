@@ -150,9 +150,9 @@ Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-
 
 Last Completed：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。生产 Workspace 代码已切到 V3 16:9 主工作面；1920×1080 五态、1366×768、2560×1440、3840×2160 UI Gate 通过；v0.5.1 数据 additive migration 与旧 backend 回退可读通过；真实 `live` 主机隔离 Candidate 完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED。Backend `69/69 PASS`、frontend build/i18n PASS、Container Release Gate `35294729038` SUCCESS。
 
-Current Task：**Stable Maintenance / v0.6.0 Post-Release Observation**。`v0.6.0` annotated tag 与 GitHub Release 已发布；生产 deploy transaction、事务内/独立 post-deploy smoke、六服务、DB、Manager/SPA 与 Record heartbeat 均已取得 PASS 证据。当前默认只接受稳定性修复、回归与已知边界收敛。
+Current Task：**V3.x Backlog Triage / Security Debt**。v0.6.0 发布后复核已再次 PASS：生产六服务连续运行且 NRestarts=0，Manager/SPA 200，SRS 当前无残留流，DB integrity `ok`，Record Worker heartbeat fresh，cutover 后相关服务无 warning/alert。Git Authority 已收敛到唯一 `main`，并启用 Backend Tests / Frontend Build / Static Analysis / Container Build / Delta Coverage / Contract Tests 六项强制门禁。
 
-Next Task：**V3.x Backlog Triage**。按实际优先级处理稳定维护债务与 Design Freeze 后新增需求，不回插 Phase 00–08，不改变已冻结 Domain/Evidence/Capability Authority。
+Next Task：**ECharts 6.1 Compatibility Hardening**。先处理现存 `echarts < 6.1.0` moderate XSS advisory，并保持 UI/Workspace 行为兼容；随后处理 SRS 8080 HLS 暴露边界与 OUT-PUSH remote verification。
 
 ## 验证债务 / 已知边界
 

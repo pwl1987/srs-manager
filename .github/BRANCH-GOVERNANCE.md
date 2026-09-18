@@ -12,3 +12,5 @@
 - Use `scripts/push-main-gated.sh` after branch protection is enabled.
 - Candidate gate tags are deleted after the gated push completes.
 - Container/release checks remain path/tag sensitive and provide additional release evidence.
+
+- `Static Analysis` also runs `npm audit --audit-level=high` for backend and frontend; newly introduced high/critical dependency advisories are pipeline failures.
