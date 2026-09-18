@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { displayUrl, resolveOriginHls, resolvePullFlv, resolvePullHls } from './stream-url-display.js';
+import { directFlvUrl, directRtmpUrl, displayUrl, resolveOriginHls, resolvePullFlv, resolvePullHls } from './stream-url-display.js';
 
 beforeEach(() => {
   globalThis.window = { location: { hostname: 'panel.example.test' } };
@@ -27,5 +27,11 @@ describe('stream URL display helpers', () => {
 
   it('never reconstructs a hidden origin HLS URL', () => {
     expect(resolveOriginHls({ name: 'news', origin_pull_url_hls: null, http_port: 8080 })).toBe('');
+  });
+
+  it('encodes Unicode stream names in direct playback URLs', () => {
+    const encoded = encodeURIComponent('任意社会学');
+    expect(directFlvUrl('任意社会学')).toBe(`http://panel.example.test:8080/live/${encoded}.flv`);
+    expect(directRtmpUrl('任意社会学')).toBe(`rtmp://panel.example.test:1935/live/${encoded}`);
   });
 });

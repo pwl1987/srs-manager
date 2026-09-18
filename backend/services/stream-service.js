@@ -2,6 +2,7 @@ const srsService = require('./srs');
 const { buildUrls } = require('./stream-urls');
 const db = require('../database');
 const outPullService = require('./out-pull-service');
+const { assertValidStreamName } = require('../utils/stream-name');
 
 function resolveTranscodeTemplateId(templateId) {
   if (templateId === undefined || templateId === null || templateId === '') return null;
@@ -92,14 +93,14 @@ async function getStream(id) {
 }
 
 async function createStream(name, protocol, transcodeTemplateId) {
-  if (!/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('Invalid stream name');
+  const validName = assertValidStreamName(name);
   const templateId = resolveTranscodeTemplateId(transcodeTemplateId);
 
   db.prepare('INSERT INTO streams (name, protocol, status, transcode_template_id) VALUES (?, ?, ?, ?)')
-    .run(name, protocol || 'rtmp', 'offline', templateId);
+    .run(validName, protocol || 'rtmp', 'offline', templateId);
 
-  const stream = db.prepare('SELECT * FROM streams WHERE name = ?').get(name);
-  return { ...stream, ...buildUrls(name) };
+  const stream = db.prepare('SELECT * FROM streams WHERE name = ?').get(validName);
+  return { ...stream, ...buildUrls(validName) };
 }
 
 async function updateStream(id, { name, protocol, transcode_template_id }) {
@@ -108,8 +109,7 @@ async function updateStream(id, { name, protocol, transcode_template_id }) {
 
   const updates = {};
   if (name && name !== stream.name) {
-    if (!/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('Invalid stream name');
-    updates.name = name;
+    updates.name = assertValidStreamName(name);
   }
   if (protocol) updates.protocol = protocol;
   if (transcode_template_id !== undefined) {

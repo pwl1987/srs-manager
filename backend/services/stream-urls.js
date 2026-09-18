@@ -1,6 +1,7 @@
 const settingsService = require('./settings-service');
 
 function buildUrls(streamName) {
+  const encodedStreamName = encodeURIComponent(String(streamName));
   let srsHost = 'localhost';
   try {
     srsHost = new URL(settingsService.getSrsApiUrl()).hostname || 'localhost';
@@ -17,14 +18,14 @@ function buildUrls(streamName) {
   const exposeOriginHttp = process.env.EXPOSE_SRS_HTTP_ORIGIN_URLS === '1';
 
   return {
-    push_url: `rtmp://${srsHost}:${rtmpPort}/live/${streamName}`,
-    origin_pull_url_hls: exposeOriginHttp ? `http://${srsHost}:${httpPort}/live/${streamName}.m3u8` : null,
-    origin_pull_url_flv: exposeOriginHttp ? `http://${srsHost}:${httpPort}/live/${streamName}.flv` : null,
-    origin_pull_url_rtmp: `rtmp://${srsHost}:${rtmpPort}/live/${streamName}`,
+    push_url: `rtmp://${srsHost}:${rtmpPort}/live/${encodedStreamName}`,
+    origin_pull_url_hls: exposeOriginHttp ? `http://${srsHost}:${httpPort}/live/${encodedStreamName}.m3u8` : null,
+    origin_pull_url_flv: exposeOriginHttp ? `http://${srsHost}:${httpPort}/live/${encodedStreamName}.flv` : null,
+    origin_pull_url_rtmp: `rtmp://${srsHost}:${rtmpPort}/live/${encodedStreamName}`,
     origin_http_exposed: exposeOriginHttp,
-    pull_url_hls: cdnConfigured ? `https://${cdnDomain}/${streamName}/index.m3u8` : null,
-    pull_url_flv: cdnConfigured ? `https://${cdnDomain}/${streamName}.flv` : null,
-    pull_url_rtmp: cdnConfigured ? `rtmp://${cdnDomain}/live/${streamName}` : null,
+    pull_url_hls: cdnConfigured ? `https://${cdnDomain}/${encodedStreamName}/index.m3u8` : null,
+    pull_url_flv: cdnConfigured ? `https://${cdnDomain}/${encodedStreamName}.flv` : null,
+    pull_url_rtmp: cdnConfigured ? `rtmp://${cdnDomain}/live/${encodedStreamName}` : null,
     cdn_configured: cdnConfigured,
     http_port: httpPort,
     rtmp_port: rtmpPort

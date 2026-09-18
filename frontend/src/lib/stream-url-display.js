@@ -9,11 +9,11 @@ function isLoopbackHost(hostname) {
 }
 
 export function directFlvUrl(name, httpPort = 8080) {
-  return `http://${window.location.hostname}:${httpPort}/live/${name}.flv`;
+  return `http://${window.location.hostname}:${httpPort}/live/${encodeURIComponent(String(name))}.flv`;
 }
 
 export function directRtmpUrl(name, rtmpPort = 1935) {
-  return `rtmp://${window.location.hostname}:${rtmpPort}/live/${name}`;
+  return `rtmp://${window.location.hostname}:${rtmpPort}/live/${encodeURIComponent(String(name))}`;
 }
 
 export function displayUrl(url) {

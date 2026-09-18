@@ -1,4 +1,5 @@
 const settingsService = require('./settings-service');
+const { assertValidStreamName } = require('../utils/stream-name');
 
 function authorizationHeader() {
   const token = settingsService.getSrsApiToken();
@@ -53,10 +54,10 @@ async function getStreams(options) {
   return listPaginated('/streams', 'streams', options);
 }
 
-// 流名称在创建时限定为 [a-zA-Z0-9_-]；出站请求前再做一次白名单变换，
-// 确保任何来源的名称都不可能携带路径/查询注入字符进入 SRS API URL
+// Keep the same validation at the SRS boundary. URL encoding preserves
+// Unicode stream names while rejecting path/query control characters.
 function safeStreamName(name) {
-  return String(name || '').replace(/[^a-zA-Z0-9_-]/g, '');
+  return assertValidStreamName(name);
 }
 
 async function getStreamByName(name) {
