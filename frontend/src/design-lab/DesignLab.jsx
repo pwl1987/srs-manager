@@ -7,6 +7,7 @@ import {
   SlidersHorizontal, SquareActivity, TimerReset, Video, X, Zap,
 } from 'lucide-react';
 import { incidents, outputs, profiles, rooms, runPlans, sources } from './mock';
+import CutoverHarness from './CutoverHarness';
 
 const panel = 'rounded-xl border border-white/[0.07] bg-[#191d22] shadow-[inset_0_1px_0_rgba(255,255,255,.025)]';
 const panelSoft = 'rounded-lg border border-white/[0.06] bg-[#15191e]';
@@ -54,6 +55,7 @@ const navGroups = [
 
 function DesignLabShell() {
   const location = useLocation();
+  if (location.pathname === '/design-lab/cutover') return <CutoverHarness />;
   const workspace = /\/design-lab\/rooms\/\d+/.test(location.pathname);
   const [collapsed, setCollapsed] = useState(workspace);
   return <div className="min-h-screen bg-[#101317] text-[#d7dde4]">

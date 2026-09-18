@@ -24,8 +24,8 @@ export default function Layout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className={workspaceMode ? 'flex-1 overflow-y-auto p-3 xl:p-4' : 'flex-1 overflow-y-auto p-4 md:p-6 xl:p-8'}>
+        {workspaceMode ? <div className="md:hidden"><Header onMenuClick={() => setSidebarOpen(true)} /></div> : <Header onMenuClick={() => setSidebarOpen(true)} />}
+        <main className={workspaceMode ? 'min-h-0 flex-1 overflow-hidden p-0' : 'flex-1 overflow-y-auto p-4 md:p-6 xl:p-8'}>
           <div className={workspaceMode ? 'w-full' : 'mx-auto w-full max-w-[1600px]'}>
             <Outlet />
           </div>

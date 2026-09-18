@@ -191,7 +191,7 @@ function BuilderDrawer({ roomId, scenes, capabilities, onClose, onCreated }) {
   </div>;
 }
 
-export default function V3OutputRack({ roomId, workspace, scenes = [], onChanged }) {
+export default function V3OutputRack({ roomId, workspace, scenes = [], onChanged, embedded = false }) {
   const [drawer, setDrawer] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const renditionMap = useMemo(() => new Map((workspace?.renditions || []).map(r => [r.id, r])), [workspace]);
@@ -209,7 +209,7 @@ export default function V3OutputRack({ roomId, workspace, scenes = [], onChanged
     finally { setBusyId(null); }
   }
 
-  return <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
+  return <section className={embedded ? "h-full bg-transparent p-3" : "rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]"}>
     <div className="mb-3 flex items-start justify-between gap-4"><div><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">OUTPUT RACK · V3</div><div className="mt-1 text-sm font-semibold">统一输出</div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">{running} Running / Available · {incidents.length} Incident · {(workspace?.renditions || []).filter(r => r.kind === 'TRANSCODE').length} Renditions</div></div><button className={btnPrimary} onClick={() => setDrawer(true)}><Plus size={13}/>新建输出</button></div>
     {incidents.length > 0 && <div className="mb-3 rounded-xl border border-[var(--warning)]/20 bg-[var(--warning-soft)]/8 p-3"><div className="flex items-center gap-2 text-xs font-semibold text-[var(--warning)]"><AlertTriangle size={13}/>{incidents.length} 个输出需要处理</div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">异常只提升对应通道，不影响其他健康输出。</div></div>}
     <div className="space-y-2">{outputs.length ? outputs.map(output => <OutputRow key={output.id} output={output} renditionMap={renditionMap} busy={busyId === output.id} onToggle={toggle}/>) : <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-8 text-center text-xs text-[var(--muted-foreground)]">还没有 V3 Output。使用“新建输出”从场景开始。</div>}</div>

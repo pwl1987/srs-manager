@@ -23,7 +23,7 @@ function outputHealthy(output) {
   if (output.mode === 'RECORD') return ['RECORDING', 'COMPLETE'].includes(output.runtime_state);
   return output.runtime_state === 'RUNNING';
 }
-export default function SessionCommandBar({ roomId, workspace, onChanged }) {
+export default function SessionCommandBar({ roomId, workspace, onChanged, compact = false, readOnly = false }) {
   const [plans, setPlans] = useState([]);
   const [planId, setPlanId] = useState('');
   const [title, setTitle] = useState('');
@@ -46,7 +46,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged }) {
     } catch (error) { toast.error(error.message || '读取开播方案失败'); }
   }
 
-  useEffect(() => { loadPlans(); }, [roomId]);
+  useEffect(() => { if (!readOnly) loadPlans(); }, [roomId, readOnly]);
 
   const requiredSummary = useMemo(() => {
     if (!session) return { total: 0, healthy: 0 };
@@ -152,7 +152,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged }) {
     finally { setBusy(false); }
   }
 
-  if (!session) return <section className="mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]">
+  if (!session) return <section className={compact ? "rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-3 py-2" : "mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]"}>
     <div className="flex flex-wrap items-end gap-3">
       <div className="min-w-[220px] flex-1"><label className={labelClass}>开播方案</label><select className={inputClass} value={planId} onChange={event => setPlanId(event.target.value)}><option value="">选择 Run Plan</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></div>
       <div className="min-w-[220px] flex-1"><label className={labelClass}>本场标题</label><input className={inputClass} value={title} onChange={event => setTitle(event.target.value)} placeholder="例如：晚间新闻直播" /></div>
@@ -168,7 +168,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged }) {
 
   const plan = plans.find(item => Number(item.id) === Number(session.run_plan_id));
   const sessionSeconds = session.started_at ? Math.max(0, Math.floor((Date.now() - Date.parse(session.started_at)) / 1000)) : null;
-  return <section className="mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]">
+  return <section className={compact ? "rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-3 py-2" : "mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]"}>
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
       <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">SESSION COMMAND BAR</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold">{session.title}</span><span className={`text-[10px] font-bold tracking-[.08em] ${stateTone(session.lifecycle_state)}`}>{session.lifecycle_state}</span></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">Run Plan: {plan?.name || session.plan_snapshot?.name || '—'} · Program: {workspace?.program?.source_id || '未观测'}</div></div>
       <div className="text-center"><div className="text-[9px] uppercase tracking-[.1em] text-[var(--text-faint)]">Required</div><div className="mt-1 text-sm font-semibold tabular-nums">{requiredSummary.healthy}/{requiredSummary.total}</div></div>

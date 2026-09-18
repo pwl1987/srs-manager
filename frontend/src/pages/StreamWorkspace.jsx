@@ -29,6 +29,7 @@ import TranscodePipelinePanel from '../components/streams/TranscodePipelinePanel
 import V3OutputRack from '../components/streams/V3OutputRack';
 import SessionCommandBar from '../components/streams/SessionCommandBar';
 import OperationsDock from '../components/streams/OperationsDock';
+import WorkspaceControlSurfaceV3 from '../components/streams/WorkspaceControlSurfaceV3';
 import DistributionSection from './StreamsDistribution';
 import { btnSecondary, btnDangerGhost, btnGhost } from '../components/ui/styles';
 
@@ -145,6 +146,20 @@ export default function StreamWorkspace() {
     }
   }
 
+  async function previewV3Source(source) {
+    if (!source?.id) { setSourcePreview(null); return; }
+    if (sourcePreviewLoading) return;
+    setSourcePreviewLoading(true);
+    try {
+      const access = await api.post(`/v3/rooms/room:${id}/sources/${encodeURIComponent(source.id)}/preview-access`);
+      setSourcePreview({ ...access, source_name: source.name, source_id: source.id });
+    } catch (err) {
+      toast.error(err?.message || t('common:errors.INTERNAL_GENERAL'));
+    } finally {
+      setSourcePreviewLoading(false);
+    }
+  }
+
   async function disconnectPublisher() {
     setWorking(true);
     try {
@@ -189,100 +204,49 @@ export default function StreamWorkspace() {
   const canDisconnectPublisher = workspace.capabilities?.disconnect_publisher && !managedDesiredRunning;
 
   return (
-    <div>
-      <div className="mb-4"><Link to="/streams" className="inline-flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"><ArrowLeft size={13} />{t('streams:workspace.back')}</Link></div>
-      <PageHeader
-        eyebrow={t('streams:workspace.eyebrow')}
-        title={stream.name}
-        subtitle={t('streams:workspace.subtitle')}
-        actions={<>
-          <StateBadge state={observed.online} t={t} />
-          <button className={btnSecondary} onClick={() => setQr(true)}><QrCode size={14} />{t('streams:actions.qrcode')}</button>
-          {!ingestCredentials.length && <button className={btnSecondary} onClick={() => handleCopy(publishUrl)}><Copy size={14} />{t('streams:actions.copyPushUrl')}</button>}
-          {canDisconnectPublisher && <button className={btnDangerGhost} onClick={() => setConfirmPublisher(true)}><Square size={13} />{t('streams:workspace.controls.disconnectPublisher')}</button>}
+    <>
+      <WorkspaceControlSurfaceV3
+        stream={stream}
+        observed={observed}
+        media={media}
+        v3Workspace={v3Workspace}
+        sourcePreview={sourcePreview}
+        outputScenes={outputScenes}
+        incidentState={incidentState}
+        onPreviewSource={previewV3Source}
+        onQr={() => setQr(true)}
+        onChanged={() => load(true)}
+        t={t}
+        sourceDrawerContent={<>
+          <IngestCredentialPanel stream={stream} credentials={ingestCredentials} onChanged={() => load(true)} />
+          <ManagedPullPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onPreviewSource={previewSource} previewingSourceId={sourcePreview?.source_id} />
         </>}
-      />
-      {error && <ErrorBanner message={t(`common:errors.${error.code}`)} onRetry={() => load()} />}
-
-      <SessionCommandBar roomId={`room:${stream.id}`} workspace={v3Workspace} onChanged={() => load(true)} />
-
-      <section className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-        <div className={sourcePreview ? 'grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,2fr)_minmax(250px,1fr)]' : 'min-w-0'}>
-          <WorkspacePreviewPanel stream={stream} observed={observed} t={t} />
-          {sourcePreview && <SourcePreviewPane preview={sourcePreview} onClose={() => setSourcePreview(null)} />}
-        </div>
-        <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)] md:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">{t('streams:workspace.console.title')}</div>
-              <div className="mt-1 text-sm font-semibold">{inputSummary}</div>
-              <p className="mt-1 text-[10px] leading-4 text-[var(--muted-foreground)]">{t('streams:workspace.console.subtitle')}</p>
-            </div>
-            <StateBadge state={observed.online} t={t} />
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <RuntimeMetric icon={Users} label={t('streams:workspace.console.viewers')} value={observed.players?.count ?? '—'} hint={t('streams:workspace.source.observed')} />
-            <RuntimeMetric icon={Gauge} label={t('streams:columns.bitrate')} value={observed.online ? formatBitrateKbps(observed.bitrate) : '—'} hint={t('streams:workspace.source.observed')} />
-            <RuntimeMetric icon={Clock3} label={t('streams:columns.uptime')} value={observed.uptime_seconds != null ? formatDuration(observed.uptime_seconds) : '—'} hint={t('streams:workspace.source.observed')} />
-            <RuntimeMetric icon={Cable} label={t('streams:workspace.console.distribution')} value={distributionCount} hint={`${activePushes} push · ${liveCdn} CDN · ${observed.players?.count || 0} pull`} />
-          </div>
-          <div className="mt-3"><MediaEvidence media={media} t={t} /></div>
-        </div>
-      </section>
-
-      <div className="mb-6"><WorkspaceSignalPath workspace={workspace} t={t} /></div>
-
-      <div className="mb-4">
-        <V3OutputRack roomId={`room:${stream.id}`} workspace={v3Workspace} scenes={outputScenes} onChanged={() => load(true)} />
-      </div>
-
-      <div className="mb-6">
-        <OperationsDock roomId={`room:${stream.id}`} workspace={v3Workspace} incidentState={incidentState} onChanged={() => load(true)} />
-      </div>
-
-      <details className="mb-6 rounded-xl border border-[var(--border-soft)] bg-[var(--card)]">
-        <summary className="cursor-pointer px-4 py-3 text-xs font-semibold text-[var(--muted-foreground)]">兼容 / 高级 Runtime 控制（旧 Transcode / Forward / OUT-PULL）</summary>
-        <div className="grid gap-4 border-t border-[var(--border-soft)] p-4 xl:grid-cols-3">
+        advancedDrawerContent={<>
+          <div className="rounded-xl border border-[var(--warning)]/18 bg-[var(--warning)]/5 p-3 text-[10px] leading-5 text-[var(--muted-foreground)]">兼容 / 工程层控制，不属于 V3 正常值守路径。Runtime 事实仍来自同一批 Worker / Policy。</div>
           <TranscodePipelinePanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
           <ManagedPushPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} />
           <OutPullAccessPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onDisconnectViewers={() => setConfirmViewers(true)} />
-        </div>
-      </details>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(330px,0.8fr)]">
-        <div className="space-y-6">
-          <IngestCredentialPanel stream={stream} credentials={ingestCredentials} onChanged={() => load(true)} />
-          <ManagedPullPanel workspace={workspace} stream={stream} t={t} onChanged={() => load(true)} onPreviewSource={previewSource} previewingSourceId={sourcePreview?.source_id} />
-          <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]"><DistributionSection stream={stream} /></section>
-        </div>
-
-        <div className="space-y-6">
-          <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
-            <div className="mb-2 flex items-center gap-2"><Cable size={15} className="text-[var(--info)]" /><h2 className="text-sm font-semibold">{t('streams:workspace.endpoints.title')}</h2></div>
-            <p className="mb-3 text-xs text-[var(--muted-foreground)]">{t('streams:workspace.endpoints.subtitle')}</p>
-            {!ingestCredentials.length && <EndpointRow label={t('streams:workspace.endpoints.publish')} value={publishUrl} onCopy={handleCopy} />}
-            {!!ingestCredentials.length && <p className="mb-2 rounded-lg border border-[var(--primary)]/15 bg-[var(--primary)]/5 px-3 py-2 text-[10px] leading-4 text-[var(--muted-foreground)]">IN-PUSH 已启用独立凭证，请从左侧“编码器推流来源”复制对应 Server / Stream Key；不再显示无凭证裸推流地址。</p>}
+          <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4"><DistributionSection stream={stream} /></section>
+          <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4">
+            <div className="mb-2 text-[10px] font-semibold tracking-[.12em] text-[var(--text-faint)]">ENDPOINTS</div>
+            {!ingestCredentials.length && <EndpointRow label="PUBLISH" value={publishUrl} onCopy={handleCopy} />}
             <EndpointRow label="HLS" value={hlsUrl} onCopy={handleCopy} />
             <EndpointRow label="FLV" value={flvUrl} onCopy={handleCopy} />
             <EndpointRow label="RTMP" value={rtmpUrl} onCopy={handleCopy} />
-            <p className="mt-3 rounded-lg border border-[var(--warning)]/16 bg-[var(--warning-soft)]/10 px-3 py-2 text-[10px] leading-4 text-[var(--muted-foreground)]">{t('streams:workspace.endpoints.hlsBoundary')}</p>
+            <p className="mt-3 text-[10px] leading-5 text-[var(--warning)]">Direct SRS HLS 不受当前 on_play admission 控制；公网保护必须由反向代理/CDN 承担。</p>
           </section>
-
-          <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]">
-            <div className="mb-4 flex items-center gap-2"><Activity size={15} className="text-[var(--primary)]" /><h2 className="text-sm font-semibold">{t('streams:workspace.activity.title')}</h2></div>
-            {workspace.activity?.length ? <div className="space-y-3">{workspace.activity.map((event, index) => <div key={`${event.event_type}-${index}`} className="flex items-start gap-3"><div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--text-faint)]" /><div className="min-w-0 flex-1"><div className="text-xs font-medium">{t(`common:dashboard.activity.${event.event_type}`, event.event_type)}</div><div className="mt-0.5 text-[10px] text-[var(--text-faint)]">{formatRelativeTime(event.processed_at)}</div></div></div>)}</div> : <p className="text-xs text-[var(--muted-foreground)]">{t('streams:workspace.activity.empty')}</p>}
-            <p className="mt-4 border-t border-[var(--border-soft)] pt-3 text-[10px] leading-4 text-[var(--text-faint)]">{t('streams:workspace.activity.note')}</p>
-          </section>
-
           <section className="rounded-xl border border-[var(--destructive)]/18 bg-[var(--destructive)]/4 p-4">
-            <div className="flex items-start gap-3"><ShieldAlert size={17} className="mt-0.5 shrink-0 text-[var(--destructive)]" /><div className="min-w-0 flex-1"><h2 className="text-sm font-semibold">{t('streams:workspace.danger.title')}</h2><p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">{managedDesiredRunning ? t('streams:workspace.danger.managedPullDescription') : t('streams:workspace.danger.description')}</p><div className="mt-3"><button className={btnDangerGhost} disabled={!workspace.capabilities?.disconnect_viewers} onClick={() => setConfirmViewers(true)}><Users size={14} />{t('streams:workspace.controls.disconnectViewers')}</button></div></div></div>
+            <div className="text-xs font-semibold">Danger Zone</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {canDisconnectPublisher && <button className={btnDangerGhost} onClick={() => setConfirmPublisher(true)}><Square size={12} />{t('streams:workspace.controls.disconnectPublisher')}</button>}
+              <button className={btnDangerGhost} disabled={!workspace.capabilities?.disconnect_viewers} onClick={() => setConfirmViewers(true)}><Users size={12} />{t('streams:workspace.controls.disconnectViewers')}</button>
+            </div>
           </section>
-        </div>
-      </div>
-
+        </>}
+      />
       <ConfirmDialog open={confirmPublisher} onClose={() => setConfirmPublisher(false)} onConfirm={disconnectPublisher} confirming={working} title={t('streams:workspace.confirm.publisherTitle')} description={t('streams:workspace.confirm.publisherDescription')} confirmLabel={t('streams:workspace.confirm.publisherConfirm')} />
       <ConfirmDialog open={confirmViewers} onClose={() => setConfirmViewers(false)} onConfirm={disconnectViewers} confirming={working} title={t('streams:workspace.confirm.viewersTitle')} description={t('streams:workspace.confirm.viewersDescription', { count: observed.players?.count ?? 0 })} confirmLabel={t('streams:workspace.confirm.viewersConfirm')} />
       <StreamQrModal stream={qr ? stream : null} onClose={() => setQr(false)} t={t} onCopy={handleCopy} />
-    </div>
+    </>
   );
 }
