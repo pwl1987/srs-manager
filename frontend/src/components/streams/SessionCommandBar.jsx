@@ -14,7 +14,7 @@ function opKey(prefix) {
 const SESSION_STATE_LABELS = {
   PREP: '准备中',
   READY: '待开播',
-  ON_AIR: '播出中',
+  ON_AIR: '正在播出',
   CLOSING: '收播中',
   ENDED: '已结束'
 };
@@ -53,6 +53,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   const session = workspace?.session || null;
   const outputs = workspace?.outputs || [];
   const sourceId = workspace?.program?.source_id || null;
+  const sourceName = workspace?.sources?.find(source => source.id === sourceId)?.name || sourceId || '未确认';
 
   async function loadPlans() {
     try {
@@ -79,7 +80,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
     try {
       await api.post(`/v3/rooms/${roomId}/sessions`, {
         run_plan_id: Number(planId),
-        title: title.trim() || plans.find(plan => String(plan.id) === String(planId))?.name || 'Live Session'
+        title: title.trim() || plans.find(plan => String(plan.id) === String(planId))?.name || '本场直播'
       });
       toast.success('本场直播已创建');
       await onChanged();
@@ -90,7 +91,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   async function createQuickPlan() {
     const chosen = outputs.filter(output => selectedOutputs[output.id]);
     if (!quickName.trim()) return toast.error('请填写方案名称');
-    if (!chosen.length) return toast.error('至少选择一个 Output');
+    if (!chosen.length) return toast.error('至少选择一个输出');
     setBusy(true);
     try {
       const result = await api.post(`/v3/rooms/${roomId}/run-plans`, {
@@ -116,11 +117,11 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
     setBusy(true);
     try {
       const result = await api.post(`/v3/sessions/${session.legacy_session_id}/preflight`, { mark_ready: true });
-      if (result.status === 'BLOCKED') toast.error('Preflight 存在阻断项');
-      else if (result.status === 'WARNING') toast.warning('Preflight 通过，但存在警告');
-      else toast.success('Preflight 通过，Session 已 READY');
+      if (result.status === 'BLOCKED') toast.error('开播预检存在阻断项');
+      else if (result.status === 'WARNING') toast.warning('开播预检通过，但存在警告');
+      else toast.success('开播预检通过，已进入待开播状态');
       await onChanged();
-    } catch (error) { toast.error(error.message || 'Preflight 失败'); }
+    } catch (error) { toast.error(error.message || '开播预检失败'); }
     finally { setBusy(false); }
   }
 
@@ -162,7 +163,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
       }
       op = await pollClose(op);
       if (op?.phase === 'SUCCEEDED') toast.success('本场直播已结束');
-      else if (op?.phase === 'FAILED') toast.error(op.error || '收播存在未清理残留，Session 保持 CLOSING');
+      else if (op?.phase === 'FAILED') toast.error(op.error || '收播存在未清理残留，本场直播保持“收播中”');
       else toast.warning('收播仍在进行，请稍后继续检查');
       await onChanged();
     } catch (error) { toast.error(error.message || '结束本场直播失败'); }
@@ -171,14 +172,15 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
 
   if (!session) return <section className={compact ? "rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-3 py-2" : "mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]"}>
     <div className="flex flex-wrap items-end gap-3">
-      <div className="min-w-[220px] flex-1"><label className={labelClass}>开播方案</label><select className={inputClass} value={planId} onChange={event => setPlanId(event.target.value)}><option value="">选择 Run Plan</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></div>
+      <div className="min-w-[220px] flex-1"><label className={labelClass}>开播方案</label><select className={inputClass} value={planId} onChange={event => setPlanId(event.target.value)}><option value="">选择一个开播方案</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></div>
       <div className="min-w-[220px] flex-1"><label className={labelClass}>本场标题</label><input className={inputClass} value={title} onChange={event => setTitle(event.target.value)} placeholder="例如：晚间新闻直播" /></div>
-      <button className={btnSecondary} onClick={() => setShowQuickPlan(value => !value)}><Plus size={13}/>快速建方案</button>
-      <button className={btnPrimary} disabled={busy || !planId} onClick={createSession}>创建本场直播</button>
+      <button className={plans.length ? btnSecondary : btnPrimary} onClick={() => setShowQuickPlan(value => !value)}><Plus size={13}/>{plans.length ? '新建开播方案' : '先创建开播方案'}</button>
+      <button className={btnPrimary} disabled={busy || !planId} onClick={createSession} title={!planId ? '请先选择或创建开播方案' : undefined}>创建本场直播</button>
     </div>
+    {!plans.length && !showQuickPlan && <div className="mt-3 rounded-xl border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2.5 text-xs"><div className="font-semibold text-[var(--foreground)]">还没有开播方案</div><div className="mt-1 leading-5 text-[var(--muted-foreground)]">开播方案会记录本场使用的节目源、输出渠道，以及哪些输出是必须成功的。先创建方案，才能创建本场直播。</div></div>}
     {showQuickPlan && <div className="mt-3 border-t border-[var(--border-soft)] pt-3">
-      <div className="mb-3 grid gap-3 md:grid-cols-[minmax(180px,0.7fr)_minmax(0,1.3fr)]"><div><label className={labelClass}>方案名称</label><input className={inputClass} value={quickName} onChange={event => setQuickName(event.target.value)} /></div><div className="text-[10px] leading-5 text-[var(--muted-foreground)]">当前节目源会保存为计划意图。输出只保存引用，不复制运行实例；以后修改长期方案也不会改写已经创建的本场直播。</div></div>
-      <div className="space-y-2">{outputs.map(output => <label key={output.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2 text-xs"><input type="checkbox" checked={Boolean(selectedOutputs[output.id])} onChange={event => setSelectedOutputs(current => ({ ...current, [output.id]: event.target.checked }))}/><span className="min-w-0 flex-1 truncate">{output.name}</span><span className="text-[10px] text-[var(--text-faint)]">{output.mode === 'PUSH' ? '主动推送' : output.mode === 'SERVE' ? '播放服务' : '本地录制'}</span><select className="rounded-md border border-[var(--border-soft)] bg-[var(--background)] px-2 py-1 text-[10px]" disabled={!selectedOutputs[output.id]} value={optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED'} onChange={event => setOptionalOutputs(current => ({ ...current, [output.id]: event.target.value === 'OPTIONAL' }))}><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>)}</div>
+      <div className="mb-3 grid gap-3 md:grid-cols-[minmax(180px,0.7fr)_minmax(0,1.3fr)]"><div><label className={labelClass}>方案名称</label><input className={inputClass} value={quickName} onChange={event => setQuickName(event.target.value)} /></div><div className="text-[10px] leading-5 text-[var(--muted-foreground)]">方案会记录当前节目源和所选输出。保存后，可以用它创建本场直播；本场创建后仍可独立调整。</div></div>
+      <div className="space-y-2">{outputs.map(output => <label key={output.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2 text-xs"><input type="checkbox" checked={Boolean(selectedOutputs[output.id])} onChange={event => setSelectedOutputs(current => ({ ...current, [output.id]: event.target.checked }))}/><span className="min-w-0 flex-1 truncate">{output.name}</span><span className="text-[10px] text-[var(--text-faint)]">{output.mode === 'PUSH' ? '主动推送给第三方' : output.mode === 'SERVE' ? '提供地址给第三方拉取' : '本地录制'}</span><select className="rounded-md border border-[var(--border-soft)] bg-[var(--background)] px-2 py-1 text-[10px]" disabled={!selectedOutputs[output.id]} value={optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED'} onChange={event => setOptionalOutputs(current => ({ ...current, [output.id]: event.target.value === 'OPTIONAL' }))}><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>)}</div>
       <div className="mt-3 flex justify-end"><button className={btnPrimary} disabled={busy} onClick={createQuickPlan}>保存方案</button></div>
     </div>}
   </section>;
@@ -187,7 +189,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   const sessionSeconds = session.started_at ? Math.max(0, Math.floor((Date.now() - Date.parse(session.started_at)) / 1000)) : null;
   return <section className={compact ? "rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-3 py-2" : "mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]"}>
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-      <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">本场直播</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold">{session.title}</span><span className={`rounded-md bg-[var(--secondary)] px-2 py-1 text-[10px] font-semibold ${stateTone(session.lifecycle_state)}`}>{SESSION_STATE_LABELS[session.lifecycle_state] || session.lifecycle_state}</span></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">开播方案：{plan?.name || session.plan_snapshot?.name || '—'} · 节目源：{workspace?.program?.source_id || '未观测'} · 下一步：{nextStep(session)}</div></div>
+      <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">本场直播</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold">{session.title}</span><span className={`rounded-md bg-[var(--secondary)] px-2 py-1 text-[10px] font-semibold ${stateTone(session.lifecycle_state)}`}>{SESSION_STATE_LABELS[session.lifecycle_state] || session.lifecycle_state}</span></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">开播方案：{plan?.name || session.plan_snapshot?.name || '—'} · 节目源：{sourceName} · 下一步：{nextStep(session)}</div></div>
       <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">必需输出</div><div className="mt-1 text-sm font-semibold tabular-nums">{requiredSummary.healthy}/{requiredSummary.total}</div></div>
       <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">预检</div><div className="mt-1 text-sm font-semibold">{session.preflight_status === 'PASS' ? '通过' : session.preflight_status === 'WARNING' ? '有警告' : session.preflight_status === 'BLOCKED' ? '被阻断' : '未运行'}</div></div>
       {sessionSeconds != null && <div className="flex items-center gap-1.5 text-xs tabular-nums text-[var(--muted-foreground)]"><Clock3 size={13}/>{Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:{Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:{(sessionSeconds%60).toString().padStart(2,'0')}</div>}
@@ -198,6 +200,6 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
       {session.lifecycle_state === 'CLOSING' && <button className={btnSecondary} disabled={busy} onClick={closeSession}><RefreshCw size={12}/>继续完成收播</button>}
       {session.preflight_status === 'BLOCKED' && <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-[var(--destructive)]"><CircleAlert size={13}/>存在阻断项</div>}
     </div>
-    <ConfirmDialog open={confirmClose} onClose={() => setConfirmClose(false)} onConfirm={closeSession} confirming={busy} title="结束本场直播" description="将按顺序停止本 Session 的网络输出，等待录像 Finalize，再停止 Managed Pull。外部 IN-PUSH Publisher 不会被自动断开；任何残留都会保持 CLOSING，而不会假装结束成功。" confirmLabel="确认收播" />
+    <ConfirmDialog open={confirmClose} onClose={() => setConfirmClose(false)} onConfirm={closeSession} confirming={busy} title="结束本场直播" description="将依次停止本场网络输出，等待录像整理完成，再停止主动拉流。外部推流不会自动断开；如果仍有残留，页面会保留“收播中”状态，直到确认完成。" confirmLabel="确认收播" />
   </section>;
 }

@@ -14,6 +14,8 @@ vi.mock('flv.js', () => ({ default: { isSupported: () => false } }));
 vi.mock('hls.js', () => ({ default: { isSupported: () => false } }));
 import { MemoryRouter } from 'react-router-dom';
 import WorkspaceControlSurfaceV3 from './WorkspaceControlSurfaceV3';
+import WorkspaceInputRackV3 from './WorkspaceInputRackV3';
+import { OutputRow } from './V3OutputRack';
 import { Evidence } from './V3OutputRack';
 import OperationsDock, { OperationsResources, acknowledgeIncident } from './OperationsDock';
 import SessionCommandBar from './SessionCommandBar';
@@ -24,6 +26,7 @@ import {
   StreamHeaderActions
 } from '../../pages/stream-discovery';
 import Streams from '../../pages/Streams';
+import { filterLiveRooms } from '../../pages/LiveOperations';
 
 const t = key => key;
 const room = { id: 'room:1', name: '晚间新闻' };
@@ -98,9 +101,10 @@ function renderWorkspace(overrides = {}) {
       expect(html).toContain(state === 'PREP' ? '准备中' : state === 'READY' ? '待开播' : '收播中');
     }
     const quickPlan = renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ outputs: [{ id: 'push-1', name: '视频号', mode: 'PUSH' }], program: { source_id: 'program' } }} onChanged={async () => {}} compact readOnly initialShowQuickPlan />);
-    expect(quickPlan).toContain('当前节目源会保存为计划意图');
+    expect(quickPlan).toContain('方案会记录当前节目源和所选输出');
     const empty = renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ outputs: [], program: {} }} onChanged={async () => {}} compact readOnly />);
     expect(empty).toContain('创建本场直播');
+    expect(empty).toContain('还没有开播方案');
     expect(renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ session: { title: '结束测试', lifecycle_state: 'ON_AIR', preflight_status: 'PASS', outputs: [] }, outputs: [], program: {} }} onChanged={async () => {}} compact readOnly />)).toContain('结束本场直播');
     expect(renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ session: { title: '结束测试', lifecycle_state: 'ENDED', preflight_status: 'PASS', outputs: [] }, outputs: [], program: {} }} onChanged={async () => {}} compact readOnly />)).toContain('查看状态');
     expect(renderWorkspace({ workspace: { session: null } })).toContain('创建本场直播');
@@ -120,6 +124,25 @@ function renderWorkspace(overrides = {}) {
     expect(filterStreams(streams, '社会学', 'all')).toHaveLength(1);
     expect(filterStreams(streams, 'rtmp', 'offline')).toHaveLength(1);
     expect(filterStreams(streams, '不存在', 'all')).toHaveLength(0);
+
+    const rooms = [
+      { room: { id: 'room:1', legacy_stream_id: 1, name: '新闻直播间' }, session: { lifecycle_state: 'OFF_AIR' }, program: { state: 'IDLE' }, health: { status: 'HEALTHY' }, active_incidents: 0 },
+      { room: { id: 'room:2', legacy_stream_id: 2, name: '晚间节目' }, session: { lifecycle_state: 'ON_AIR' }, program: { state: 'LIVE' }, health: { status: 'DEGRADED' }, active_incidents: 1 }
+    ];
+    const roomStreams = [
+      { id: 1, name: '任意社会学', protocol: 'srt', status: 'offline' },
+      { id: 2, name: '文艺工程学', protocol: 'rtmp', status: 'online' }
+    ];
+    expect(filterLiveRooms(rooms, roomStreams, '社会学')).toHaveLength(1);
+    expect(filterLiveRooms(rooms, roomStreams, 'rtmp', 'on_air')).toHaveLength(1);
+    expect(filterLiveRooms(rooms, roomStreams, '', 'attention')).toHaveLength(1);
+    expect(filterLiveRooms(rooms, roomStreams, '', 'idle')).toHaveLength(1);
+
+    const input = renderToStaticMarkup(<WorkspaceInputRackV3 workspace={{ program: { source_id: 'push' }, sources: [{ id: 'push', name: '外部推流', role: 'PROGRAM', kind: 'IN_PUSH', protocol: 'rtmp', availability: 'ONLINE' }, { id: 'pull', name: '合作方备用源', role: 'STANDBY', kind: 'IN_PULL', protocol: 'srt', availability: 'READY', compatibility: { enabled: true } }] }} previewingSourceId={null} onPreview={() => {}} onManage={() => {}} />);
+    const output = renderToStaticMarkup(<OutputRow output={{ id: 'serve-1', name: '合作方拉取', mode: 'SERVE', runtime_state: 'AVAILABLE', desired_state: 'RUNNING', control_mode: 'MANAGED', transport: 'hls', endpoints: [{ transport: 'hls', advertised: true }] }} renditionMap={new Map()} busy={false} onToggle={() => {}} />);
+    expect(input).toContain('第三方推送给本系统');
+    expect(input).toContain('本系统主动拉取');
+    expect(output).toContain('提供地址给第三方拉取');
 
     const actions = renderToStaticMarkup(<StreamHeaderActions search="" onSearch={() => {}} onCreate={() => {}} createLabel="创建" />);
     const filters = renderToStaticMarkup(<StreamDiscoveryFilters statusFilter="online" onStatusFilter={() => {}} resultCount={1} totalCount={2} hasFilter />);

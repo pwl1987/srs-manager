@@ -15,7 +15,7 @@ import OperationsDock from './OperationsDock';
 
 const STATE_LABELS = {
   NORMAL: '运行正常',
-  LIVE: '播出中',
+  LIVE: '正在播出',
   DEGRADED: '已降级',
   WARNING: '有警告',
   CRITICAL: '严重异常',
@@ -45,8 +45,8 @@ function MediaFacts({ media }) {
   const video=media?.video || {};
   const audio=media?.audio || {};
   return <div className="grid grid-cols-2 gap-2">
-    <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/22 p-2.5"><div className="text-[8px] font-semibold tracking-[.1em] text-[var(--text-faint)]">VIDEO</div><div className="mt-1 text-[10px] font-medium">{video.codec || '—'}{video.width ? ' · ' + video.width + '×' + video.height : ''}</div></div>
-    <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/22 p-2.5"><div className="text-[8px] font-semibold tracking-[.1em] text-[var(--text-faint)]">AUDIO</div><div className="mt-1 text-[10px] font-medium">{audio.codec || '—'}{audio.sample_rate ? ' · ' + Math.round(audio.sample_rate/1000) + 'kHz' : ''}{audio.channels ? ' · ' + audio.channels + 'ch' : ''}</div></div>
+    <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/22 p-2.5"><div className="text-[8px] font-semibold tracking-[.1em] text-[var(--text-faint)]">视频</div><div className="mt-1 text-[10px] font-medium">{video.codec || '—'}{video.width ? ' · ' + video.width + '×' + video.height : ''}</div></div>
+    <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--background)]/22 p-2.5"><div className="text-[8px] font-semibold tracking-[.1em] text-[var(--text-faint)]">音频</div><div className="mt-1 text-[10px] font-medium">{audio.codec || '—'}{audio.sample_rate ? ' · ' + Math.round(audio.sample_rate/1000) + 'kHz' : ''}{audio.channels ? ' · ' + audio.channels + 'ch' : ''}</div></div>
   </div>;
 }
 
@@ -72,10 +72,12 @@ export default function WorkspaceControlSurfaceV3({
   const availableWorkers=workers.filter(item => item?.available).length;
   const incidents=incidentState?.active || [];
   const noSession=!v3Workspace?.session;
+  const programSource = (v3Workspace?.sources || []).find(source => source.id === v3Workspace?.program?.source_id);
+  const programSourceName = programSource?.name || (v3Workspace?.program?.source_id ? '节目源待确认' : '节目来源待确认');
 
   return <div data-workspace-region="root" className={cn('flex h-full min-h-0 flex-col bg-[var(--background)]',noSession ? 'overflow-y-auto' : 'overflow-hidden')}>
     <div data-workspace-region="global" className="flex min-h-8 shrink-0 items-center justify-between border-b border-[var(--border-soft)] bg-[var(--panel)]/78 px-3 text-[9px] text-[var(--muted-foreground)]">
-      <div className="flex min-w-0 items-center gap-3"><Link to="/streams" className="inline-flex items-center gap-1 text-[var(--foreground)] hover:text-[var(--primary)]"><ArrowLeft size={11}/>返回直播流</Link><span className="hidden sm:inline">房间 · {stream.name}</span><Badge state={health}/><span className="hidden lg:inline">工作进程 {availableWorkers}/{workers.length || '—'}</span></div>
+      <div className="flex min-w-0 items-center gap-3"><Link to="/streams" className="inline-flex items-center gap-1 text-[var(--foreground)] hover:text-[var(--primary)]"><ArrowLeft size={11}/>返回直播流</Link><span className="hidden sm:inline">直播间 · {stream.name}</span><Badge state={health}/><span className="hidden lg:inline">工作进程 {availableWorkers}/{workers.length || '—'}</span></div>
       <div className="flex items-center gap-2"><span className="hidden md:inline tabular-nums">{new Date().toLocaleTimeString()}</span>{incidents.length > 0 && <Badge state="WARNING" label={String(incidents.length) + ' 个告警'}/>}<button className={btnGhost} onClick={onQr} title="显示二维码"><QrCode size={11}/></button><button className={btnGhost} onClick={() => setDrawer('advanced')}><Settings2 size={11}/>高级控制</button></div>
     </div>
 
@@ -87,16 +89,16 @@ export default function WorkspaceControlSurfaceV3({
       </div>
 
       <section data-workspace-region="program" className="min-h-[440px] min-w-0 overflow-y-auto bg-[var(--background)] p-2 xl:min-h-0">
-        <div className="mb-2 flex items-center justify-between gap-2"><div><div className="text-[9px] font-semibold tracking-[.14em] text-[var(--text-faint)]">节目控制</div><div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">{v3Workspace?.program?.source_id || '节目来源待确认'}</div></div><Badge state={v3Workspace?.program?.state || 'UNKNOWN'}/></div>
+        <div className="mb-2 flex items-center justify-between gap-2"><div><div className="text-[9px] font-semibold tracking-[.14em] text-[var(--text-faint)]">节目控制</div><div className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">{programSourceName}</div></div><Badge state={v3Workspace?.program?.state || 'UNKNOWN'}/></div>
         <div className={sourcePreview ? 'grid gap-2 xl:grid-cols-[68%_32%]' : 'grid grid-cols-1'}>
           <WorkspacePreviewPanel stream={stream} observed={observed} t={t}/>
           {sourcePreview && <SourcePreviewPane preview={sourcePreview} onClose={() => onPreviewSource(null)}/>}
         </div>
         <div className="mt-2 grid grid-cols-4 gap-2">
-          <Metric icon={Users} label="Viewers" value={observed?.players?.count ?? '—'}/>
-          <Metric icon={Gauge} label="Bitrate" value={observed?.online ? formatBitrateKbps(observed.bitrate) : '—'}/>
-          <Metric icon={Cable} label="Outputs" value={(v3Workspace?.outputs || []).length}/>
-          <Metric icon={Video} label="Uptime" value={observed?.uptime_seconds != null ? formatDuration(observed.uptime_seconds) : '—'}/>
+          <Metric icon={Users} label="观看人数" value={observed?.players?.count ?? '—'}/>
+          <Metric icon={Gauge} label="码率" value={observed?.online ? formatBitrateKbps(observed.bitrate) : '—'}/>
+          <Metric icon={Cable} label="输出" value={(v3Workspace?.outputs || []).length}/>
+          <Metric icon={Video} label="已播时长" value={observed?.uptime_seconds != null ? formatDuration(observed.uptime_seconds) : '—'}/>
         </div>
         <div className="mt-2 [@media(max-height:850px)]:hidden"><MediaFacts media={media}/></div>
       </section>
@@ -109,7 +111,7 @@ export default function WorkspaceControlSurfaceV3({
     <WorkspaceSignalRouteV3 workspace={v3Workspace}/>
     <OperationsDock compact embedded roomId={v3Workspace?.room?.id || ('room:' + stream.id)} workspace={v3Workspace} incidentState={incidentState} onChanged={onChanged}/>
 
-    {drawer === 'sources' && <Drawer title="输入来源" eyebrow="INPUT / ACQUISITION" onClose={() => setDrawer(null)}>{sourceDrawerContent}</Drawer>}
-    {drawer === 'advanced' && <Drawer title="高级运行控制" eyebrow="COMPATIBILITY / ENGINEERING" wide onClose={() => setDrawer(null)}>{advancedDrawerContent}</Drawer>}
+    {drawer === 'sources' && <Drawer title="输入来源" eyebrow="输入与节目源" onClose={() => setDrawer(null)}>{sourceDrawerContent}</Drawer>}
+    {drawer === 'advanced' && <Drawer title="高级运行控制" eyebrow="兼容与工程控制" wide onClose={() => setDrawer(null)}>{advancedDrawerContent}</Drawer>}
   </div>;
 }

@@ -178,13 +178,13 @@ export default function WorkspacePreviewPanel({ stream, observed, t }) {
         <video ref={videoRef} crossOrigin="anonymous" controls={playing} className="h-full w-full object-contain" />
         {!playing && <button type="button" onClick={startPreview} disabled={observed?.online !== true || starting} className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[linear-gradient(180deg,transparent,oklch(0.18_0.006_258/0.46))] text-[var(--foreground)] disabled:cursor-not-allowed">
           <span className={cn('flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-sm', observed?.online === true ? 'border-[var(--primary)]/35 bg-[var(--primary)]/16 text-[var(--primary)]' : 'border-[var(--border)] bg-[var(--secondary)] text-[var(--text-faint)]')}><Play size={18} fill="currentColor" /></span>
-          <span className="text-xs font-medium text-[var(--foreground)]">{starting ? t('streams:workspace.console.startingPreview') : observed?.online === true ? '本地预览未开启' : t('streams:workspace.console.waitingSignal')}</span>
+          <span className="text-xs font-medium text-[var(--foreground)]">{starting ? t('streams:workspace.console.startingPreview') : observed?.online === true ? '远端正在播出，本地预览未开启' : t('streams:workspace.console.waitingSignal')}</span>
           <span className="text-[10px] text-[var(--muted-foreground)]">{observed?.online === true ? '开启后只在本机核看，不代表远端已验证' : '没有节目输入时无法开启预览'}</span>
         </button>}
         <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2">
           <span className={cn('inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold backdrop-blur-md', observed?.online === true ? 'border-[var(--success)]/25 bg-[var(--success-soft)]/85 text-[var(--success)]' : 'border-[var(--border)] bg-[var(--secondary)]/85 text-[var(--muted-foreground)]')}><Radio size={11} />{observed?.online === true ? '正在播出' : '未播出'}</span>
           <span className="rounded-md border border-[var(--border-soft)] bg-[var(--background)]/78 px-2 py-1 text-[10px] text-[var(--muted-foreground)] backdrop-blur-md">{t('streams:workspace.console.localPreview')}</span>
-          {playing && <span className="rounded-md border border-[var(--primary)]/20 bg-[var(--background)]/78 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--primary)] backdrop-blur-md">{transport === 'http-flv' ? 'HTTP-FLV' : 'HLS FALLBACK'}</span>}
+          {playing && <span className="rounded-md border border-[var(--primary)]/20 bg-[var(--background)]/78 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--primary)] backdrop-blur-md">{transport === 'http-flv' ? 'HTTP-FLV' : 'HLS 备用'}</span>}
         </div>
       </div>
       <div className="grid gap-3 border-t border-[var(--border-soft)] px-3.5 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(240px,0.72fr)_auto] lg:items-center">

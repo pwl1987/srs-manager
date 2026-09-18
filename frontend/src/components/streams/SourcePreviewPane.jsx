@@ -33,7 +33,7 @@ export default function SourcePreviewPane({ preview, onClose }) {
     <div className="overflow-hidden rounded-2xl border border-[var(--primary)]/25 bg-[var(--card)] shadow-[var(--shadow-panel)]">
       <div className="flex h-10 items-center justify-between border-b border-[var(--border-soft)] bg-[var(--primary)]/6 px-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--primary)]"><Eye size={12} />PREVIEW · NOT PROGRAM</div>
+          <div className="flex items-center gap-2 text-[10px] font-semibold tracking-[0.12em] text-[var(--primary)]"><Eye size={12} />备用源预监 · 不切换节目</div>
           <div className="truncate text-[10px] text-[var(--muted-foreground)]">{preview?.source_name || preview?.source_id}</div>
         </div>
         <button type="button" className={btnGhost} onClick={onClose} title="关闭预监"><X size={13} /></button>
@@ -45,7 +45,7 @@ export default function SourcePreviewPane({ preview, onClose }) {
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-[var(--border-soft)] px-3 py-2 text-[9px] text-[var(--text-faint)]">
         <span>HTTP-FLV · 临时按需预监</span>
-        <span>关闭即停止临时 FFmpeg</span>
+        <span>关闭后停止临时预监任务</span>
       </div>
     </div>
   );

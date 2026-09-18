@@ -20,11 +20,16 @@ function meta(source) {
   return { dot:'bg-[var(--warning)]', text:'text-[var(--warning)]', label: state };
 }
 
+const SOURCE_KIND_LABELS = {
+  IN_PUSH: '第三方推送给本系统',
+  IN_PULL: '本系统主动拉取'
+};
+
 function SourceRow({ source, previewing, onPreview }) {
   const m=meta(source);
   const canPreview=source.kind === 'IN_PULL' && source.compatibility?.enabled !== false;
   return <div className={cn('rounded-lg border px-3 py-2.5',source.role === 'PROGRAM' ? 'border-[var(--primary)]/28 bg-[var(--primary)]/6' : 'border-[var(--border-soft)] bg-[var(--background)]/20')}>
-    <div className="flex items-center gap-2"><span className={cn('h-2 w-2 shrink-0 rounded-full',m.dot)}/><div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{source.name}</div><div className="mt-1 truncate text-[9px] text-[var(--muted-foreground)]">{source.kind} · {source.protocol || source.compatibility?.kind || 'configured'}</div></div><span className={cn('text-[9px] font-semibold',m.text)}>{m.label}</span>{canPreview && source.role !== 'PROGRAM' && <button className={btnGhost} onClick={() => onPreview(source)}><Eye size={11}/>{previewing ? '预监中' : '预监'}</button>}</div>
+    <div className="flex items-center gap-2"><span className={cn('h-2 w-2 shrink-0 rounded-full',m.dot)}/><div className="min-w-0 flex-1"><div className="truncate text-xs font-semibold">{source.name}</div><div className="mt-1 truncate text-[9px] text-[var(--muted-foreground)]">{SOURCE_KIND_LABELS[source.kind] || source.kind || '输入来源'} · {source.protocol || source.compatibility?.kind || '协议待确认'}</div></div><span className={cn('text-[9px] font-semibold',m.text)}>{m.label}</span>{canPreview && source.role !== 'PROGRAM' && <button className={btnGhost} onClick={() => onPreview(source)}><Eye size={11}/>{previewing ? '预监中' : '预监'}</button>}</div>
   </div>;
 }
 
