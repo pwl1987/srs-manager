@@ -50,7 +50,7 @@ function MediaFacts({ media }) {
   </div>;
 }
 
-function Drawer({ title, eyebrow, onClose, children, wide=false }) {
+export function Drawer({ title, eyebrow, onClose, children, wide=false }) {
   return <div className="fixed inset-0 z-50 flex justify-end bg-black/45" onClick={onClose}>
     <aside className={cn('h-full w-full overflow-y-auto border-l border-[var(--border)] bg-[var(--card)] shadow-2xl',wide ? 'max-w-[860px]' : 'max-w-[720px]')} onClick={event => event.stopPropagation()}>
       <div className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-[var(--border-soft)] bg-[var(--card)] px-5">
@@ -64,9 +64,9 @@ function Drawer({ title, eyebrow, onClose, children, wide=false }) {
 
 export default function WorkspaceControlSurfaceV3({
   stream, observed, media, v3Workspace, sourcePreview, outputScenes, incidentState,
-  sourceDrawerContent, advancedDrawerContent, onPreviewSource, onQr, onChanged, t, readOnlyHarness = false
+  sourceDrawerContent, advancedDrawerContent, onPreviewSource, onQr, onChanged, t, readOnlyHarness = false, initialDrawer = null
 }) {
-  const [drawer,setDrawer] = useState(null);
+  const [drawer,setDrawer] = useState(initialDrawer);
   const health=v3Workspace?.health?.status || (observed?.online ? 'NORMAL' : 'UNKNOWN');
   const workers=Object.values(v3Workspace?.evidence?.workers || {});
   const availableWorkers=workers.filter(item => item?.available).length;
@@ -111,7 +111,7 @@ export default function WorkspaceControlSurfaceV3({
     <WorkspaceSignalRouteV3 workspace={v3Workspace}/>
     <OperationsDock compact embedded roomId={v3Workspace?.room?.id || ('room:' + stream.id)} workspace={v3Workspace} incidentState={incidentState} onChanged={onChanged}/>
 
-    {drawer === 'sources' && <Drawer title="输入来源" eyebrow="输入与节目源" onClose={() => setDrawer(null)}>{sourceDrawerContent}</Drawer>}
-    {drawer === 'advanced' && <Drawer title="高级运行控制" eyebrow="兼容与工程控制" wide onClose={() => setDrawer(null)}>{advancedDrawerContent}</Drawer>}
+    {drawer === 'sources' && <Drawer title="输入来源" eyebrow="INPUT / ACQUISITION" onClose={() => setDrawer(null)}>{sourceDrawerContent}</Drawer>}
+    {drawer === 'advanced' && <Drawer title="高级运行控制" eyebrow="COMPATIBILITY / ENGINEERING" wide onClose={() => setDrawer(null)}>{advancedDrawerContent}</Drawer>}
   </div>;
 }

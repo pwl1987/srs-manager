@@ -13,9 +13,9 @@ vi.mock('../../lib/api', () => ({ api: { post: vi.fn().mockResolvedValue({}), ge
 vi.mock('flv.js', () => ({ default: { isSupported: () => false } }));
 vi.mock('hls.js', () => ({ default: { isSupported: () => false } }));
 import { MemoryRouter } from 'react-router-dom';
-import WorkspaceControlSurfaceV3 from './WorkspaceControlSurfaceV3';
-import WorkspaceInputRackV3 from './WorkspaceInputRackV3';
-import { OutputRow } from './V3OutputRack';
+import WorkspaceControlSurfaceV3, { Drawer } from './WorkspaceControlSurfaceV3';
+import WorkspaceInputRackV3, { SourceRow } from './WorkspaceInputRackV3';
+import { BuilderDrawer, OutputRow } from './V3OutputRack';
 import { Evidence } from './V3OutputRack';
 import OperationsDock, { OperationsResources, acknowledgeIncident } from './OperationsDock';
 import SessionCommandBar from './SessionCommandBar';
@@ -26,7 +26,8 @@ import {
   StreamHeaderActions
 } from '../../pages/stream-discovery';
 import Streams from '../../pages/Streams';
-import { filterLiveRooms } from '../../pages/LiveOperations';
+import { api } from '../../lib/api';
+import LiveOperations, { applyLiveOperationsResult, filterLiveRooms, loadLiveOperations, refreshLiveOperations } from '../../pages/LiveOperations';
 
 const t = key => key;
 const room = { id: 'room:1', name: '晚间新闻' };
@@ -75,6 +76,7 @@ function renderWorkspace(overrides = {}) {
         onChanged={async () => {}}
         t={t}
         readOnlyHarness
+        initialDrawer={overrides.initialDrawer}
       />
     </MemoryRouter>
   );
@@ -86,6 +88,8 @@ function renderWorkspace(overrides = {}) {
     expect(html).toContain('启动失败 · 可重试');
     expect(html).toContain('正在播出');
     expect(html).toContain('视频号异常');
+    expect(renderWorkspace({ initialDrawer: 'sources' })).toContain('输入来源');
+    expect(renderWorkspace({ initialDrawer: 'advanced' })).toContain('高级运行控制');
   });
 
   it('renders local and remote evidence without inventing remote health', () => {
@@ -106,6 +110,7 @@ function renderWorkspace(overrides = {}) {
     expect(empty).toContain('创建本场直播');
     expect(empty).toContain('还没有开播方案');
     expect(renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ session: { title: '结束测试', lifecycle_state: 'ON_AIR', preflight_status: 'PASS', outputs: [] }, outputs: [], program: {} }} onChanged={async () => {}} compact readOnly />)).toContain('结束本场直播');
+    expect(renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ session: { title: '结束测试', lifecycle_state: 'ON_AIR', preflight_status: 'PASS', outputs: [] }, outputs: [], program: {} }} onChanged={async () => {}} compact readOnly initialConfirmClose />)).toContain('停止本场网络输出');
     expect(renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ session: { title: '结束测试', lifecycle_state: 'ENDED', preflight_status: 'PASS', outputs: [] }, outputs: [], program: {} }} onChanged={async () => {}} compact readOnly />)).toContain('查看状态');
     expect(renderWorkspace({ workspace: { session: null } })).toContain('创建本场直播');
   });
@@ -116,6 +121,21 @@ function renderWorkspace(overrides = {}) {
     const dock = renderToStaticMarkup(<OperationsDock roomId="room:1" workspace={{ evidence: { workers: { pull: { available: true } } }, capabilities: { runtime: { record: { storage: { low_space: true } } } } }} incidentState={{ active: [], recent: [] }} onChanged={async () => {}} initialTab="resources" />);
     expect(dock).toContain('拉流 工作进程');
     await acknowledgeIncident('room:1', { id: 'i-1' }, async () => {});
+
+    api.get.mockImplementation(path => path === '/v3/rooms' ? Promise.resolve({ rooms: [] }) : Promise.reject(new Error('not available')));
+    const loaded = await loadLiveOperations();
+    expect(loaded.rooms).toEqual([]);
+    expect(loaded.external).toEqual([]);
+    expect(loaded.streams).toEqual([]);
+    const setters = { setRooms: vi.fn(), setExternal: vi.fn(), setStreams: vi.fn() };
+    applyLiveOperationsResult({ rooms: ['room'], external: ['external'], streams: ['stream'] }, setters);
+    expect(setters.setRooms).toHaveBeenCalledWith(['room']);
+    expect(setters.setExternal).toHaveBeenCalledWith(['external']);
+    expect(setters.setStreams).toHaveBeenCalledWith(['stream']);
+    const refreshSetters = { setLoading: vi.fn(), setRooms: vi.fn(), setExternal: vi.fn(), setStreams: vi.fn(), setError: vi.fn() };
+    await refreshLiveOperations({ ...refreshSetters, silent: false });
+    expect(refreshSetters.setLoading).toHaveBeenCalledWith(false);
+    api.get.mockResolvedValue([]);
 
     const streams = [
       { name: '任意社会学', protocol: 'srt', status: 'online' },
@@ -143,6 +163,7 @@ function renderWorkspace(overrides = {}) {
     expect(input).toContain('第三方推送给本系统');
     expect(input).toContain('本系统主动拉取');
     expect(output).toContain('提供地址给第三方拉取');
+    expect(renderToStaticMarkup(<SourceRow source={{ id: 'direct', name: '直接输入', role: 'PROGRAM', kind: 'IN_PUSH', protocol: 'rtmp', availability: 'ONLINE' }} previewing={false} onPreview={() => {}} />)).toContain('第三方推送给本系统');
 
     const actions = renderToStaticMarkup(<StreamHeaderActions search="" onSearch={() => {}} onCreate={() => {}} createLabel="创建" />);
     const filters = renderToStaticMarkup(<StreamDiscoveryFilters statusFilter="online" onStatusFilter={() => {}} resultCount={1} totalCount={2} hasFilter />);
@@ -153,5 +174,29 @@ function renderWorkspace(overrides = {}) {
 
     const page = renderToStaticMarkup(<MemoryRouter><Streams /></MemoryRouter>);
     expect(page).toContain('正在直播');
+
+    const liveRooms = [
+      { room: { id: 'room:1', legacy_stream_id: 1, name: '新闻直播间' }, session: null, program: { state: 'IDLE' }, health: { status: 'HEALTHY' }, outputs: {}, active_incidents: 0 },
+      { room: { id: 'room:2', legacy_stream_id: 2, name: '晚间节目' }, session: { lifecycle_state: 'ON_AIR', title: '晚间新闻' }, program: { state: 'LIVE', bitrate: 8100, viewers: 8, uptime_seconds: 120 }, health: { status: 'DEGRADED' }, outputs: { required_total: 2, required_healthy: 1, record_state: 'RECORDING' }, active_incidents: 1 }
+    ];
+    const livePage = renderToStaticMarkup(<MemoryRouter><LiveOperations initialRooms={liveRooms} initialStreams={roomStreams} initialExternal={[{ name: '未登记推流' }]} initialLoading={false} initialError={new Error('测试错误')} initialOpen initialForm={{ name: '任意社会学', protocol: 'srt' }} /></MemoryRouter>);
+    expect(livePage).toContain('直播资源');
+    expect(livePage).toContain('搜索直播间、直播流、协议或状态');
+    expect(livePage).toContain('登记外部流');
+    expect(livePage).toContain('需要关注');
+    expect(livePage).toContain('创建并继续配置');
+    expect(livePage).toContain('任意社会学');
+
+    const builderScenes = [{ id: 'LIVE_PLATFORM_PUSH', mode: 'PUSH', default_transport: 'rtmp', transports: ['rtmp'] }, { id: 'CDN_ORIGIN', mode: 'SERVE', default_transport: 'hls', transports: ['hls'] }];
+    const sceneBuilder = renderToStaticMarkup(<BuilderDrawer roomId="room:1" scenes={builderScenes} capabilities={{ protections: { 'PUSH:rtmp': ['none'] } }} onClose={() => {}} onCreated={() => {}} />);
+    expect(sceneBuilder).toContain('我要做什么');
+    const builder = renderToStaticMarkup(<BuilderDrawer roomId="room:1" scenes={builderScenes} capabilities={{ protections: { 'PUSH:rtmp': ['none'] } }} initialBuilderMode="pro" initialCompatibility={{ valid: true, message: '组合可执行' }} onClose={() => {}} onCreated={() => {}} />);
+    expect(builder).toContain('输出配置');
+    expect(builder).toContain('主动推送给第三方');
+    expect(builder).toContain('节目原始码流');
+    expect(builder).toContain('共享媒体规格');
+
+    const drawer = renderToStaticMarkup(<Drawer eyebrow="输入与节目源" title="输入配置" onClose={() => {}}>内容</Drawer>);
+    expect(drawer).toContain('输入与节目源');
   });
 });

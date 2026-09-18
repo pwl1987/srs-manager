@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -96,35 +96,61 @@ export function filterLiveRooms(rooms, streams, query, statusFilter = 'all') {
   });
 }
 
-export default function LiveOperations() {
-  const [rooms, setRooms] = useState([]);
-  const [streams, setStreams] = useState([]);
-  const [external, setExternal] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', protocol: 'rtmp' });
+export async function loadLiveOperations() {
+  const [payload, live, streamList] = await Promise.all([
+    api.get('/v3/rooms'),
+    api.get('/streams/external-live').catch(() => []),
+    api.get('/streams').catch(() => [])
+  ]);
+  return {
+    rooms: payload?.rooms || [],
+    external: Array.isArray(live) ? live : [],
+    streams: Array.isArray(streamList) ? streamList : []
+  };
+}
+
+export function applyLiveOperationsResult(result, setters) {
+  setters.setRooms(result.rooms);
+  setters.setExternal(result.external);
+  setters.setStreams(result.streams);
+}
+
+export async function refreshLiveOperations({ silent = false, setLoading, setRooms, setExternal, setStreams, setError }) {
+  if (!silent) setLoading(true);
+  try {
+    const result = await loadLiveOperations();
+    applyLiveOperationsResult(result, { setRooms, setExternal, setStreams });
+    setError(null);
+  } catch (err) { setError(err); }
+  finally { if (!silent) setLoading(false); }
+}
+
+export default function LiveOperations({
+  initialRooms = null,
+  initialStreams = null,
+  initialExternal = null,
+  initialLoading = true,
+  initialError = null,
+  initialSearch = '',
+  initialStatusFilter = 'all',
+  initialOpen = false,
+  initialForm = { name: '', protocol: 'rtmp' }
+} = {}) {
+  const seeded = initialRooms !== null;
+  const [rooms, setRooms] = useState(initialRooms || []);
+  const [streams, setStreams] = useState(initialStreams || []);
+  const [external, setExternal] = useState(initialExternal || []);
+  const [loading, setLoading] = useState(seeded ? initialLoading : true);
+  const [error, setError] = useState(initialError);
+  const [search, setSearch] = useState(initialSearch);
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
+  const [open, setOpen] = useState(initialOpen);
+  const [form, setForm] = useState(initialForm);
   const [working, setWorking] = useState(false);
 
-  async function load(silent = false) {
-    if (!silent) setLoading(true);
-    try {
-      const [payload, live, streamList] = await Promise.all([
-        api.get('/v3/rooms'),
-        api.get('/streams/external-live').catch(() => []),
-        api.get('/streams').catch(() => [])
-      ]);
-      setRooms(payload?.rooms || []);
-      setExternal(Array.isArray(live) ? live : []);
-      setStreams(Array.isArray(streamList) ? streamList : []);
-      setError(null);
-    } catch (err) { setError(err); }
-    finally { if (!silent) setLoading(false); }
-  }
-
-  usePolling(() => load(Boolean(rooms.length)), 5000);
+  usePolling(() => refreshLiveOperations({
+    silent: Boolean(rooms.length), setLoading, setRooms, setExternal, setStreams, setError
+  }), 5000, !seeded);
 
   const streamsById = useMemo(() => Object.fromEntries(streams.map(stream => [String(stream.id), stream])), [streams]);
   const filtered = useMemo(() => filterLiveRooms(rooms, streams, search, statusFilter), [rooms, streams, search, statusFilter]);

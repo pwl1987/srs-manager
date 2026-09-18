@@ -40,7 +40,7 @@ function outputHealthy(output) {
   if (output.mode === 'RECORD') return ['RECORDING', 'COMPLETE'].includes(output.runtime_state);
   return output.runtime_state === 'RUNNING';
 }
-export default function SessionCommandBar({ roomId, workspace, onChanged, compact = false, readOnly = false, initialShowQuickPlan = false }) {
+export default function SessionCommandBar({ roomId, workspace, onChanged, compact = false, readOnly = false, initialShowQuickPlan = false, initialConfirmClose = false }) {
   const [plans, setPlans] = useState([]);
   const [planId, setPlanId] = useState('');
   const [title, setTitle] = useState('');
@@ -49,7 +49,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   const [quickName, setQuickName] = useState('标准开播方案');
   const [selectedOutputs, setSelectedOutputs] = useState({});
   const [optionalOutputs, setOptionalOutputs] = useState({});
-  const [confirmClose, setConfirmClose] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(initialConfirmClose);
   const session = workspace?.session || null;
   const outputs = workspace?.outputs || [];
   const sourceId = workspace?.program?.source_id || null;
@@ -80,7 +80,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
     try {
       await api.post(`/v3/rooms/${roomId}/sessions`, {
         run_plan_id: Number(planId),
-        title: title.trim() || plans.find(plan => String(plan.id) === String(planId))?.name || '本场直播'
+        title: title.trim() || plans.find(plan => String(plan.id) === String(planId))?.name || 'Live Session'
       });
       toast.success('本场直播已创建');
       await onChanged();
@@ -91,7 +91,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
   async function createQuickPlan() {
     const chosen = outputs.filter(output => selectedOutputs[output.id]);
     if (!quickName.trim()) return toast.error('请填写方案名称');
-    if (!chosen.length) return toast.error('至少选择一个输出');
+    if (!chosen.length) return toast.error('至少选择一个 Output');
     setBusy(true);
     try {
       const result = await api.post(`/v3/rooms/${roomId}/run-plans`, {
@@ -117,11 +117,11 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
     setBusy(true);
     try {
       const result = await api.post(`/v3/sessions/${session.legacy_session_id}/preflight`, { mark_ready: true });
-      if (result.status === 'BLOCKED') toast.error('开播预检存在阻断项');
-      else if (result.status === 'WARNING') toast.warning('开播预检通过，但存在警告');
-      else toast.success('开播预检通过，已进入待开播状态');
+      if (result.status === 'BLOCKED') toast.error('Preflight 存在阻断项');
+      else if (result.status === 'WARNING') toast.warning('Preflight 通过，但存在警告');
+      else toast.success('Preflight 通过，Session 已 READY');
       await onChanged();
-    } catch (error) { toast.error(error.message || '开播预检失败'); }
+    } catch (error) { toast.error(error.message || 'Preflight 失败'); }
     finally { setBusy(false); }
   }
 
@@ -163,7 +163,7 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
       }
       op = await pollClose(op);
       if (op?.phase === 'SUCCEEDED') toast.success('本场直播已结束');
-      else if (op?.phase === 'FAILED') toast.error(op.error || '收播存在未清理残留，本场直播保持“收播中”');
+      else if (op?.phase === 'FAILED') toast.error(op.error || '收播存在未清理残留，Session 保持 CLOSING');
       else toast.warning('收播仍在进行，请稍后继续检查');
       await onChanged();
     } catch (error) { toast.error(error.message || '结束本场直播失败'); }

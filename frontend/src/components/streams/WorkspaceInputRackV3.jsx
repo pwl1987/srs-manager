@@ -25,7 +25,7 @@ const SOURCE_KIND_LABELS = {
   IN_PULL: '本系统主动拉取'
 };
 
-function SourceRow({ source, previewing, onPreview }) {
+export function SourceRow({ source, previewing, onPreview }) {
   const m=meta(source);
   const canPreview=source.kind === 'IN_PULL' && source.compatibility?.enabled !== false;
   return <div className={cn('rounded-lg border px-3 py-2.5',source.role === 'PROGRAM' ? 'border-[var(--primary)]/28 bg-[var(--primary)]/6' : 'border-[var(--border-soft)] bg-[var(--background)]/20')}>
