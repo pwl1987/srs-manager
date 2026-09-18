@@ -72,7 +72,7 @@ fi
 
 mkdir -p "$PROJECT_DIR/data"
 
-echo "构建并启动 Web / Pull Worker / Push Worker…"
+echo "构建并启动 Web / Pull / Push / Transcode / Record Worker…"
 docker compose -f "$COMPOSE_FILE" up -d --build
 
 echo "等待健康检查…"
