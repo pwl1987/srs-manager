@@ -21,7 +21,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-required=("Backend Tests" "Frontend Build" "Static Analysis")
+required=("Backend Tests" "Frontend Build" "Static Analysis" "Container Build" "Delta Coverage" "Contract Tests")
 deadline=$((SECONDS + 1200))
 
 while (( SECONDS < deadline )); do

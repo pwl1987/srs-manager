@@ -1,0 +1,73 @@
+name: 工程治理门禁
+
+on:
+  push:
+    tags: ['gate/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Delta Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出候选提交
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 准备 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 确定主线基线
+        id: base
+        shell: bash
+        run: |
+          git fetch origin main --no-tags
+          echo "sha=$(git rev-parse origin/main)" >> "$GITHUB_OUTPUT"
+      - name: 候选提交覆盖率
+        shell: bash
+        run: |
+          (cd backend && npm ci && npm run test:coverage)
+          (cd frontend && npm ci && npm run test:coverage)
+      - name: 主线基线覆盖率
+        shell: bash
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/srs-base" "${{ steps.base.outputs.sha }}"
+          (cd "$RUNNER_TEMP/srs-base/backend" && npm ci && npm run test:coverage)
+          (cd "$RUNNER_TEMP/srs-base/frontend" && npm ci && npm run test:coverage)
+      - name: 执行增量覆盖率硬门槛
+        shell: bash
+        run: |
+          node scripts/check-delta-coverage.mjs \
+            --base "${{ steps.base.outputs.sha }}" --head "$GITHUB_SHA" \
+            --candidate-backend backend/coverage/coverage-final.json \
+            --candidate-frontend frontend/coverage/coverage-final.json \
+            --baseline-backend "$RUNNER_TEMP/srs-base/backend/coverage/coverage-final.json" \
+            --baseline-frontend "$RUNNER_TEMP/srs-base/frontend/coverage/coverage-final.json"
+
+  contract:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 检出候选提交
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 确定主线基线
+        id: base
+        shell: bash
+        run: |
+          git fetch origin main --no-tags
+          echo "sha=$(git rev-parse origin/main)" >> "$GITHUB_OUTPUT"
+      - name: 强制 API 契约集成测试
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+          HEAD_SHA: ${{ github.sha }}
+        run: node scripts/check-api-contract-tests.mjs
