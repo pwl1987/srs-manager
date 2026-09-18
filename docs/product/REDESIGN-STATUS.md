@@ -148,15 +148,15 @@ W2-A 当前实现：灰阶主题与导航收敛已完成；Workspace 首屏已�
 
 Workspace V3 设计已冻结。设计 Authority：`STREAM-WORKSPACE-V0.3-DESIGN-FREEZE.md`；UI Authority：`UI-V3-PRODUCT-DESIGN-LAB.md`；实施 Authority：`STREAM-WORKSPACE-V0.3-IMPLEMENTATION-PLAN.md`。
 
-Last Completed：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。生产 Workspace 代码已切到 V3 16:9 主工作面；1920×1080 五态、1366×768、2560×1440、3840×2160 UI Gate 通过；v0.5.1 数据 additive migration 与旧 backend 回退可读通过；真实 `live` 主机隔离 Candidate 完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED。Backend `69/69 PASS`、frontend build/i18n PASS、Container Release Gate `35294729038` SUCCESS。
+Last Completed：**Phase 08 — 16:9 Cutover / Compatibility Cleanup / Release Gate**。生产 Workspace 代码已切到 V3 16:9 主工作面；1920×1080 五态、1366×768、2560×1440、3840×2160 UI Gate 通过；v0.5.1 数据 additive migration 与旧 backend 回退可读通过；真实 `live` 主机隔离 Candidate 完成 PREP → ON AIR → INCIDENT → RECOVERY → CLOSING → ENDED。当前主线 Backend `77/77 PASS`、frontend build/i18n PASS、Origin 安全回归与 GitHub required checks 均保持通过。
 
-Current Task：**SRS 8080/1985 Origin Exposure Hardening / Field Gate**。应用侧已改为默认不返回原始 SRS `:8080` HLS/HTTP-FLV URL；SSH 已确认可通过 `ubuntu` + 项目授权密钥进入生产且具备 NOPASSWD sudo，当前 streams=0、Pull/Push/Transcode/Record desired RUNNING=0。现场 SRS 6.0.191 实际只具备 Basic Auth，因此客户端和硬化脚本已修正为 Basic/Bearer 双栈并处理 DB `srs_api_url` loopback 迁移。生产 `10.30.5.199:8080/1985` 在执行硬化前仍可从开发 VM 直达，Field Gate 仍为 **FAIL**，必须以外部探针实际 PASS 才能收口。
+Current Task：**SRS 8080/1985 Origin Exposure Hardening / Field Gate — COMPLETE**。应用侧默认不返回原始 SRS `:8080` HLS/HTTP-FLV URL；生产 `live` 已完成硬化，SRS、Manager、Pull/Push/Transcode/Record 六个服务均 active，`1985` 与 `8080` 仅监听 `127.0.0.1`，未授权 SRS API 返回 `401`。从开发 VM 对 `10.30.5.199:8080/1985` 执行外部探针均为不可达，`scripts/probe-srs-origin-exposure.sh` **PASS**；生产 post-deploy smoke 亦为 **PASS**（DB integrity、Record Worker heartbeat、六服务与 Manager health 均通过）。现场 SRS 6.0.191 使用 Basic Auth，客户端和硬化脚本保留 Basic/Bearer 双栈。
 
 Next Task：**OUT-PUSH Remote Verification**。完成 HLS 暴露边界后，为第三方平台成功播放补充供应商 API 或独立观测证据，不把本地 FFmpeg RUNNING 冒充远端成功。
 
 ## 验证债务 / 已知边界
 
-- 生产主机 `10.30.5.199` 的 `8080` SRS HTTP Origin 与 `1985` HTTP API 当前仍可从开发 VM 直达；应用层默认暴露已关闭，但主机侧网络边界尚待安全窗口执行 `scripts/harden-srs-origin-systemd.sh` 并由外部 `scripts/probe-srs-origin-exposure.sh` 取得 PASS；
-- OUT-PUSH Runtime RUNNING 证明本地受管 FFmpeg 工作且输入在线，不等同于第三方平台已经成功播放；远端健康仍需供应商 API 或独立观测证据；
+- Origin 暴露 Field Gate 已闭合：生产端口仅 loopback，外部 `8080/1985` 探针均 PASS；后续若变更 SRS/systemd/防火墙，必须重新执行本地硬化复核与外部探针；
+- 当前生产数据库没有 `forward_tasks`、网宿认证、网宿频道或任何 OUT-PUSH 目标，因此尚未执行第三方远端播放验证；OUT-PUSH Runtime RUNNING 仍不等同于第三方平台成功播放，后续必须取得供应商 API 或独立观测证据，不得补写假证据；
 - 浏览器音频电平是本地预览 RMS dBFS，不是 EBU R128 / LUFS 广播响度计；
 - `/forwarding` 与 `/monitor` 继续保留兼容深链接，但不作为正常值守工作流入口。
