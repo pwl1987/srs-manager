@@ -1,7 +1,7 @@
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import flvjs from 'flv.js';
+import { flvjs } from '../../lib/flv-preview';
 import { Pause, Play, Radio } from 'lucide-react';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';

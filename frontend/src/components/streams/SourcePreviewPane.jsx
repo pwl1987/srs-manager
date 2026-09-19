@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import flvjs from 'flv.js';
+import { flvjs } from '../../lib/flv-preview';
 import { Eye, X } from 'lucide-react';
 import { btnGhost } from '../ui/styles';
 

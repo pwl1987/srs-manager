@@ -15,7 +15,7 @@ vi.mock('hls.js', () => ({ default: { isSupported: () => false } }));
 import { MemoryRouter } from 'react-router-dom';
 import WorkspaceControlSurfaceV3, { Drawer } from './WorkspaceControlSurfaceV3';
 import WorkspaceInputRackV3, { SourceRow } from './WorkspaceInputRackV3';
-import { BuilderDrawer, OutputRow } from './V3OutputRack';
+import { BuilderDrawer, OutputRow, toggleOutput } from './V3OutputRack';
 import { Evidence } from './V3OutputRack';
 import OperationsDock, { OperationsResources, acknowledgeIncident } from './OperationsDock';
 import SessionCommandBar from './SessionCommandBar';
@@ -92,6 +92,62 @@ function renderWorkspace(overrides = {}) {
     expect(renderWorkspace({ initialDrawer: 'advanced' })).toContain('高级运行控制');
   });
 
+  it('synchronizes a conflicting output operation instead of showing a dead-end error', async () => {
+    const apiClient = {
+      post: vi.fn().mockRejectedValue({ status: 409, detail: { id: 'operation:record:1', phase: 'VERIFYING' } }),
+      get: vi.fn().mockResolvedValue({ id: 'operation:record:1', phase: 'SUCCEEDED' })
+    };
+    const notify = { success: vi.fn(), error: vi.fn(), warning: vi.fn() };
+    const onChanged = vi.fn();
+    await toggleOutput({ apiClient, roomId: 'room:1', output: { id: 'output:record:1' }, action: 'stop', onChanged, notify, sleep: async () => {} });
+    expect(apiClient.get).toHaveBeenCalledWith('/v3/operations/operation%3Arecord%3A1');
+    expect(onChanged).toHaveBeenCalled();
+    expect(notify.success).toHaveBeenCalledWith('输出状态已完成，界面已刷新');
+  });
+
+  it('covers successful output control and non-conflict errors', async () => {
+    const notify = { success: vi.fn(), error: vi.fn(), warning: vi.fn() };
+    const onChanged = vi.fn();
+    await toggleOutput({
+      apiClient: { post: vi.fn().mockResolvedValue({}) },
+      roomId: 'room:1', output: { id: 'output:push:1' }, action: 'start', onChanged, notify
+    });
+    expect(notify.success).toHaveBeenCalledWith('已提交启动操作');
+    expect(onChanged).toHaveBeenCalled();
+
+    const failure = new Error('输出不可用');
+    failure.status = 503;
+    await toggleOutput({
+      apiClient: { post: vi.fn().mockRejectedValue(failure) },
+      roomId: 'room:1', output: { id: 'output:push:1' }, action: 'start', notify
+    });
+    expect(notify.error).toHaveBeenCalledWith('输出不可用');
+  });
+
+  it('shows failed and still-running operation outcomes', async () => {
+    for (const [phase, expected] of [['FAILED', '输出失败'], ['VERIFYING', '输出仍在处理中，请稍后查看状态']]) {
+      const notify = { success: vi.fn(), error: vi.fn(), warning: vi.fn() };
+      const apiClient = {
+        post: vi.fn().mockRejectedValue({ status: 409, detail: { id: 'operation:record:1', phase: 'VERIFYING' } }),
+        get: vi.fn().mockResolvedValue({ id: 'operation:record:1', phase, error: phase === 'FAILED' ? expected : null })
+      };
+      await toggleOutput({ apiClient, roomId: 'room:1', output: { id: 'output:record:1' }, action: 'stop', notify, sleep: async () => {} });
+      if (phase === 'FAILED') expect(notify.error).toHaveBeenCalledWith(expected);
+      else expect(notify.warning).toHaveBeenCalledWith(expected);
+    }
+  });
+
+  it('reports operation polling failures', async () => {
+    const notify = { success: vi.fn(), error: vi.fn(), warning: vi.fn() };
+    const pollError = new Error('状态读取失败');
+    const apiClient = {
+      post: vi.fn().mockRejectedValue({ status: 409, detail: { id: 'operation:record:1', phase: 'VERIFYING' } }),
+      get: vi.fn().mockRejectedValue(pollError)
+    };
+    await toggleOutput({ apiClient, roomId: 'room:1', output: { id: 'output:record:1' }, action: 'stop', notify, sleep: async () => {} });
+    expect(notify.error).toHaveBeenCalledWith('状态读取失败');
+  });
+
   it('renders local and remote evidence without inventing remote health', () => {
     const html = renderToStaticMarkup(<Evidence output={{ evidence: { local: { state: 'RUNNING', source: 'worker' }, remote: { state: 'UNKNOWN', source: null } } }} />);
     expect(html).toContain('本地证据');
@@ -165,9 +221,12 @@ function renderWorkspace(overrides = {}) {
 
     const input = renderToStaticMarkup(<WorkspaceInputRackV3 workspace={{ program: { source_id: 'push' }, sources: [{ id: 'push', name: '外部推流', role: 'PROGRAM', kind: 'IN_PUSH', protocol: 'rtmp', availability: 'ONLINE' }, { id: 'pull', name: '合作方备用源', role: 'STANDBY', kind: 'IN_PULL', protocol: 'srt', availability: 'READY', compatibility: { enabled: true } }] }} previewingSourceId={null} onPreview={() => {}} onManage={() => {}} />);
     const output = renderToStaticMarkup(<OutputRow output={{ id: 'serve-1', name: '合作方拉取', mode: 'SERVE', runtime_state: 'AVAILABLE', desired_state: 'RUNNING', control_mode: 'MANAGED', transport: 'hls', endpoints: [{ transport: 'hls', advertised: true }] }} renditionMap={new Map()} busy={false} onToggle={() => {}} />);
+    const processingOutput = renderToStaticMarkup(<OutputRow output={{ id: 'record-1', name: '本地录像', mode: 'RECORD', runtime_state: 'FINALIZING', desired_state: 'STOPPED', control_mode: 'MANAGED', format: 'mp4' }} renditionMap={new Map()} busy={false} onToggle={() => {}} />);
     expect(input).toContain('第三方推送给本系统');
     expect(input).toContain('本系统主动拉取');
     expect(output).toContain('提供地址给第三方拉取');
+    expect(processingOutput).toContain('处理中');
+    expect(processingOutput).toContain('disabled');
     expect(renderToStaticMarkup(<SourceRow source={{ id: 'direct', name: '直接输入', role: 'PROGRAM', kind: 'IN_PUSH', protocol: 'rtmp', availability: 'ONLINE' }} previewing={false} onPreview={() => {}} />)).toContain('第三方推送给本系统');
 
     const actions = renderToStaticMarkup(<StreamHeaderActions search="" onSearch={() => {}} onCreate={() => {}} createLabel="创建" />);

@@ -84,6 +84,7 @@ export function OutputRow({ output, renditionMap, busy, onToggle }) {
   const wantsRunning = String(output.desired_state || '').toUpperCase() === 'RUNNING' || (output.mode === 'SERVE' && runtime === 'AVAILABLE');
   const action = meta.retry ? 'start' : wantsRunning ? 'stop' : 'start';
   const actionLabel = meta.retry ? '重试' : wantsRunning ? '停止' : '启动';
+  const transitioning = ['STARTING', 'STOPPING', 'FINALIZING'].includes(runtime);
   const canControl = output.control_mode !== 'LEGACY_UNMANAGED';
   return <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2.5">
     <div className="flex items-center gap-2">
@@ -94,8 +95,8 @@ export function OutputRow({ output, renditionMap, busy, onToggle }) {
         <div className="mt-1 truncate text-[10px] text-[var(--muted-foreground)]">{mediaLabel(output, renditionMap)} · {output.transport || output.format || output.endpoints?.filter(x => x.advertised !== false).map(x => x.transport).join('/') || '—'}{output.scene ? ` · ${SCENE_LABELS[output.scene] || output.scene}` : ''}</div>
       </div>
       <div className={`w-24 text-right text-[9px] font-semibold ${meta.tone}`}>{meta.label}</div>
-      {canControl && <button className={wantsRunning && !meta.retry ? btnDangerGhost : btnSecondary} disabled={busy} onClick={() => onToggle(output, action)}>
-        {wantsRunning && !meta.retry ? <Square size={12}/> : <Radio size={12}/>} {actionLabel}
+      {canControl && <button className={wantsRunning && !meta.retry ? btnDangerGhost : btnSecondary} disabled={busy || transitioning} onClick={() => onToggle(output, action)}>
+        {wantsRunning && !meta.retry ? <Square size={12}/> : <Radio size={12}/>} {transitioning ? '处理中' : actionLabel}
       </button>}
     </div>
     {output.mode === 'RECORD' && <div className="mt-2 flex flex-wrap gap-1.5 pl-10 text-[9px] text-[var(--muted-foreground)]"><span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{output.format?.toUpperCase()} · {output.asset?.state || '暂无文件'}</span>{output.asset?.size_bytes > 0 && <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{(output.asset.size_bytes / 1024 / 1024).toFixed(1)} MB</span>}{output.asset?.duration_seconds != null && <span className="rounded-md border border-[var(--border-soft)] px-2 py-1">{Math.round(output.asset.duration_seconds)} s</span>}</div>}
@@ -217,6 +218,37 @@ export function BuilderDrawer({ roomId, scenes, capabilities, onClose, onCreated
   </div>;
 }
 
+export async function toggleOutput({ apiClient = api, roomId, output, action, onChanged = async () => {}, notify = toast, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
+  async function waitForOutputOperation(operation) {
+    let current = operation;
+    for (let attempt = 0; attempt < 30 && current && !['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(current.phase); attempt += 1) {
+      await sleep(500);
+      current = await apiClient.get(`/v3/operations/${encodeURIComponent(current.id)}`);
+    }
+    return current;
+  }
+
+  try {
+    await apiClient.post(`/v3/rooms/${roomId}/outputs/${encodeURIComponent(output.id)}/${action}`, {}, { headers: { 'Idempotency-Key': opKey(`${action}-${output.id}`) } });
+    notify.success(action === 'start' ? '已提交启动操作' : '已提交停止操作');
+    await onChanged();
+  } catch (error) {
+    if (error.status === 409 && error.detail?.id) {
+      try {
+        const operation = await waitForOutputOperation(error.detail);
+        await onChanged();
+        if (operation?.phase === 'SUCCEEDED') notify.success('输出状态已完成，界面已刷新');
+        else if (operation?.phase === 'FAILED') notify.error(operation.error || '输出操作失败');
+        else notify.warning('输出仍在处理中，请稍后查看状态');
+      } catch (pollError) {
+        notify.error(pollError.message || '输出状态同步失败');
+      }
+    } else {
+      notify.error(error.message || '输出操作失败');
+    }
+  }
+}
+
 export default function V3OutputRack({ roomId, workspace, scenes = [], onChanged, embedded = false }) {
   const [drawer, setDrawer] = useState(false);
   const [busyId, setBusyId] = useState(null);
@@ -227,12 +259,7 @@ export default function V3OutputRack({ roomId, workspace, scenes = [], onChanged
 
   async function toggle(output, action) {
     setBusyId(output.id);
-    try {
-      await api.post(`/v3/rooms/${roomId}/outputs/${encodeURIComponent(output.id)}/${action}`, {}, { headers: { 'Idempotency-Key': opKey(`${action}-${output.id}`) } });
-      toast.success(action === 'start' ? '已提交启动操作' : '已提交停止操作');
-      await onChanged();
-    } catch (error) { toast.error(error.message || '输出操作失败'); }
-    finally { setBusyId(null); }
+    await toggleOutput({ roomId, output, action, onChanged }).finally(() => setBusyId(null));
   }
 
   return <section className={embedded ? "h-full bg-transparent p-3" : "rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] p-4 shadow-[var(--shadow-panel)]"}>

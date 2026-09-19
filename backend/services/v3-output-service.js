@@ -288,6 +288,11 @@ function startOrStopRecord(taskId, desiredState, { idempotency_key, requested_by
   const desired = String(desiredState || '').toUpperCase();
   const type = desired === 'RUNNING' ? 'V3_RECORD_START' : desired === 'STOPPED' ? 'V3_RECORD_STOP' : null;
   if (!type) throw new Error('Invalid recording desired state');
+  // A Worker can reach the requested runtime state before the console reads
+  // the operation resource. Reconcile that completed fact before rejecting
+  // the opposite action as a conflict.
+  const active = operationCore.activeForSubject('record_task', task.id);
+  if (active) reconcileRecordOperation(active);
   const created = operationCore.createOrReuse({ type, subject_type: 'record_task', subject_id: task.id, idempotency_key, requested_by, payload: { output_id: recordOutputId(task.id), desired_state: desired } });
   if (created.conflict || created.reused) return created;
   try {

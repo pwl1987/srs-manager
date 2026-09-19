@@ -10,6 +10,7 @@ process.env.RECORD_STORAGE_ROOT = path.join(dataDir, 'recordings');
 
 const db = require('../database');
 const outputService = require('../services/v3-output-service');
+const operationCore = require('../services/v3-operation-core');
 const recordTaskService = require('../services/record-task-service');
 const assetService = require('../services/record-asset-service');
 const workspaceService = require('../services/v3-workspace-service');
@@ -42,6 +43,21 @@ test('V3 RECORD output follows STOPPED -> RECORDING -> COMPLETE operation semant
   recordTaskService.updateRuntime(created.task.id, { runtime_state: 'COMPLETE', bytes_written: 4096 });
   op = outputService.reconcileRecordOperation(op);
   assert.equal(op.phase, 'SUCCEEDED');
+});
+
+test('V3 RECORD stop reconciles a completed start before creating the reverse operation', () => {
+  const streamId = createStream('v3-record-reverse-operation');
+  const created = outputService.createRecordOutput(streamId, {
+    mode: 'RECORD', scene: 'LOCAL_RECORD', name: 'reverse', format: 'ts',
+    processing: { mode: 'PASSTHROUGH' }
+  });
+  const start = outputService.startOrStopRecord(created.task.id, 'RUNNING', { idempotency_key: 'reverse-start-1' }).operation;
+  recordTaskService.updateRuntime(created.task.id, { runtime_state: 'RECORDING', bytes_written: 512, last_growth_at: new Date().toISOString() });
+
+  const stop = outputService.startOrStopRecord(created.task.id, 'STOPPED', { idempotency_key: 'reverse-stop-1' }).operation;
+  assert.equal(operationCore.getOperation(start.id).phase, 'SUCCEEDED');
+  assert.equal(stop.phase, 'VERIFYING');
+  assert.equal(recordTaskService.getTask(created.task.id).desired_state, 'STOPPED');
 });
 
 test('Record capability becomes available only with a live Record Worker heartbeat', () => {
