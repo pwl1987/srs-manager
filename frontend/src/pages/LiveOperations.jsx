@@ -1,98 +1,101 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Plus, Search } from 'lucide-react';
-import { toast } from 'sonner';
+import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { AlertTriangle, ArrowRight, Plus, RefreshCw, Search } from 'lucide-react';
 import { api } from '../lib/api';
 import { usePolling } from '../lib/use-polling';
 import { formatBitrateKbps, formatDuration } from '../i18n/format';
 import { cn } from '../lib/utils';
-import Modal from '../components/ui/Modal';
 import ErrorBanner from '../components/ui/ErrorBanner';
 import EmptyState from '../components/ui/EmptyState';
 import { CardSkeleton } from '../components/ui/Skeleton';
-import { btnPrimary, btnSecondary, btnGhost, inputClass, labelClass } from '../components/ui/styles';
+import { btnPrimary, btnSecondary, btnGhost, inputClass } from '../components/ui/styles';
+import RoomCommandPanel from '../components/streams/RoomCommandPanel';
+import CreateRoomWizard from '../components/streams/CreateRoomWizard';
+import {
+  DIRECTION_IDS,
+  directionIdsFromRoomSummary,
+  getDirection,
+  roomMatchesDirection
+} from '../lib/directions';
+import {
+  ROOM_BUCKETS,
+  projectRoomPresentation,
+  roomMatchesBucket,
+  TONE_BADGE_CLASS,
+  TONE_DOT_CLASS,
+  TONE_ROW_CLASS
+} from '../lib/room-presentation';
+import { highlightSegments, matchesSearch } from '../lib/search-text';
+import { handleListKeyDown, nextSelectedRoomId } from '../lib/wizard-flow';
 
-function toneFor(room) {
-  if (room.critical_incidents > 0 || room.health?.status === 'CRITICAL') return 'danger';
-  if (room.active_incidents > 0 || room.health?.status === 'DEGRADED') return 'warning';
-  if (room.session?.lifecycle_state === 'ON_AIR' || room.program?.state === 'LIVE') return 'healthy';
-  return 'muted';
+// Search synonyms carry both languages so a zh or en query finds rooms by
+// status/direction intent; names are matched directly.
+const BUCKET_SYNONYMS = {
+  running: '正在直播 直播中 在线 正常运行 on air online live running',
+  attention: '需要关注 需要处理 异常 attention degraded warning',
+  fault: '故障 报错 fault critical error',
+  idle: '空闲 未开播 离线 offline idle'
+};
+
+const DIRECTION_SYNONYMS = {
+  IN_PUSH: '第三方推给我们 推流接入 in push',
+  IN_PULL: '我们主动拉第三方 拉流 in pull',
+  OUT_PUSH: '我们推给第三方 外推 out push',
+  OUT_PULL: '第三方拉我们的输出 对外拉流 out pull',
+  RECORD: '本地输出 录制 record'
+};
+
+const BUCKET_FILTER_KEYS = {
+  all: 'streams:liveOps.filter.statusAll',
+  running: 'streams:roomState.running',
+  attention: 'streams:roomState.attention',
+  fault: 'streams:roomState.fault',
+  idle: 'streams:roomState.idle'
+};
+
+function Highlight({ text, query }) {
+  if (!text) return null;
+  return <>{highlightSegments(text, query).map((segment, index) => segment.hit
+    ? <mark key={index} className="rounded bg-[var(--primary)]/25 px-0.5 text-[var(--foreground)]">{segment.text}</mark>
+    : <span key={index}>{segment.text}</span>)}</>;
 }
 
-function Dot({ tone = 'muted' }) {
-  const cls = tone === 'danger' ? 'bg-[var(--destructive)]'
-    : tone === 'warning' ? 'bg-[var(--warning)]'
-      : tone === 'healthy' ? 'bg-[var(--success)]'
-        : 'bg-[var(--text-faint)]';
-  return <span className={cn('inline-block h-2 w-2 shrink-0 rounded-full', cls)} />;
-}
-
-function Badge({ children, tone = 'muted' }) {
-  const cls = tone === 'danger' ? 'border-[var(--destructive)]/20 bg-[var(--destructive)]/7 text-[var(--destructive)]'
-    : tone === 'warning' ? 'border-[var(--warning)]/20 bg-[var(--warning)]/7 text-[var(--warning)]'
-      : tone === 'healthy' ? 'border-[var(--success)]/20 bg-[var(--success-soft)] text-[var(--success)]'
-        : 'border-[var(--border-soft)] bg-[var(--secondary)] text-[var(--muted-foreground)]';
-  return <span className={cn('inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[9px] font-semibold uppercase tracking-[.08em]', cls)}>{children}</span>;
-}
-
-function stateLabel(state) {
-  return ({ ON_AIR: '正在播出', LIVE: '正在播出', CLOSING: '收播中', READY: '待开播', PREP: '准备中', ENDED: '已结束', 'OFF AIR': '未开播' })[state] || state || '未知';
-}
-
-function healthLabel(status) {
-  return ({ HEALTHY: '运行正常', DEGRADED: '需要关注', CRITICAL: '需要处理', UNKNOWN: '待确认' })[status] || status || '待确认';
+function DirectionChips({ room, t }) {
+  const ids = directionIdsFromRoomSummary(room);
+  return <div className="mt-1.5 flex flex-wrap items-center gap-1">
+    {ids.map(id => {
+      const direction = getDirection(id);
+      const Icon = direction.icon;
+      return <span key={id} className="inline-flex items-center gap-1 rounded-md border border-[var(--border-soft)] bg-[var(--secondary)]/60 px-1.5 py-0.5 text-[9px] text-[var(--muted-foreground)]"><Icon size={10} />{t(direction.labelKey)}</span>;
+    })}
+  </div>;
 }
 
 function Fact({ label, value, hint }) {
   return <div className="min-w-0"><div className="text-[9px] font-semibold tracking-[.12em] text-[var(--text-faint)]">{label}</div><div className="mt-1 truncate text-xs font-medium text-[var(--foreground)]">{value}</div>{hint && <div className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">{hint}</div>}</div>;
 }
 
-function RoomRow({ room, stream }) {
-  const tone = toneFor(room);
-  const state = room.session?.lifecycle_state || (room.program?.state === 'LIVE' ? 'LIVE' : 'OFF AIR');
-  const required = Number(room.outputs?.required_total || 0);
-  const healthy = Number(room.outputs?.required_healthy || 0);
-  const streamName = stream?.name || room.room.name;
-  return <Link to={'/streams/' + room.room.legacy_stream_id} className={cn(
-    'grid gap-3 rounded-xl border bg-[var(--card)] px-4 py-3.5 shadow-[var(--shadow-panel)] transition-colors hover:border-[var(--border)] xl:grid-cols-[1.35fr_.9fr_.9fr_.9fr_.85fr_auto] xl:items-center',
-    tone === 'danger' ? 'border-[var(--destructive)]/24' : tone === 'warning' ? 'border-[var(--warning)]/22' : 'border-[var(--border-soft)]'
-  )}>
-    <div className="min-w-0">
-      <div className="flex flex-wrap items-center gap-2"><Dot tone={tone}/><span className="truncate text-sm font-semibold">{room.room.name}</span><Badge tone={tone}>{stateLabel(state)}</Badge></div>
-      <div className="mt-1.5 truncate text-[10px] text-[var(--muted-foreground)]">直播流：{streamName}{stream?.protocol ? ` · ${stream.protocol.toUpperCase()}` : ''}{room.session?.title ? ` · ${room.session.title}` : ''}</div>
-    </div>
-    <Fact label="节目" value={stateLabel(room.program?.state)} hint={room.program?.bitrate != null ? formatBitrateKbps(room.program.bitrate) : '尚无节目证据'} />
-    <Fact label="会话" value={room.session?.started_at ? formatDuration(room.program?.uptime_seconds || 0) : '—'} hint={room.session?.preflight_status === 'PASS' ? '开播预检通过' : room.session?.preflight_status || '尚未创建本场直播'} />
-    <Fact label="必需输出" value={required ? healthy + ' / ' + required : '—'} hint={required ? '当前运行正常数 / 必需总数' : '尚未配置必需输出'} />
-    <Fact label="录制" value={room.outputs?.record_state || '未启动'} hint={room.program?.viewers != null ? String(room.program.viewers) + ' 人观看' : '暂无观看数据'} />
-    <div className="justify-self-start xl:justify-self-end xl:text-right">
-      <div className={cn('text-[11px] font-semibold', tone === 'danger' ? 'text-[var(--destructive)]' : tone === 'warning' ? 'text-[var(--warning)]' : tone === 'healthy' ? 'text-[var(--success)]' : 'text-[var(--muted-foreground)]')}>{healthLabel(room.health?.status)}</div>
-      <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-[var(--primary)]">{room.active_incidents ? `${room.active_incidents} 个待处理异常` : '进入工作台'}<ArrowRight size={11}/></div>
-    </div>
-  </Link>;
-}
-
-export function filterLiveRooms(rooms, streams, query, statusFilter = 'all') {
+export function filterLiveRooms(rooms, streams, query, statusFilter = 'all', directionFilter = 'all') {
   const streamsById = Object.fromEntries((streams || []).map(stream => [String(stream.id), stream]));
-  const q = String(query || '').trim().toLowerCase();
   return (rooms || []).filter(room => {
     const stream = streamsById[String(room.room.legacy_stream_id)];
-    const onAir = room.session?.lifecycle_state === 'ON_AIR' || room.program?.state === 'LIVE' || stream?.status === 'online';
-    const needsAttention = room.active_incidents > 0 || ['DEGRADED', 'CRITICAL'].includes(room.health?.status);
+    const presentation = projectRoomPresentation(room);
+    const directions = directionIdsFromRoomSummary(room);
     const haystack = [
       room.room.name,
+      room.room.remark,
+      room.room.business_unit,
       stream?.name,
       stream?.protocol,
       stream?.status,
-      onAir ? '正在直播 直播中 在线 on air online' : '空闲 未开播 离线 offline',
-      needsAttention ? '需要处理 异常 degraded critical' : ''
-    ].filter(Boolean).join(' ').toLowerCase();
-    const matchesQuery = !q || haystack.includes(q);
-    const matchesStatus = statusFilter === 'all'
-      || (statusFilter === 'on_air' && onAir)
-      || (statusFilter === 'attention' && needsAttention)
-      || (statusFilter === 'idle' && !onAir);
-    return matchesQuery && matchesStatus;
+      BUCKET_SYNONYMS[presentation.bucket] || '',
+      ...directions.map(id => DIRECTION_SYNONYMS[id] || '')
+    ].filter(Boolean).join(' ');
+    const matchesQuery = !String(query || '').trim() || matchesSearch(haystack, query);
+    return matchesQuery
+      && roomMatchesBucket(room, statusFilter)
+      && roomMatchesDirection(room, directionFilter);
   });
 }
 
@@ -125,6 +128,68 @@ export async function refreshLiveOperations({ silent = false, setLoading, setRoo
   finally { if (!silent) setLoading(false); }
 }
 
+function RoomRow({ room, stream, selected, query, onSelect, onOpen, t }) {
+  const presentation = projectRoomPresentation(room);
+  const required = Number(room.outputs?.required_total || 0);
+  const healthy = Number(room.outputs?.required_healthy || 0);
+  const configured = Number(room.outputs?.configured_total || 0);
+  const inputs = room.inputs || {};
+  const legacyOpen = (inputs.push_credentials || 0) === 0 && (inputs.pull_tasks || 0) === 0;
+  const inputSummary = legacyOpen
+    ? t('streams:liveOps.input.legacyOpen')
+    : [
+      inputs.push_credentials ? t('streams:liveOps.input.pushCredentials', { count: inputs.push_credentials }) : '',
+      inputs.pull_tasks ? t('streams:liveOps.input.pullTasks', { count: inputs.pull_tasks }) : ''
+    ].filter(Boolean).join(' · ');
+  const streamName = stream?.name || room.room.name;
+
+  return <div
+    role="button"
+    tabIndex={0}
+    aria-pressed={selected}
+    onClick={() => onSelect(room)}
+    onDoubleClick={() => onOpen(room)}
+    onKeyDown={event => { if (event.key === 'Enter') onOpen(room); }}
+    className={cn(
+      'grid cursor-pointer gap-3 rounded-xl border bg-[var(--card)] px-4 py-3.5 shadow-[var(--shadow-panel)] transition-colors hover:border-[var(--border)] xl:grid-cols-[minmax(0,1.5fr)_minmax(0,.72fr)_minmax(0,.72fr)_minmax(0,.72fr)_auto] xl:items-center',
+      TONE_ROW_CLASS[presentation.tone],
+      selected && 'border-[var(--primary)]/50 bg-[var(--primary)]/5'
+    )}
+  >
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={cn('inline-block h-2 w-2 shrink-0 rounded-full', TONE_DOT_CLASS[presentation.tone])} />
+        <span className="truncate text-sm font-semibold"><Highlight text={room.room.name} query={query} /></span>
+        <span className={cn('inline-flex items-center rounded-md border px-2 py-1 text-[9px] font-semibold uppercase tracking-[.08em]', TONE_BADGE_CLASS[presentation.tone])}>{t(presentation.labelKey)}</span>
+      </div>
+      <div className="mt-1 truncate text-[10px] text-[var(--muted-foreground)]">
+        <Highlight text={streamName} query={query} />{stream?.protocol ? ` · ${stream.protocol.toUpperCase()}` : ''}{room.room.business_unit ? ` · ${room.room.business_unit}` : ''}{room.room.remark ? ` · ${room.room.remark}` : ''}
+      </div>
+      <DirectionChips room={room} t={t} />
+    </div>
+    <Fact label={t('streams:liveOps.columns.input')} value={inputSummary} hint={t('streams:liveOps.input.hint')} />
+    <Fact
+      label={t('streams:liveOps.columns.outputs')}
+      value={configured ? String(configured) : '—'}
+      hint={required ? t('streams:liveOps.outputs.requiredHint', { healthy, total: required }) : t('streams:liveOps.outputs.noneHint')}
+    />
+    <Fact
+      label={t('streams:liveOps.columns.duration')}
+      value={room.program?.uptime_seconds != null ? formatDuration(room.program.uptime_seconds) : '—'}
+      hint={room.program?.viewers != null ? t('streams:liveOps.audienceAndBitrate', { count: room.program.viewers, bitrate: formatBitrateKbps(room.program.bitrate) }) : undefined}
+    />
+    <div className="flex items-center justify-start gap-2 xl:justify-end">
+      <button
+        type="button"
+        className={btnSecondary}
+        onClick={event => { event.stopPropagation(); onOpen(room); }}
+      >
+        {t('streams:liveOps.enterWorkspace')}<ArrowRight size={12} />
+      </button>
+    </div>
+  </div>;
+}
+
 export default function LiveOperations({
   initialRooms = null,
   initialStreams = null,
@@ -133,9 +198,13 @@ export default function LiveOperations({
   initialError = null,
   initialSearch = '',
   initialStatusFilter = 'all',
+  initialDirectionFilter = 'all',
+  initialSelectedRoomId = null,
   initialOpen = false,
   initialForm = { name: '', protocol: 'rtmp' }
 } = {}) {
+  const { t } = useTranslation(['streams', 'common']);
+  const navigate = useNavigate();
   const seeded = initialRooms !== null;
   const [rooms, setRooms] = useState(initialRooms || []);
   const [streams, setStreams] = useState(initialStreams || []);
@@ -144,65 +213,151 @@ export default function LiveOperations({
   const [error, setError] = useState(initialError);
   const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
+  const [directionFilter, setDirectionFilter] = useState(initialDirectionFilter);
+  const [selectedRoomId, setSelectedRoomId] = useState(initialSelectedRoomId);
   const [open, setOpen] = useState(initialOpen);
-  const [form, setForm] = useState(initialForm);
-  const [working, setWorking] = useState(false);
 
   usePolling(() => refreshLiveOperations({
     silent: Boolean(rooms.length), setLoading, setRooms, setExternal, setStreams, setError
   }), 5000, !seeded);
 
   const streamsById = useMemo(() => Object.fromEntries(streams.map(stream => [String(stream.id), stream])), [streams]);
-  const filtered = useMemo(() => filterLiveRooms(rooms, streams, search, statusFilter), [rooms, streams, search, statusFilter]);
+  const filtered = useMemo(() => filterLiveRooms(rooms, streams, search, statusFilter, directionFilter), [rooms, streams, search, statusFilter, directionFilter]);
+  const selectedRoom = useMemo(
+    () => filtered.find(room => room.room.id === selectedRoomId) || rooms.find(room => room.room.id === selectedRoomId) || null,
+    [filtered, rooms, selectedRoomId]
+  );
 
-  const stats = useMemo(() => ({
-    onAir: rooms.filter(r => r.session?.lifecycle_state === 'ON_AIR').length,
-    degraded: rooms.filter(r => ['DEGRADED','CRITICAL'].includes(r.health?.status)).length,
-    offAir: rooms.filter(r => !r.session && r.program?.state !== 'LIVE').length,
-    recording: rooms.filter(r => ['RECORDING','FINALIZING'].includes(r.outputs?.record_state)).length,
-    incidents: rooms.reduce((sum, r) => sum + Number(r.active_incidents || 0), 0)
-  }), [rooms]);
+  const stats = useMemo(() => {
+    const byBucket = { running: 0, attention: 0, fault: 0, idle: 0 };
+    for (const room of rooms) byBucket[projectRoomPresentation(room).bucket] += 1;
+    return {
+      ...byBucket,
+      recording: rooms.filter(r => ['RECORDING', 'FINALIZING'].includes(r.outputs?.record_state)).length,
+      incidents: rooms.reduce((sum, r) => sum + Number(r.active_incidents || 0), 0)
+    };
+  }, [rooms]);
 
-  async function createRoom(event) {
-    event.preventDefault();
-    setWorking(true);
-    try {
-      await api.post('/streams', form);
-      toast.success('直播间已创建');
-      setOpen(false);
-      setForm({ name: '', protocol: 'rtmp' });
-      await load(true);
-    } catch (err) { toast.error(err.message || '创建直播间失败'); }
-    finally { setWorking(false); }
+  async function manualRefresh() {
+    await refreshLiveOperations({ setLoading, setRooms, setExternal, setStreams, setError });
   }
 
-  if (loading && !rooms.length) return <div className="space-y-3">{[1,2,3,4].map(x => <CardSkeleton key={x} className="h-24"/>)}</div>;
+  function openWorkspace(room) {
+    navigate(`/streams/${room.room.legacy_stream_id}`);
+  }
 
-  return <div>
+  function moveSelection(step) {
+    const nextId = nextSelectedRoomId(filtered, selectedRoomId, step);
+    if (nextId) setSelectedRoomId(nextId);
+  }
+
+  function onListKeyDown(event) {
+    handleListKeyDown(event, {
+      moveSelection,
+      openWorkspace: () => { if (selectedRoom) openWorkspace(selectedRoom); }
+    });
+  }
+
+  if (loading && !rooms.length) return <div className="space-y-3">{[1, 2, 3, 4].map(x => <CardSkeleton key={x} className="h-24" />)}</div>;
+
+  const hasFilter = Boolean(search.trim()) || statusFilter !== 'all' || directionFilter !== 'all';
+
+  return <div className="min-h-0">
     <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-      <div><div className="text-[10px] font-semibold tracking-[.16em] text-[var(--primary)]">直播运维</div><h1 className="mt-1 text-2xl font-semibold tracking-[-.03em]">直播资源</h1><p className="mt-1 text-xs text-[var(--muted-foreground)]">按直播间、直播流、协议和运行状态查找，进入对应值守工作台。</p></div>
-      <div className="flex flex-wrap gap-2"><label className="relative"><Search size={13} className="absolute left-3 top-3 text-[var(--text-faint)]"/><input value={search} onChange={e => setSearch(e.target.value)} className={cn(inputClass,'w-72 pl-9')} placeholder="搜索直播间、直播流、协议或状态"/></label><button className={btnPrimary} onClick={() => setOpen(true)}><Plus size={14}/>新建直播间</button></div>
+      <div>
+        <div className="text-[10px] font-semibold tracking-[.16em] text-[var(--primary)]">{t('streams:liveOps.eyebrow')}</div>
+        <h1 className="mt-1 text-2xl font-semibold tracking-[-.03em]">{t('streams:liveOps.title')}</h1>
+        <p className="mt-1 text-xs text-[var(--muted-foreground)]">{t('streams:liveOps.subtitle')}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <label className="relative">
+          <Search size={13} className="absolute left-3 top-3 text-[var(--text-faint)]" />
+          <input value={search} onChange={e => setSearch(e.target.value)} className={cn(inputClass, 'w-72 pl-9')} placeholder={t('streams:liveOps.searchPlaceholder')} aria-label={t('streams:liveOps.searchPlaceholder')} />
+        </label>
+        <button type="button" className={btnSecondary} onClick={manualRefresh} disabled={loading} title={t('streams:liveOps.refresh')}>
+          <RefreshCw size={14} className={loading ? 'animate-spin' : undefined} />
+          {t('streams:liveOps.refresh')}
+        </button>
+        <button className={btnPrimary} onClick={() => setOpen(true)}><Plus size={14} />{t('streams:liveOps.create')}</button>
+      </div>
     </div>
 
-    <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-5">
+    <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-6">
       {[
-        ['正在播出', stats.onAir, 'text-[var(--success)]'],
-        ['需要关注', stats.degraded, stats.degraded ? 'text-[var(--warning)]' : 'text-[var(--foreground)]'],
-        ['未开播', stats.offAir, 'text-[var(--muted-foreground)]'],
-        ['正在录制', stats.recording, stats.recording ? 'text-[var(--destructive)]' : 'text-[var(--foreground)]'],
-        ['待处理异常', stats.incidents, stats.incidents ? 'text-[var(--warning)]' : 'text-[var(--foreground)]']
-      ].map(([label,value,color]) => <div key={label} className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3"><div className={cn('text-2xl font-semibold tabular-nums',color)}>{value}</div><div className="mt-1 text-[9px] font-semibold tracking-[.12em] text-[var(--text-faint)]">{label}</div></div>)}
+        ['streams:roomState.running', stats.running, 'text-[var(--success)]'],
+        ['streams:roomState.attention', stats.attention, stats.attention ? 'text-[var(--warning)]' : 'text-[var(--foreground)]'],
+        ['streams:roomState.fault', stats.fault, stats.fault ? 'text-[var(--destructive)]' : 'text-[var(--foreground)]'],
+        ['streams:roomState.idle', stats.idle, 'text-[var(--muted-foreground)]'],
+        ['streams:liveOps.stats.recording', stats.recording, stats.recording ? 'text-[var(--destructive)]' : 'text-[var(--foreground)]'],
+        ['streams:liveOps.stats.incidents', stats.incidents, stats.incidents ? 'text-[var(--warning)]' : 'text-[var(--foreground)]']
+      ].map(([labelKey, value, color]) => <div key={labelKey} className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3">
+        <div className={cn('text-2xl font-semibold tabular-nums', color)}>{value}</div>
+        <div className="mt-1 text-[9px] font-semibold tracking-[.12em] text-[var(--text-faint)]">{t(labelKey)}</div>
+      </div>)}
     </div>
 
-    {error && <ErrorBanner message={error.message || '无法读取直播运行态势'} onRetry={() => load()} />}
-    {external.length > 0 && <div className="mb-4 flex items-center gap-3 rounded-xl border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-4 py-3 text-xs text-[var(--muted-foreground)]"><AlertTriangle size={15} className="text-[var(--warning)]"/><span>检测到 {external.length} 路尚未登记的实时推流。需要先登记，之后才能进入统一直播资源列表。</span><Link className={btnSecondary} to="/streams-legacy">登记外部流</Link></div>}
+    {error && <ErrorBanner message={error.message || t('streams:liveOps.loadFailed')} onRetry={() => refreshLiveOperations({ setLoading, setRooms, setExternal, setStreams, setError })} />}
+    {external.length > 0 && <div className="mb-4 flex items-center gap-3 rounded-xl border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-4 py-3 text-xs text-[var(--muted-foreground)]">
+      <AlertTriangle size={15} className="text-[var(--warning)]" />
+      <span>{t('streams:liveOps.externalWarn', { count: external.length })}</span>
+      <Link className={btnSecondary} to="/streams-legacy">{t('streams:liveOps.registerExternal')}</Link>
+    </div>}
 
-    <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-[var(--border-soft)] pb-3"><span className="mr-1 text-[10px] font-semibold tracking-[.08em] text-[var(--text-faint)]">快速筛选</span>{[['all', '全部'], ['on_air', '正在直播'], ['attention', '需要处理'], ['idle', '未开播']].map(([value, label]) => <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={statusFilter === value ? btnSecondary : btnGhost}>{label}</button>)}<span className="ml-auto text-xs text-[var(--muted-foreground)]">{search.trim() || statusFilter !== 'all' ? `找到 ${filtered.length} / ${rooms.length} 个直播资源` : `${rooms.length} 个直播资源`}</span></div>
+    <div className="mb-4 space-y-2 border-b border-[var(--border-soft)] pb-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-[10px] font-semibold tracking-[.08em] text-[var(--text-faint)]">{t('streams:liveOps.filter.directionTitle')}</span>
+        {[['all', 'streams:liveOps.filter.directionAll'], ...DIRECTION_IDS.map(id => [id, getDirection(id).labelKey])].map(([value, labelKey]) => (
+          <button key={value} type="button" aria-pressed={directionFilter === value} onClick={() => setDirectionFilter(value)} className={directionFilter === value ? btnSecondary : btnGhost}>{t(labelKey)}</button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-[10px] font-semibold tracking-[.08em] text-[var(--text-faint)]">{t('streams:liveOps.filter.statusTitle')}</span>
+        {[['all', BUCKET_FILTER_KEYS.all], ...ROOM_BUCKETS.map(bucket => [bucket, BUCKET_FILTER_KEYS[bucket]])].map(([value, labelKey]) => (
+          <button key={value} type="button" aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)} className={statusFilter === value ? btnSecondary : btnGhost}>{t(labelKey)}</button>
+        ))}
+        <span className="ml-auto text-xs text-[var(--muted-foreground)]">{hasFilter ? t('streams:liveOps.filter.resultCount', { found: filtered.length, total: rooms.length }) : t('streams:liveOps.filter.resources', { count: rooms.length })}</span>
+      </div>
+    </div>
 
-    {filtered.length ? <div className="space-y-2.5">{filtered.map(room => <RoomRow key={room.room.id} room={room} stream={streamsById[String(room.room.legacy_stream_id)]}/>)}</div> : <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)]"><EmptyState title={search.trim() || statusFilter !== 'all' ? '没有找到匹配的直播资源' : '尚未创建直播间'} description={search.trim() || statusFilter !== 'all' ? '可以换一个名称、协议或状态，或者清除筛选条件。' : '创建直播间后，从这里进入值守工作台。'} action={search.trim() || statusFilter !== 'all' ? <button className={btnSecondary} onClick={() => { setSearch(''); setStatusFilter('all'); }}>清除筛选</button> : <button className={btnPrimary} onClick={() => setOpen(true)}>创建直播间</button>}/></div>}
+    <div className="min-h-0 min-[1440px]:grid min-[1440px]:grid-cols-[minmax(0,1fr)_minmax(360px,400px)] min-[1440px]:items-start min-[1440px]:gap-4">
+      <div onKeyDown={onListKeyDown} className="min-w-0 space-y-2.5 outline-none" tabIndex={0} aria-label={t('streams:liveOps.listLabel')}>
+        {filtered.length
+          ? filtered.map(room => <RoomRow
+            key={room.room.id}
+            room={room}
+            stream={streamsById[String(room.room.legacy_stream_id)]}
+            selected={room.room.id === selectedRoomId}
+            query={search}
+            onSelect={next => setSelectedRoomId(next.room.id)}
+            onOpen={openWorkspace}
+            t={t}
+          />)
+          : <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--card)]">
+            <EmptyState
+              title={hasFilter ? t('streams:liveOps.empty.filtered') : t('streams:liveOps.empty.none')}
+              description={hasFilter ? t('streams:liveOps.empty.filteredDesc') : t('streams:liveOps.empty.noneDesc')}
+              action={hasFilter
+                ? <button className={btnSecondary} onClick={() => { setSearch(''); setStatusFilter('all'); setDirectionFilter('all'); }}>{t('streams:liveOps.empty.clear')}</button>
+                : <button className={btnPrimary} onClick={() => setOpen(true)}>{t('streams:liveOps.create')}</button>}
+            />
+          </div>}
+      </div>
 
-    <Modal open={open} onClose={() => setOpen(false)} title="新建直播间" footer={<><button className={btnSecondary} onClick={() => setOpen(false)}>取消</button><button form="room-create-form" className={btnPrimary} type="submit" disabled={working}>创建并继续配置</button></>}>
-      <form id="room-create-form" onSubmit={createRoom} className="space-y-4"><div><label className={labelClass}>直播间名称</label><input className={inputClass} value={form.name} onChange={e => setForm({...form,name:e.target.value})} required placeholder="例如：晚间新闻、任意社会学"/><p className="mt-1.5 text-xs text-[var(--muted-foreground)]">名称用于之后查找直播间和直播流。</p></div><div><label className={labelClass}>默认接入协议</label><select className={inputClass} value={form.protocol} onChange={e => setForm({...form,protocol:e.target.value})}><option value="rtmp">RTMP</option><option value="srt">SRT</option></select><p className="mt-1.5 text-xs text-[var(--muted-foreground)]">创建后可在值守工作台继续配置输入来源、节目源和输出方式。</p></div></form>
-    </Modal>
+      {selectedRoom && <>
+        <div className="fixed inset-0 z-30 bg-black/40 min-[1440px]:hidden" onClick={() => setSelectedRoomId(null)} aria-hidden="true" />
+        <aside className="fixed inset-y-0 right-0 z-40 w-[min(420px,94vw)] overflow-y-auto border-l border-[var(--border-soft)] bg-[var(--background)] p-4 min-[1440px]:static min-[1440px]:z-auto min-[1440px]:w-auto min-[1440px]:overflow-visible min-[1440px]:border-l-0 min-[1440px]:bg-transparent min-[1440px]:p-0">
+          <RoomCommandPanel
+            room={selectedRoom}
+            onClose={() => setSelectedRoomId(null)}
+          />
+        </aside>
+      </>}
+    </div>
+
+    <CreateRoomWizard
+      open={open}
+      onClose={() => setOpen(false)}
+      onCreated={() => refreshLiveOperations({ silent: true, setLoading, setRooms, setExternal, setStreams, setError })}
+    />
   </div>;
 }

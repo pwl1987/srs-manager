@@ -103,19 +103,35 @@ router.get('/output/scenes', (req, res) => {
 
 router.post('/rooms/:roomId/outputs', (req, res) => {
   const stream = requireRoomStream(req, res); if (!stream) return;
-  try {
-    const mode = String(req.body?.mode || '').toUpperCase();
-    if (mode === 'PUSH') {
-      return res.status(201).json({ output: outputService.createPushOutput(stream.id, req.body) });
-    }
-    if (mode === 'SERVE') {
-      return res.status(201).json({ output: outputService.configureServeOutput(stream.id, req.body) });
-    }
-    if (mode === 'RECORD') {
-      return res.status(201).json({ output: outputService.createRecordOutput(stream.id, req.body) });
-    }
+  // PHASE-09-FIX-04 (lifecycle correction): Output creation is idempotent per
+  // (room, key) with a frozen state machine — same key + same normalized
+  // request replays the first creation (200, zero write side effects); the
+  // same key with a different request is 409 CONFLICT; a key whose recorded
+  // subject was deleted is 409 RESULT_GONE (tombstone, never a rebuild key);
+  // a SERVE key whose singleton policy was changed later is 409
+  // RESULT_SUPERSEDED. A new business creation always requires a new key.
+  const idempotencyKey = String(req.get('Idempotency-Key') || '').trim() || null;
+  const mode = String(req.body?.mode || '').toUpperCase();
+  if (!['PUSH', 'SERVE', 'RECORD'].includes(mode)) {
     return res.status(422).json({ code: 'V3_OUTPUT_MODE_UNSUPPORTED', message: 'Supported Output modes are PUSH, SERVE and RECORD.', detail: mode || null, retryable: false, correlation_id: null });
+  }
+  try {
+    const created = mode === 'PUSH'
+      ? outputService.createPushOutput(stream.id, req.body, { idempotency_key: idempotencyKey })
+      : mode === 'SERVE'
+        ? outputService.configureServeOutput(stream.id, req.body, { idempotency_key: idempotencyKey })
+        : outputService.createRecordOutput(stream.id, req.body, { idempotency_key: idempotencyKey });
+    return res.status(created?.idempotent_replay ? 200 : 201).json({ output: created });
   } catch (error) {
+    if (error.idempotencyConflict) {
+      return res.status(409).json({ code: 'V3_OUTPUT_IDEMPOTENCY_CONFLICT', message: error.message, detail: null, retryable: false, correlation_id: null });
+    }
+    if (error.idempotencyResultGone) {
+      return res.status(409).json({ code: 'V3_OUTPUT_IDEMPOTENCY_RESULT_GONE', message: error.message, detail: null, retryable: false, correlation_id: null });
+    }
+    if (error.idempotencySuperseded) {
+      return res.status(409).json({ code: 'V3_OUTPUT_IDEMPOTENCY_RESULT_SUPERSEDED', message: error.message, detail: null, retryable: false, correlation_id: null });
+    }
     return res.status(422).json({ code: 'V3_OUTPUT_CREATE_INVALID', message: error.message, detail: null, retryable: false, correlation_id: null });
   }
 });

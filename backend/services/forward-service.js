@@ -13,13 +13,21 @@ function getSource(id) {
   return db.prepare('SELECT * FROM external_sources WHERE id = ?').get(id) || null;
 }
 
-function createSource({ name, source_url, protocol, pull_mode }) {
+function createSource({ name, source_url, protocol, pull_mode, idempotency_key }) {
   if (!name || !source_url) throw new Error('Name and source URL are required');
   const check = validateStreamUrl(source_url, STREAM_PROTOCOLS, { allowPrivateNetwork: true });
   if (!check.valid) throw new Error(`Invalid source URL: ${check.error}`);
-  db.prepare('INSERT INTO external_sources (name, source_url, protocol, pull_mode) VALUES (?, ?, ?, ?)')
-    .run(name, source_url, protocol || 'rtmp', pull_mode || 'pull');
-  return db.prepare('SELECT * FROM external_sources WHERE name = ?').get(name);
+  // PHASE-09 creation-journal recovery: replaying the same Idempotency-Key
+  // returns the already-created source instead of issuing a duplicate. This
+  // covers "POST succeeded but the client never received the response".
+  const key = idempotency_key ? String(idempotency_key).trim() : null;
+  if (key) {
+    const existing = db.prepare('SELECT * FROM external_sources WHERE idempotency_key = ?').get(key);
+    if (existing) return { ...existing, idempotent_replay: true };
+  }
+  const result = db.prepare('INSERT INTO external_sources (name, source_url, protocol, pull_mode, idempotency_key) VALUES (?, ?, ?, ?, ?)')
+    .run(name, source_url, protocol || 'rtmp', pull_mode || 'pull', key);
+  return db.prepare('SELECT * FROM external_sources WHERE id = ?').get(Number(result.lastInsertRowid));
 }
 
 function updateSource(id, updates) {

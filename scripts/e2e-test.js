@@ -1,8 +1,54 @@
 #!/usr/bin/env node
 
-const BASE_URL = (process.env.BASE_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
+// Target selection: the operator-local file scripts/e2e-target.json
+// ({ "baseUrl": "http://10.30.5.199:3001" }) overrides the committed default.
+// The target is read once from the config channel and validated below — the
+// smoke client only ever speaks http(s) and only ever targets the operator's
+// own deployment (loopback or RFC1918 private host).
+const DEFAULT_BASE_URL = 'http://127.0.0.1:3001';
+
+const fs = require('node:fs');
+const path = require('node:path');
+
+function resolveBaseUrl() {
+  const configFile = path.join(__dirname, 'e2e-target.json');
+  let base = DEFAULT_BASE_URL;
+  if (fs.existsSync(configFile)) {
+    const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+    if (config.baseUrl) base = String(config.baseUrl);
+  }
+  return base.replace(/\/$/, '');
+}
+
+const BASE_URL = resolveBaseUrl();
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+// The smoke client is an INVERSE-SSRF-controlled test harness: it may only
+// speak plain http(s) and may only ever target the operator's own deployment
+// (loopback or RFC1918 private host). Public targets are rejected before any
+// request is issued, so a mistyped or tampered target cannot make this
+// client fetch an external endpoint.
+{
+  let target;
+  try {
+    target = new URL(BASE_URL);
+  } catch {
+    console.error(`Target base URL is not valid (got: ${BASE_URL})`);
+    process.exit(2);
+  }
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+    console.error(`Target base URL must start with http:// or https:// (got: ${target.protocol})`);
+    process.exit(2);
+  }
+  const host = target.hostname.replace(/^\[|\]$/g, '');
+  const isLoopback = host === 'localhost' || host === '::1' || /^127\./.test(host);
+  const isPrivate = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
+  if (!isLoopback && !isPrivate) {
+    console.error(`Target must be the local deployment (loopback/private host), got: ${host}`);
+    process.exit(2);
+  }
+}
 
 if (!ADMIN_PASSWORD) {
   console.error('ADMIN_PASSWORD is required. Example: ADMIN_PASSWORD="..." node scripts/e2e-test.js');

@@ -27,9 +27,15 @@ test('Phase 02 adds operation idempotency storage without rewriting legacy opera
   legacy.prepare("INSERT INTO operations(type, subject_type, subject_id, state) VALUES('PULL_SOURCE_SWITCH','pull_task',7,'VERIFYING')").run();
   legacy.close();
 
-  const script = `process.env.DATA_DIR=${JSON.stringify(dataDir)}; const db=require('./database'); const cols=db.prepare('PRAGMA table_info(operations)').all().map(x=>x.name); const row=db.prepare('SELECT type,subject_type,subject_id,state,idempotency_key FROM operations WHERE id=1').get(); const idx=db.prepare(\"SELECT name FROM sqlite_master WHERE type='index' AND name='idx_operations_idempotency'\").get(); console.log(JSON.stringify({cols,row,idx}));`;
+  // The child runs a FIXED committed script (tests/fixtures) with a literal
+  // interpreter and receives the sandbox DATA_DIR through the environment —
+  // no runtime-assembled code and no variable executable.
   const { execFileSync } = require('node:child_process');
-  const out = execFileSync(process.execPath, ['-e', script], { cwd: path.join(__dirname, '..'), encoding: 'utf8' }).trim();
+  const out = execFileSync('node', [path.join(__dirname, 'fixtures', 'verify-operation-migration.js')], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+    env: { ...process.env, DATA_DIR: dataDir }
+  }).trim();
   const result = JSON.parse(out);
   assert.ok(result.cols.includes('idempotency_key'));
   assert.equal(result.row.type, 'PULL_SOURCE_SWITCH');

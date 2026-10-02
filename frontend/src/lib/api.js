@@ -67,6 +67,9 @@ async function request(path, options = {}) {
     error.code = data.code;
     error.detail = data.detail;
     error.status = res.status;
+    // Some endpoints (e.g. preflight) answer errors with a full result body the
+    // caller must read; keep it on the thrown error.
+    error.body = data;
     throw error;
   }
 

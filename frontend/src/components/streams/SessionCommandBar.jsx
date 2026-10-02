@@ -1,22 +1,27 @@
 import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, CircleAlert, Clock3, Play, Plus, RefreshCw, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
 import { btnDangerGhost, btnPrimary, btnSecondary, inputClass, labelClass } from '../ui/styles';
 import ConfirmDialog from '../ui/ConfirmDialog';
+import useSessionCommands from './use-session-commands';
+import { directionIdFromOutputMode, directionIdFromSourceKind, getDirection } from '../../lib/directions';
 
-function opKey(prefix) {
-  if (globalThis.crypto?.randomUUID) return `${prefix}-${globalThis.crypto.randomUUID()}`;
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
+const SESSION_STATE_KEYS = {
+  PREP: 'streams:sessionBar.state.PREP',
+  READY: 'streams:sessionBar.state.READY',
+  ON_AIR: 'streams:sessionBar.state.ON_AIR',
+  CLOSING: 'streams:sessionBar.state.CLOSING',
+  ENDED: 'streams:sessionBar.state.ENDED'
+};
 
-const SESSION_STATE_LABELS = {
-  PREP: '准备中',
-  READY: '待开播',
-  ON_AIR: '正在播出',
-  CLOSING: '收播中',
-  ENDED: '已结束'
+const NEXT_STEP_KEYS = {
+  PREP: 'streams:sessionBar.next.PREP',
+  READY: 'streams:sessionBar.next.READY',
+  ON_AIR: 'streams:sessionBar.next.ON_AIR',
+  CLOSING: 'streams:sessionBar.next.CLOSING'
 };
 
 function stateTone(state) {
@@ -26,14 +31,6 @@ function stateTone(state) {
   return 'text-[var(--muted-foreground)]';
 }
 
-function nextStep(session) {
-  if (session.lifecycle_state === 'PREP') return '运行预检';
-  if (session.lifecycle_state === 'READY') return '开始播出';
-  if (session.lifecycle_state === 'ON_AIR') return '保持监控';
-  if (session.lifecycle_state === 'CLOSING') return '完成收播';
-  return '查看状态';
-}
-
 function outputHealthy(output) {
   if (!output) return false;
   if (output.mode === 'SERVE') return output.runtime_state === 'AVAILABLE';
@@ -41,39 +38,42 @@ function outputHealthy(output) {
   return output.runtime_state === 'RUNNING';
 }
 
-function preflightMeta(status) {
-  if (['PASS', 'READY'].includes(status)) return ['通过', 'text-[var(--success)]'];
-  if (['WARNING', 'READY_WITH_WARNING'].includes(status)) return ['有警告', 'text-[var(--warning)]'];
-  if (status === 'BLOCKED') return ['被阻断', 'text-[var(--destructive)]'];
-  return ['未运行', 'text-[var(--muted-foreground)]'];
+function preflightMeta(status, t) {
+  if (['PASS', 'READY'].includes(status)) return [t('streams:sessionBar.preflight.pass'), 'text-[var(--success)]'];
+  if (['WARNING', 'READY_WITH_WARNING'].includes(status)) return [t('streams:sessionBar.preflight.warning'), 'text-[var(--warning)]'];
+  if (status === 'BLOCKED') return [t('streams:sessionBar.preflight.blocked'), 'text-[var(--destructive)]'];
+  return [t('streams:sessionBar.preflight.none'), 'text-[var(--muted-foreground)]'];
 }
 
 export default function SessionCommandBar({ roomId, workspace, onChanged, compact = false, readOnly = false, initialShowQuickPlan = false, initialConfirmClose = false }) {
+  const { t } = useTranslation('streams');
   const [plans, setPlans] = useState([]);
   const [planId, setPlanId] = useState('');
   const [title, setTitle] = useState('');
-  const [busy, setBusy] = useState(false);
   const [showQuickPlan, setShowQuickPlan] = useState(initialShowQuickPlan);
   const [quickName, setQuickName] = useState('标准开播方案');
   const [quickSourceId, setQuickSourceId] = useState('');
   const [selectedOutputs, setSelectedOutputs] = useState({});
   const [optionalOutputs, setOptionalOutputs] = useState({});
   const [confirmClose, setConfirmClose] = useState(initialConfirmClose);
+  const [uiBusy, setUiBusy] = useState(false);
   const session = workspace?.session || null;
   const outputs = workspace?.outputs || [];
   const sources = workspace?.sources || [];
   const availableSources = sources.filter(source => source.configured !== false);
   const observedSourceId = workspace?.program?.source_id || null;
   const plannedSourceId = session?.planned_program_source_id || observedSourceId;
-  const sourceName = sources.find(source => source.id === plannedSourceId)?.name || plannedSourceId || '未选择';
+  const sourceName = sources.find(source => source.id === plannedSourceId)?.name || plannedSourceId || t('streams:sessionBar.session.noSourceSelected');
+  const commands = useSessionCommands({ roomId, session, onChanged });
+  const { runPreflight, startSession, closeSession } = commands;
+  const busy = commands.busy || uiBusy;
 
   async function loadPlans() {
     try {
-      const data = await api.get(`/v3/rooms/${roomId}/run-plans`);
-      const next = data?.run_plans || [];
+      const next = await commands.loadPlans();
       setPlans(next);
       if (!planId && next[0]) setPlanId(String(next[0].id));
-    } catch (error) { toast.error(error.message || '读取开播方案失败'); }
+    } catch (error) { toast.error(error.message || t('streams:sessionBar.plansLoadFailed')); }
   }
 
   useEffect(() => { if (!readOnly) loadPlans(); }, [roomId, readOnly]);
@@ -86,134 +86,63 @@ export default function SessionCommandBar({ roomId, workspace, onChanged, compac
       healthy: required.filter(item => outputHealthy(outputs.find(output => output.id === item.output_ref))).length
     };
   }, [session, outputs]);
-  const [preflightLabel, preflightTone] = preflightMeta(session?.preflight_status);
-  async function createSession() {
-    if (!planId) return toast.error('请选择开播方案');
-    setBusy(true);
-    try {
-      await api.post(`/v3/rooms/${roomId}/sessions`, {
-        run_plan_id: Number(planId),
-        title: title.trim() || plans.find(plan => String(plan.id) === String(planId))?.name || 'Live Session'
-      });
-      toast.success('本场直播已创建');
-      await onChanged();
-    } catch (error) { toast.error(error.message || '创建本场直播失败'); }
-    finally { setBusy(false); }
+  const [preflightLabel, preflightTone] = preflightMeta(session?.preflight_status, t);
+
+  function createSession() {
+    return commands.createSession({
+      planId,
+      title,
+      fallbackTitle: plans.find(plan => String(plan.id) === String(planId))?.name
+    });
   }
 
   async function createQuickPlan() {
     const chosen = outputs.filter(output => selectedOutputs[output.id]);
-    if (!quickName.trim()) return toast.error('请填写方案名称');
-    setBusy(true);
-    try {
-      const result = await api.post(`/v3/rooms/${roomId}/run-plans`, {
-        name: quickName.trim(),
-        program_source_id: quickSourceId,
-        outputs: chosen.map((output, index) => ({
-          output_ref: output.id,
-          importance: optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED',
-          auto_start: true,
-          sort_order: (index + 1) * 10
-        }))
-      });
-      const created = result?.run_plan;
+    const created = await commands.createQuickPlan({
+      name: quickName,
+      sourceId: quickSourceId,
+      outputs: chosen.map(output => ({ id: output.id, optional: Boolean(optionalOutputs[output.id]) }))
+    });
+    if (created?.id) {
       await loadPlans();
-      if (created?.id) setPlanId(String(created.id));
+      setPlanId(String(created.id));
       setShowQuickPlan(false);
-      toast.success('开播方案已保存');
-    } catch (error) { toast.error(error.message || '创建开播方案失败'); }
-    finally { setBusy(false); }
-  }
-  async function runPreflight() {
-    if (!session) return;
-    setBusy(true);
-    try {
-      const result = await api.post(`/v3/sessions/${session.legacy_session_id}/preflight`, { mark_ready: true });
-      if (result.status === 'BLOCKED') toast.error('Preflight 存在阻断项');
-      else if (result.status === 'READY_WITH_WARNING' || result.status === 'WARNING') toast.warning('Preflight 通过，但存在警告');
-      else toast.success('Preflight 通过，Session 已 READY');
-      await onChanged();
-    } catch (error) { toast.error(error.message || 'Preflight 失败'); }
-    finally { setBusy(false); }
-  }
-
-  async function startSession() {
-    if (!session) return;
-    setBusy(true);
-    try {
-      const op = await api.post(`/v3/sessions/${session.legacy_session_id}/start`, {}, {
-        headers: { 'Idempotency-Key': opKey(`session-start-${session.legacy_session_id}`) }
-      });
-      toast.success(op?.phase === 'SUCCEEDED' ? '本场直播已开始播出' : '已提交开播操作');
-      await onChanged();
-    } catch (error) { toast.error(error.message || '启动本场直播失败'); }
-    finally { setBusy(false); }
-  }
-
-
-  async function pollClose(operation) {
-    let op = operation;
-    for (let i = 0; i < 75 && op && !['SUCCEEDED','FAILED','CANCELLED'].includes(op.phase); i += 1) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      op = await api.get(`/v3/operations/${encodeURIComponent(op.id)}`);
-      if (i % 2 === 0) await onChanged();
     }
-    return op;
-  }
-
-  async function closeSession() {
-    if (!session) return;
-    setConfirmClose(false);
-    setBusy(true);
-    try {
-      let op;
-      try {
-        op = await api.post(`/v3/sessions/${session.legacy_session_id}/close`, {}, { headers: { 'Idempotency-Key': opKey(`session-close-${session.legacy_session_id}`) } });
-      } catch (error) {
-        if (error.status === 409 && error.detail?.id) op = error.detail;
-        else throw error;
-      }
-      op = await pollClose(op);
-      if (op?.phase === 'SUCCEEDED') toast.success('本场直播已结束');
-      else if (op?.phase === 'FAILED') toast.error(op.error || '收播存在未清理残留，Session 保持 CLOSING');
-      else toast.warning('收播仍在进行，请稍后继续检查');
-      await onChanged();
-    } catch (error) { toast.error(error.message || '结束本场直播失败'); }
-    finally { setBusy(false); }
   }
 
   if (!session) return <section className={compact ? "rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-3 py-2" : "mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]"}>
     <div className="flex flex-wrap items-end gap-3">
-      <div className="min-w-[220px] flex-1"><label className={labelClass}>开播方案</label><select className={inputClass} value={planId} onChange={event => setPlanId(event.target.value)}><option value="">选择一个开播方案</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></div>
-      <div className="min-w-[220px] flex-1"><label className={labelClass}>本场标题</label><input className={inputClass} value={title} onChange={event => setTitle(event.target.value)} placeholder="例如：晚间新闻直播" /></div>
-      <button className={plans.length ? btnSecondary : btnPrimary} onClick={() => setShowQuickPlan(value => !value)}><Plus size={13}/>{plans.length ? '新建开播方案' : '先创建开播方案'}</button>
-      <button className={btnPrimary} disabled={busy || !planId} onClick={createSession} title={!planId ? '请先选择或创建开播方案' : undefined}>创建本场直播</button>
+      <div className="min-w-[220px] flex-1"><label className={labelClass}>{t('streams:sessionBar.noSession.planLabel')}</label><select className={inputClass} value={planId} onChange={event => setPlanId(event.target.value)}><option value="">{t('streams:sessionBar.noSession.planPlaceholder')}</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></div>
+      <div className="min-w-[220px] flex-1"><label className={labelClass}>{t('streams:sessionBar.noSession.titleLabel')}</label><input className={inputClass} value={title} onChange={event => setTitle(event.target.value)} placeholder={t('streams:sessionBar.noSession.titlePlaceholder')} /></div>
+      <button className={plans.length ? btnSecondary : btnPrimary} onClick={() => setShowQuickPlan(value => !value)}><Plus size={13}/>{plans.length ? t('streams:sessionBar.noSession.newPlan') : t('streams:sessionBar.noSession.firstPlan')}</button>
+      <button className={btnPrimary} disabled={busy || !planId} onClick={createSession} title={!planId ? t('streams:sessionBar.planRequired') : undefined}>{t('streams:sessionBar.noSession.createSession')}</button>
     </div>
-    {!plans.length && !showQuickPlan && <div className="mt-3 rounded-xl border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2.5 text-xs"><div className="font-semibold text-[var(--foreground)]">还没有开播方案</div><div className="mt-1 leading-5 text-[var(--muted-foreground)]">开播方案会记录本场使用的节目源、输出渠道，以及哪些输出是必须成功的。先创建方案，才能创建本场直播。</div></div>}
+    {!plans.length && !showQuickPlan && <div className="mt-3 rounded-xl border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2.5 text-xs"><div className="font-semibold text-[var(--foreground)]">{t('streams:sessionBar.noSession.emptyTitle')}</div><div className="mt-1 leading-5 text-[var(--muted-foreground)]">{t('streams:sessionBar.noSession.emptyBody')}</div></div>}
     {showQuickPlan && <div className="mt-3 border-t border-[var(--border-soft)] pt-3">
-      <div className="mb-3 grid gap-3 md:grid-cols-[minmax(160px,0.7fr)_minmax(180px,0.85fr)_minmax(0,1.25fr)]"><div><label className={labelClass}>方案名称</label><input className={inputClass} value={quickName} onChange={event => setQuickName(event.target.value)} /></div><div><label className={labelClass}>节目源</label><select className={inputClass} value={quickSourceId} onChange={event => setQuickSourceId(event.target.value)}><option value="">选择节目源</option>{availableSources.map(source => <option key={source.id} value={source.id}>{source.name} · {source.kind === 'IN_PULL' ? '本系统主动拉取' : '第三方推送给本系统'}</option>)}</select></div><div className="text-[10px] leading-5 text-[var(--muted-foreground)]">方案会记录指定节目源和所选输出。保存后，可以用它创建本场直播；本场创建后仍可独立调整。</div></div>
-      {!availableSources.length && <div className="mb-2 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2 text-[10px] text-[var(--muted-foreground)]">还没有可用节目源，请先在“输入来源”里配置第三方推送或本系统主动拉取的来源。</div>}
-      {!outputs.length && <div className="mb-2 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2 text-[10px] text-[var(--muted-foreground)]">还没有可用输出，请先在右侧“输出”区域创建推送、对外提供或本地录制。</div>}
-      <div className="space-y-2">{outputs.map(output => <label key={output.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2 text-xs"><input type="checkbox" checked={Boolean(selectedOutputs[output.id])} onChange={event => setSelectedOutputs(current => ({ ...current, [output.id]: event.target.checked }))}/><span className="min-w-0 flex-1 truncate">{output.name}</span><span className="text-[10px] text-[var(--text-faint)]">{output.mode === 'PUSH' ? '主动推送给第三方' : output.mode === 'SERVE' ? '提供地址给第三方拉取' : '本地录制'}</span><select className="rounded-md border border-[var(--border-soft)] bg-[var(--background)] px-2 py-1 text-[10px]" disabled={!selectedOutputs[output.id]} value={optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED'} onChange={event => setOptionalOutputs(current => ({ ...current, [output.id]: event.target.value === 'OPTIONAL' }))}><option value="REQUIRED">必需</option><option value="OPTIONAL">可选</option></select></label>)}</div>
-      <div className="mt-3 flex justify-end"><button className={btnPrimary} disabled={busy || !quickSourceId || !availableSources.some(source => source.id === quickSourceId) || !outputs.some(output => selectedOutputs[output.id])} onClick={createQuickPlan}>保存方案</button></div>
+      <div className="mb-3 grid gap-3 md:grid-cols-[minmax(160px,0.7fr)_minmax(180px,0.85fr)_minmax(0,1.25fr)]"><div><label className={labelClass}>{t('streams:sessionBar.quickPlan.nameLabel')}</label><input className={inputClass} value={quickName} onChange={event => setQuickName(event.target.value)} /></div><div><label className={labelClass}>{t('streams:sessionBar.quickPlan.sourceLabel')}</label><select className={inputClass} value={quickSourceId} onChange={event => setQuickSourceId(event.target.value)}><option value="">{t('streams:sessionBar.quickPlan.sourcePlaceholder')}</option>{availableSources.map(source => <option key={source.id} value={source.id}>{source.name} · {(() => { const d = getDirection(directionIdFromSourceKind(source.kind)); return d ? t(d.labelKey) : (source.kind || ''); })()}</option>)}</select></div><div className="text-[10px] leading-5 text-[var(--muted-foreground)]">{t('streams:sessionBar.quickPlan.help')}</div></div>
+      {!availableSources.length && <div className="mb-2 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2 text-[10px] text-[var(--muted-foreground)]">{t('streams:sessionBar.quickPlan.noSources')}</div>}
+      {!outputs.length && <div className="mb-2 rounded-lg border border-[var(--warning)]/20 bg-[var(--warning)]/6 px-3 py-2 text-[10px] text-[var(--muted-foreground)]">{t('streams:sessionBar.quickPlan.noOutputs')}</div>}
+      <div className="space-y-2">{outputs.map(output => <label key={output.id} className="flex items-center gap-3 rounded-xl border border-[var(--border-soft)] bg-[var(--background)]/20 px-3 py-2 text-xs"><input type="checkbox" checked={Boolean(selectedOutputs[output.id])} onChange={event => setSelectedOutputs(current => ({ ...current, [output.id]: event.target.checked }))}/><span className="min-w-0 flex-1 truncate">{output.name}</span><span className="text-[10px] text-[var(--text-faint)]">{(() => { const d = getDirection(directionIdFromOutputMode(output.mode)); return d ? t(d.labelKey) : (output.mode || ''); })()}</span><select className="rounded-md border border-[var(--border-soft)] bg-[var(--background)] px-2 py-1 text-[10px]" disabled={!selectedOutputs[output.id]} value={optionalOutputs[output.id] ? 'OPTIONAL' : 'REQUIRED'} onChange={event => setOptionalOutputs(current => ({ ...current, [output.id]: event.target.value === 'OPTIONAL' }))}><option value="REQUIRED">{t('streams:sessionBar.quickPlan.required')}</option><option value="OPTIONAL">{t('streams:sessionBar.quickPlan.optional')}</option></select></label>)}</div>
+      <div className="mt-3 flex justify-end"><button className={btnPrimary} disabled={busy || !quickSourceId || !availableSources.some(source => source.id === quickSourceId) || !outputs.some(output => selectedOutputs[output.id])} onClick={createQuickPlan}>{t('streams:sessionBar.quickPlan.save')}</button></div>
     </div>}
   </section>;
 
   const plan = plans.find(item => Number(item.id) === Number(session.run_plan_id));
   const sessionSeconds = session.started_at ? Math.max(0, Math.floor((Date.now() - Date.parse(session.started_at)) / 1000)) : null;
+  const nextStepLabel = t(NEXT_STEP_KEYS[session.lifecycle_state] || 'streams:sessionBar.next.default');
   return <section className={compact ? "rounded-xl border border-[var(--border-soft)] bg-[var(--card)] px-3 py-2" : "mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card)] px-4 py-3 shadow-[var(--shadow-panel)]"}>
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-      <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">本场直播</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold">{session.title}</span><span className={`rounded-md bg-[var(--secondary)] px-2 py-1 text-[10px] font-semibold ${stateTone(session.lifecycle_state)}`}>{SESSION_STATE_LABELS[session.lifecycle_state] || session.lifecycle_state}</span></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">开播方案：{plan?.name || session.plan_snapshot?.name || '—'} · 节目源：{sourceName} · 下一步：{nextStep(session)}</div></div>
-      <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">必需输出</div><div className="mt-1 text-sm font-semibold tabular-nums">{requiredSummary.healthy}/{requiredSummary.total}</div></div>
-      <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">预检</div><div className={`mt-1 text-sm font-semibold ${preflightTone}`}>{preflightLabel}</div></div>
+      <div className="min-w-0 flex-1"><div className="text-[10px] font-semibold tracking-[.14em] text-[var(--text-faint)]">{t('streams:sessionBar.session.title')}</div><div className="mt-1 flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold">{session.title}</span><span className={`rounded-md bg-[var(--secondary)] px-2 py-1 text-[10px] font-semibold ${stateTone(session.lifecycle_state)}`}>{t(SESSION_STATE_KEYS[session.lifecycle_state]) || session.lifecycle_state}</span></div><div className="mt-1 text-[10px] text-[var(--muted-foreground)]">{t('streams:sessionBar.session.metaLine', { plan: plan?.name || session.plan_snapshot?.name || '—', source: sourceName, next: nextStepLabel })}</div></div>
+      <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">{t('streams:sessionBar.session.requiredOutputs')}</div><div className="mt-1 text-sm font-semibold tabular-nums">{requiredSummary.healthy}/{requiredSummary.total}</div></div>
+      <div className="text-center"><div className="text-[9px] text-[var(--text-faint)]">{t('streams:sessionBar.session.preflight')}</div><div className={`mt-1 text-sm font-semibold ${preflightTone}`}>{preflightLabel}</div></div>
       {sessionSeconds != null && <div className="flex items-center gap-1.5 text-xs tabular-nums text-[var(--muted-foreground)]"><Clock3 size={13}/>{Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:{Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:{(sessionSeconds%60).toString().padStart(2,'0')}</div>}
-      {['PREP','READY'].includes(session.lifecycle_state) && <button className={btnSecondary} disabled={busy} onClick={runPreflight}><RefreshCw size={13}/>运行预检</button>}
-      {session.lifecycle_state === 'READY' && <button className={btnPrimary} disabled={busy} onClick={startSession}><Play size={13}/>开始播出</button>}
-      {session.lifecycle_state === 'ON_AIR' && <div className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--success-soft)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--success)]"><CheckCircle2 size={13}/>正在播出</div>}
-      {session.lifecycle_state === 'ON_AIR' && <button className={btnDangerGhost} disabled={busy} onClick={() => setConfirmClose(true)}><Square size={12}/>结束本场直播</button>}
-      {session.lifecycle_state === 'CLOSING' && <button className={btnSecondary} disabled={busy} onClick={closeSession}><RefreshCw size={12}/>继续完成收播</button>}
-      {session.preflight_status === 'BLOCKED' && <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-[var(--destructive)]"><CircleAlert size={13}/>存在阻断项</div>}
+      {['PREP','READY'].includes(session.lifecycle_state) && <button className={btnSecondary} disabled={busy} onClick={runPreflight}><RefreshCw size={13}/>{t('streams:sessionBar.actions.runPreflight')}</button>}
+      {session.lifecycle_state === 'READY' && <button className={btnPrimary} disabled={busy} onClick={startSession}><Play size={13}/>{t('streams:sessionBar.actions.start')}</button>}
+      {session.lifecycle_state === 'ON_AIR' && <div className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--success-soft)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--success)]"><CheckCircle2 size={13}/>{t('streams:sessionBar.actions.onAir')}</div>}
+      {session.lifecycle_state === 'ON_AIR' && <button className={btnDangerGhost} disabled={busy} onClick={() => setConfirmClose(true)}><Square size={12}/>{t('streams:sessionBar.actions.end')}</button>}
+      {session.lifecycle_state === 'CLOSING' && <button className={btnSecondary} disabled={busy} onClick={closeSession}><RefreshCw size={12}/>{t('streams:sessionBar.actions.continueClosing')}</button>}
+      {session.preflight_status === 'BLOCKED' && <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-[var(--destructive)]"><CircleAlert size={13}/>{t('streams:sessionBar.session.blocked')}</div>}
     </div>
-    <ConfirmDialog open={confirmClose} onClose={() => setConfirmClose(false)} onConfirm={closeSession} confirming={busy} title="结束本场直播" description="将依次停止本场网络输出，等待录像整理完成，再停止主动拉流。外部推流不会自动断开；如果仍有残留，页面会保留“收播中”状态，直到确认完成。" confirmLabel="确认收播" />
+    <ConfirmDialog open={confirmClose} onClose={() => setConfirmClose(false)} onConfirm={closeSession} confirming={busy} title={t('streams:sessionBar.close.title')} description={t('streams:sessionBar.close.description')} confirmLabel={t('streams:sessionBar.close.confirm')} />
   </section>;
 }

@@ -49,16 +49,51 @@ function updatePolicy(streamId, updates = {}) {
     require_grant: updates.require_grant === undefined ? current.require_grant : Boolean(updates.require_grant),
     v3_metadata: metadata
   };
-  db.prepare(`
-    INSERT INTO out_pull_policies (stream_id, endpoint_enabled, accepting_new_sessions, require_grant, v3_metadata_json, updated_at)
-    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(stream_id) DO UPDATE SET
-      endpoint_enabled = excluded.endpoint_enabled,
-      accepting_new_sessions = excluded.accepting_new_sessions,
-      require_grant = excluded.require_grant,
-      v3_metadata_json = excluded.v3_metadata_json,
-      updated_at = CURRENT_TIMESTAMP
-  `).run(stream.id, value.endpoint_enabled ? 1 : 0, value.accepting_new_sessions ? 1 : 0, value.require_grant ? 1 : 0, metadata ? JSON.stringify(metadata) : null);
+  // PHASE-09-FIX-06: (epoch, generation) is allocated from the PERSISTENT
+  // per-room authority (serve_policy_revisions), which survives deletion of
+  // the policy row. Every control-plane write — a new key's configure, serve
+  // start/stop, the V2 policy route — lands here and gets a generation
+  // strictly greater than the room's whole provable history (never from a
+  // timestamp, whose second granularity would let two same-second writes
+  // compare equal). Creating a policy after absence bumps epoch: the new
+  // instance has a different identity, so a key pinned to the deleted
+  // instance can never replay against it. Allocation and the policy write
+  // are ONE transaction; nested inside a caller's transaction (the SERVE
+  // configure path) this becomes a savepoint of that outer transaction.
+  const write = db.transaction(() => {
+    const policyRow = db.prepare('SELECT epoch, generation FROM out_pull_policies WHERE stream_id = ?').get(stream.id);
+    const authority = db.prepare('SELECT epoch, generation FROM serve_policy_revisions WHERE stream_id = ?').get(stream.id);
+    // The provable history bound: at least everything the surviving rows
+    // remember (covers a legacy policy row upgraded in place before its
+    // authority row was ever created).
+    const lastGeneration = Math.max(Number(authority?.generation ?? 0), Number(policyRow?.generation ?? 0));
+    const lastEpoch = Math.max(Number(authority?.epoch ?? 0), policyRow ? Number(policyRow.epoch) : 0);
+    const epoch = policyRow ? Number(policyRow.epoch) : lastEpoch + 1;
+    const generation = lastGeneration + 1;
+    db.prepare(`
+      INSERT INTO serve_policy_revisions (stream_id, epoch, generation) VALUES (?, ?, ?)
+      ON CONFLICT(stream_id) DO UPDATE SET epoch = excluded.epoch, generation = excluded.generation
+    `).run(stream.id, epoch, generation);
+    db.prepare(`
+      INSERT INTO out_pull_policies (stream_id, endpoint_enabled, accepting_new_sessions, require_grant, v3_metadata_json, updated_at, epoch, generation)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
+      ON CONFLICT(stream_id) DO UPDATE SET
+        endpoint_enabled = excluded.endpoint_enabled,
+        accepting_new_sessions = excluded.accepting_new_sessions,
+        require_grant = excluded.require_grant,
+        v3_metadata_json = excluded.v3_metadata_json,
+        updated_at = CURRENT_TIMESTAMP,
+        epoch = excluded.epoch,
+        generation = excluded.generation
+    `).run(stream.id, value.endpoint_enabled ? 1 : 0, value.accepting_new_sessions ? 1 : 0, value.require_grant ? 1 : 0, metadata ? JSON.stringify(metadata) : null, epoch, generation);
+    return { epoch, generation };
+  });
+  // Standalone callers get BEGIN IMMEDIATE (write lock held across allocation
+  // + policy write); a caller already inside a transaction gets a savepoint.
+  // The allocated revision is NOT added to the returned policy object: the
+  // API-facing policy shape stays frozen; the SERVE configure path reads
+  // (epoch, generation) back from the row inside its own transaction.
+  if (db.inTransaction) write(); else write.immediate();
   return getPolicy(stream.id);
 }
 function hashToken(token) {

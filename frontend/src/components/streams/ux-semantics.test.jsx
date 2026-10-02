@@ -156,6 +156,20 @@ function renderWorkspace(overrides = {}) {
   });
 
   it('renders compact session states and explicit next actions', () => {
+    const sessionOutputs = { session: { title: '必需输出', lifecycle_state: 'ON_AIR', preflight_status: 'BLOCKED', outputs: [
+      { importance: 'REQUIRED', output_ref: 'push-1' },
+      { importance: 'REQUIRED', output_ref: 'serve-1' },
+      { importance: 'REQUIRED', output_ref: 'record-1' },
+      { importance: 'REQUIRED', output_ref: 'missing-1' }
+    ] }, outputs: [
+      { id: 'push-1', mode: 'PUSH', runtime_state: 'RUNNING' },
+      { id: 'serve-1', mode: 'SERVE', runtime_state: 'AVAILABLE' },
+      { id: 'record-1', mode: 'RECORD', runtime_state: 'RECORDING' }
+    ], program: {} };
+    const withOutputs = renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={sessionOutputs} onChanged={async () => {}} compact readOnly />);
+    expect(withOutputs).toContain('3/4');
+    expect(withOutputs).toContain('被阻断');
+
     const warningState = renderToStaticMarkup(<SessionCommandBar roomId="room:1" workspace={{ session: { title: '预检提示', lifecycle_state: 'READY', preflight_status: 'READY_WITH_WARNING', outputs: [] }, outputs: [], program: {} }} onChanged={async () => {}} compact readOnly />);
     expect(warningState).toContain('有警告');
     for (const state of ['PREP', 'READY', 'CLOSING']) {
@@ -196,6 +210,11 @@ function renderWorkspace(overrides = {}) {
     const refreshSetters = { setLoading: vi.fn(), setRooms: vi.fn(), setExternal: vi.fn(), setStreams: vi.fn(), setError: vi.fn() };
     await refreshLiveOperations({ ...refreshSetters, silent: false });
     expect(refreshSetters.setLoading).toHaveBeenCalledWith(false);
+    api.get.mockRejectedValue(new Error('读取失败'));
+    const failingSetters = { setLoading: vi.fn(), setRooms: vi.fn(), setExternal: vi.fn(), setStreams: vi.fn(), setError: vi.fn() };
+    await refreshLiveOperations({ ...failingSetters, silent: false });
+    expect(failingSetters.setError).toHaveBeenCalledWith(expect.any(Error));
+    expect(failingSetters.setLoading).toHaveBeenCalledWith(false);
     api.get.mockResolvedValue([]);
 
     const streams = [
@@ -207,27 +226,30 @@ function renderWorkspace(overrides = {}) {
     expect(filterStreams(streams, '不存在', 'all')).toHaveLength(0);
 
     const rooms = [
-      { room: { id: 'room:1', legacy_stream_id: 1, name: '新闻直播间' }, session: { lifecycle_state: 'OFF_AIR' }, program: { state: 'IDLE' }, health: { status: 'HEALTHY' }, active_incidents: 0 },
-      { room: { id: 'room:2', legacy_stream_id: 2, name: '晚间节目' }, session: { lifecycle_state: 'ON_AIR' }, program: { state: 'LIVE' }, health: { status: 'DEGRADED' }, active_incidents: 1 }
+      { room: { id: 'room:1', legacy_stream_id: 1, name: '新闻直播间' }, session: { lifecycle_state: 'OFF_AIR' }, program: { state: 'IDLE' }, health: { status: 'HEALTHY' }, active_incidents: 0, inputs: { kinds: ['IN_PUSH'], push_credentials: 0, pull_tasks: 0 }, outputs: { required_total: 0, required_healthy: 0, configured_total: 0 } },
+      { room: { id: 'room:2', legacy_stream_id: 2, name: '晚间节目' }, session: { lifecycle_state: 'ON_AIR' }, program: { state: 'LIVE' }, health: { status: 'DEGRADED' }, active_incidents: 1, inputs: { kinds: ['IN_PUSH'], push_credentials: 2, pull_tasks: 0 }, outputs: { required_total: 2, required_healthy: 1, configured_total: 2 } },
+      { room: { id: 'room:3', legacy_stream_id: 3, name: '文艺直播' }, session: { lifecycle_state: 'ON_AIR' }, program: { state: 'LIVE' }, health: { status: 'NORMAL' }, active_incidents: 0, inputs: { kinds: ['IN_PUSH'], push_credentials: 1, pull_tasks: 0 }, outputs: { required_total: 1, required_healthy: 1, push_total: 1, serve_configured: false, record_total: 0, configured_total: 1 } }
     ];
     const roomStreams = [
       { id: 1, name: '任意社会学', protocol: 'srt', status: 'offline' },
-      { id: 2, name: '文艺工程学', protocol: 'rtmp', status: 'online' }
+      { id: 2, name: '文艺工程学', protocol: 'rtmp', status: 'online' },
+      { id: 3, name: '文艺直播流', protocol: 'rtmp', status: 'online' }
     ];
     expect(filterLiveRooms(rooms, roomStreams, '社会学')).toHaveLength(1);
-    expect(filterLiveRooms(rooms, roomStreams, 'rtmp', 'on_air')).toHaveLength(1);
+    expect(filterLiveRooms(rooms, roomStreams, 'rtmp', 'running')).toHaveLength(1);
     expect(filterLiveRooms(rooms, roomStreams, '', 'attention')).toHaveLength(1);
     expect(filterLiveRooms(rooms, roomStreams, '', 'idle')).toHaveLength(1);
+    expect(filterLiveRooms(rooms, roomStreams, '', 'all', 'OUT_PUSH')).toHaveLength(1);
 
     const input = renderToStaticMarkup(<WorkspaceInputRackV3 workspace={{ program: { source_id: 'push' }, sources: [{ id: 'push', name: '外部推流', role: 'PROGRAM', kind: 'IN_PUSH', protocol: 'rtmp', availability: 'ONLINE' }, { id: 'pull', name: '合作方备用源', role: 'STANDBY', kind: 'IN_PULL', protocol: 'srt', availability: 'READY', compatibility: { enabled: true } }] }} previewingSourceId={null} onPreview={() => {}} onManage={() => {}} />);
     const output = renderToStaticMarkup(<OutputRow output={{ id: 'serve-1', name: '合作方拉取', mode: 'SERVE', runtime_state: 'AVAILABLE', desired_state: 'RUNNING', control_mode: 'MANAGED', transport: 'hls', endpoints: [{ transport: 'hls', advertised: true }] }} renditionMap={new Map()} busy={false} onToggle={() => {}} />);
     const processingOutput = renderToStaticMarkup(<OutputRow output={{ id: 'record-1', name: '本地录像', mode: 'RECORD', runtime_state: 'FINALIZING', desired_state: 'STOPPED', control_mode: 'MANAGED', format: 'mp4' }} renditionMap={new Map()} busy={false} onToggle={() => {}} />);
-    expect(input).toContain('第三方推送给本系统');
-    expect(input).toContain('本系统主动拉取');
-    expect(output).toContain('提供地址给第三方拉取');
+    expect(input).toContain('第三方推给我们');
+    expect(input).toContain('我们主动拉第三方');
+    expect(output).toContain('第三方拉我们的输出');
     expect(processingOutput).toContain('处理中');
     expect(processingOutput).toContain('disabled');
-    expect(renderToStaticMarkup(<SourceRow source={{ id: 'direct', name: '直接输入', role: 'PROGRAM', kind: 'IN_PUSH', protocol: 'rtmp', availability: 'ONLINE' }} previewing={false} onPreview={() => {}} />)).toContain('第三方推送给本系统');
+    expect(renderToStaticMarkup(<SourceRow source={{ id: 'direct', name: '直接输入', role: 'PROGRAM', kind: 'IN_PUSH', protocol: 'rtmp', availability: 'ONLINE' }} previewing={false} onPreview={() => {}} />)).toContain('第三方推给我们');
 
     const actions = renderToStaticMarkup(<StreamHeaderActions search="" onSearch={() => {}} onCreate={() => {}} createLabel="创建" />);
     const filters = renderToStaticMarkup(<StreamDiscoveryFilters statusFilter="online" onStatusFilter={() => {}} resultCount={1} totalCount={2} hasFilter />);
@@ -240,23 +262,41 @@ function renderWorkspace(overrides = {}) {
     expect(page).toContain('正在直播');
 
     const liveRooms = [
-      { room: { id: 'room:1', legacy_stream_id: 1, name: '新闻直播间' }, session: null, program: { state: 'IDLE' }, health: { status: 'HEALTHY' }, outputs: {}, active_incidents: 0 },
-      { room: { id: 'room:2', legacy_stream_id: 2, name: '晚间节目' }, session: { lifecycle_state: 'ON_AIR', title: '晚间新闻' }, program: { state: 'LIVE', bitrate: 8100, viewers: 8, uptime_seconds: 120 }, health: { status: 'DEGRADED' }, outputs: { required_total: 2, required_healthy: 1, record_state: 'RECORDING' }, active_incidents: 1 }
+      { room: { id: 'room:1', legacy_stream_id: 1, name: '新闻直播间' }, session: null, program: { state: 'IDLE' }, health: { status: 'HEALTHY' }, inputs: { kinds: ['IN_PUSH'], push_credentials: 0, pull_tasks: 0 }, outputs: { required_total: 0, required_healthy: 0, configured_total: 0 }, active_incidents: 0 },
+      { room: { id: 'room:2', legacy_stream_id: 2, name: '晚间节目' }, session: { lifecycle_state: 'ON_AIR', title: '晚间新闻' }, program: { state: 'LIVE', bitrate: 8100, viewers: 8, uptime_seconds: 120 }, health: { status: 'DEGRADED' }, inputs: { kinds: ['IN_PUSH', 'IN_PULL'], push_credentials: 1, pull_tasks: 1 }, outputs: { required_total: 2, required_healthy: 1, record_state: 'RECORDING', push_total: 1, serve_configured: true, record_total: 1, configured_total: 3 }, active_incidents: 1 }
     ];
     const livePage = renderToStaticMarkup(<MemoryRouter><LiveOperations initialRooms={liveRooms} initialStreams={roomStreams} initialExternal={[{ name: '未登记推流' }]} initialLoading={false} initialError={new Error('测试错误')} initialOpen initialForm={{ name: '任意社会学', protocol: 'srt' }} /></MemoryRouter>);
     expect(livePage).toContain('直播资源');
-    expect(livePage).toContain('搜索直播间、直播流、协议或状态');
+    expect(livePage).toContain('搜索直播间、直播流、方向或状态');
     expect(livePage).toContain('登记外部流');
-    expect(livePage).toContain('需要关注');
-    expect(livePage).toContain('创建并继续配置');
+    expect(livePage).toContain('需关注');
+    expect(livePage).toContain('新建直播间向导');
     expect(livePage).toContain('任意社会学');
+    expect(livePage).toContain('我们推给第三方');
+    expect(livePage).toContain('本地输出');
+    expect(livePage).toContain('进入工作台');
+    expect(livePage).toContain('刷新');
+
+    const highlighted = renderToStaticMarkup(<MemoryRouter><LiveOperations initialRooms={liveRooms} initialStreams={roomStreams} initialLoading={false} initialSearch="社会学" /></MemoryRouter>);
+    expect(highlighted).toContain('<mark');
+    const emptyFiltered = renderToStaticMarkup(<MemoryRouter><LiveOperations initialRooms={liveRooms} initialStreams={roomStreams} initialLoading={false} initialSearch="不存在的名称" /></MemoryRouter>);
+    expect(emptyFiltered).toContain('没有找到匹配的直播资源');
+    expect(emptyFiltered).toContain('清除筛选');
+    const bare = renderToStaticMarkup(<MemoryRouter><LiveOperations initialRooms={[]} initialStreams={[]} initialLoading={false} /></MemoryRouter>);
+    expect(bare).toContain('尚未创建直播间');
+
+    const withSelection = renderToStaticMarkup(<MemoryRouter><LiveOperations initialRooms={liveRooms} initialStreams={roomStreams} initialLoading={false} initialSelectedRoomId="room:2" /></MemoryRouter>);
+    expect(withSelection).toContain('值守面板');
+    expect(withSelection).toContain('进入完整工作台');
+    const loadingPage = renderToStaticMarkup(<MemoryRouter><LiveOperations initialRooms={[]} initialStreams={[]} initialLoading /></MemoryRouter>);
+    expect(loadingPage).toContain('animate-pulse');
 
     const builderScenes = [{ id: 'LIVE_PLATFORM_PUSH', mode: 'PUSH', default_transport: 'rtmp', transports: ['rtmp'] }, { id: 'CDN_ORIGIN', mode: 'SERVE', default_transport: 'hls', transports: ['hls'] }];
     const sceneBuilder = renderToStaticMarkup(<BuilderDrawer roomId="room:1" scenes={builderScenes} capabilities={{ protections: { 'PUSH:rtmp': ['none'] } }} onClose={() => {}} onCreated={() => {}} />);
     expect(sceneBuilder).toContain('我要做什么');
     const builder = renderToStaticMarkup(<BuilderDrawer roomId="room:1" scenes={builderScenes} capabilities={{ protections: { 'PUSH:rtmp': ['none'] } }} initialBuilderMode="pro" initialCompatibility={{ valid: true, message: '组合可执行' }} onClose={() => {}} onCreated={() => {}} />);
     expect(builder).toContain('输出配置');
-    expect(builder).toContain('主动推送给第三方');
+    expect(builder).toContain('我们推给第三方');
     expect(builder).toContain('节目原始码流');
     expect(builder).toContain('共享媒体规格');
 

@@ -8,6 +8,7 @@
   "actions": {
     "save": "保存",
     "cancel": "取消",
+    "steps": "步骤",
     "delete": "删除",
     "edit": "编辑",
     "create": "创建",
@@ -59,6 +60,7 @@
     "AUTH_FORBIDDEN": "没有权限执行此操作",
     "VALIDATION_STREAM_NAME_REQUIRED": "请填写流名称",
     "VALIDATION_STREAM_NAME_INVALID": "流名称只能包含字母、数字、下划线和连字符，长度 1-128",
+    "VALIDATION_STREAM_FIELD_TOO_LONG": "备注或业务归属长度不能超过 200 字符",
     "VALIDATION_CHANNEL_PARAMS_MISSING": "请填写完整的频道参数",
     "VALIDATION_TEMPLATE_INVALID": "转码模板配置无效，请检查后保存",
     "VALIDATION_ACCESSKEY_MISSING": "请填写 AccessKey ID 和 AccessKey Secret",

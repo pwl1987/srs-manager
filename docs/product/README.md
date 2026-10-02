@@ -26,6 +26,7 @@
 - [Phase 07 Incident / Closing](./contracts/workspace-v3/PHASE-07-INCIDENT-CLOSING.md) — Incident 影响链、ACK/Recovered 与收播编排 Authority；
 - [Phase 07 Field Gate](./contracts/workspace-v3/PHASE-07-FIELD-GATE.md) — 五类真实故障注入、Closing、清理与生产复核证据；
 - [Phase 08 Field Gate](./contracts/workspace-v3/PHASE-08-FIELD-GATE.md) — 16:9 Cutover、多分辨率 UI、升级/回退、完整 Session 闭环与 release evidence；
+- [Phase 09 Main Entry / Wizard](./contracts/workspace-v3/PHASE-09-MAIN-ENTRY-AND-WIZARD.md) — 主入口信息架构、四向显示映射、状态四色投影、room_summary 方向事实、五步向导与 creation journal 可恢复提交 Authority；
 - [Phase 05 RECORD Runtime](./contracts/workspace-v3/PHASE-05-RECORD-RUNTIME.md) — Record Task/Asset、TS 安全分段、Finalize、RECOVERABLE、磁盘预算与 Shared Rendition 边界；
 - [Phase 05 Field Gate](./contracts/workspace-v3/PHASE-05-FIELD-GATE.md) — 真实 MP4/TS、Manager/Worker 重启、异常恢复与磁盘不足现场证据；
 - [Phase 06 Session / Run Plan](./contracts/workspace-v3/PHASE-06-SESSION-RUNPLAN.md) — Session 生命周期、Run Plan Snapshot、Preflight 与 Start 编排边界；

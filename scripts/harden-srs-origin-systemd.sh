@@ -322,11 +322,12 @@ done
 for unit in "${MANAGER_UNITS[@]}"; do systemctl is-active --quiet "$unit"; done
 curl -fsS --max-time 3 http://127.0.0.1:3001/api/health >/dev/null
 
-(cd "$TARGET_DIR" && env \
+# 子进程直接继承 MANAGER_ENV 中的凭据（set -a source，值以单引号落盘，
+# 不会再把密码复制进任何 PASSWORD 命名的 shell 变量）；env 只保留显式覆盖项。
+(cd "$TARGET_DIR" && set -a && . "$MANAGER_ENV" && set +a && env \
   SRS_API_URL=http://127.0.0.1:1985/api/v1 \
   SRS_API_TOKEN= \
   SRS_API_USERNAME="$api_user" \
-  SRS_API_PASSWORD="$api_pass" \
   DATA_DIR="$TARGET_DIR/data" \
   node - <<'NODE'
 const srs = require('./backend/services/srs');
