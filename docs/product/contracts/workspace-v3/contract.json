@@ -380,5 +380,27 @@
       "passphrase"
     ],
     "compatibility_fields_must_be_namespaced": true
+  },
+  "room_summary": {
+    "endpoint": "GET /api/v3/rooms",
+    "relation_to_aggregate": "list projection of Room; additive; does not modify aggregate shape or contract_version",
+    "principle": "direction fields describe configured facts only; runtime/health remain in program/outputs/health fields",
+    "fields": {
+      "room.remark": "nullable projection of streams.remark",
+      "room.business_unit": "nullable projection of streams.business_unit",
+      "inputs": {
+        "kinds": "configured input directions, subset of ['IN_PUSH','IN_PULL']; never runtime state",
+        "push_credentials": "count of ingest_credentials with status='ACTIVE'",
+        "pull_tasks": "count of configured pull_tasks",
+        "legacy_rule": "rooms with zero ACTIVE credentials and zero pull tasks are treated as legacy IN_PUSH"
+      },
+      "outputs": {
+        "push_total": "configured forward_tasks, counting both managed_worker and srs_dynamic",
+        "serve_configured": "true when an out_pull_policies row exists, regardless of endpoint_enabled",
+        "serve_enabled": "true when out_pull_policies.endpoint_enabled=1; runtime switch only, not a direction filter input",
+        "record_total": "count of configured record_tasks",
+        "configured_total": "push_total + (serve_configured ? 1 : 0) + record_total"
+      }
+    }
   }
 }

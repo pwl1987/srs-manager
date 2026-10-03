@@ -9,8 +9,14 @@ const recordRuntime = require('./services/record-runtime');
 const internalMediaService = require('./services/internal-media-service');
 
 const INSTANCE_ID = randomUUID();
-const FFMPEG_BIN = process.env.FFMPEG_BIN || 'ffmpeg';
-const FFPROBE_BIN = process.env.FFPROBE_BIN || 'ffprobe';
+// PHASE-09-FIX-02 (Mimosa: 不可信程序选择): fail-closed binary selection.
+// Same-file absolute-path literal chain (the security scanner verifies spawn
+// provenance within one module); terminal fallback is null — there is NO
+// bare-name fallback, so PATH can never decide which program runs. The
+// allowlist is canonically defined in backend/utils/media-bin.js and
+// backend/tests/media-bin-literal.test.js enforces this chain matches it.
+const FFMPEG_BIN = fs.existsSync('/usr/bin/ffmpeg') ? '/usr/bin/ffmpeg' : fs.existsSync('/usr/local/bin/ffmpeg') ? '/usr/local/bin/ffmpeg' : fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : null;
+const FFPROBE_BIN = fs.existsSync('/usr/bin/ffprobe') ? '/usr/bin/ffprobe' : fs.existsSync('/usr/local/bin/ffprobe') ? '/usr/local/bin/ffprobe' : fs.existsSync('/opt/homebrew/bin/ffprobe') ? '/opt/homebrew/bin/ffprobe' : null;
 const SRS_PULL_BASE = (process.env.SRS_RTMP_PULL_BASE || 'rtmp://host.docker.internal:1935/live').replace(/\/+$/, '');
 const POLL_MS = Math.max(500, Number(process.env.RECORD_WORKER_POLL_MS || 2000));
 const STOP_GRACE_MS = Math.max(1000, Number(process.env.RECORD_STOP_GRACE_MS || 5000));
@@ -74,6 +80,8 @@ async function snapshotLiveStreams() {
     .map(stream => stream.name));
 }
 function probeDuration(filePath) {
+  // Fail-closed: without an allowlisted ffprobe there is no duration to read.
+  if (!FFPROBE_BIN) return null;
   const result = spawnSync(FFPROBE_BIN, [
     '-v', 'error', '-show_entries', 'format=duration',
     '-of', 'default=noprint_wrappers=1:nokey=1', filePath
@@ -95,6 +103,15 @@ function markInterrupted(asset, reason) {
 }
 
 function finalizeAsset(task, asset) {
+  // Fail-closed: without an allowlisted ffmpeg the recorded TS segments are
+  // retained (RECOVERABLE) and the task fails explicitly — never a spawn of a
+  // PATH-resolved name.
+  if (!FFMPEG_BIN) {
+    const unavailable = 'ffmpeg binary unavailable (fail-closed); recorded segments retained';
+    assetService.updateAsset(asset.id, { state: 'RECOVERABLE', error: unavailable, completed_at: new Date().toISOString() });
+    markTask(task.id, 'FAILED', { worker_instance_id: null, last_error: unavailable, last_stopped_at: new Date().toISOString() });
+    return false;
+  }
   let manifest;
   try {
     manifest = assetService.writeConcatManifest(asset);
@@ -137,6 +154,15 @@ function stopProcess(taskId, reason) {
 }
 
 function spawnTask(task) {
+  // Fail-closed: without an allowlisted ffmpeg the task enters an explicit
+  // FAILED state instead of spawning (or retry-looping on a missing binary).
+  if (!FFMPEG_BIN) {
+    markTask(task.id, 'FAILED', {
+      worker_instance_id: null,
+      last_error: 'ffmpeg binary unavailable (fail-closed); no allowlisted installation found'
+    });
+    return null;
+  }
   const budget = diskBudget(task);
   if (budget.low_space) {
     markTask(task.id, 'FAILED', {

@@ -8,6 +8,7 @@
   "actions": {
     "save": "Save",
     "cancel": "Cancel",
+    "steps": "Steps",
     "delete": "Delete",
     "edit": "Edit",
     "create": "Create",
@@ -59,6 +60,7 @@
     "AUTH_FORBIDDEN": "You do not have permission to perform this action",
     "VALIDATION_STREAM_NAME_REQUIRED": "Stream name is required",
     "VALIDATION_STREAM_NAME_INVALID": "Stream name can only contain letters, digits, underscores and hyphens (1-128 characters)",
+    "VALIDATION_STREAM_FIELD_TOO_LONG": "Remark or business unit must be at most 200 characters",
     "VALIDATION_CHANNEL_PARAMS_MISSING": "Please provide all required channel parameters",
     "VALIDATION_TEMPLATE_INVALID": "Invalid transcode template configuration. Please check and save again",
     "VALIDATION_ACCESSKEY_MISSING": "AccessKey ID and Secret are required",

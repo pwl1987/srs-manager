@@ -7,7 +7,10 @@ router.use(jwtAuth);
 
 function publicSource(source) {
   if (!source) return null;
-  const { source_url, ...rest } = source;
+  // source_url is the credential-bearing secret; idempotency_key is the
+  // server-side reconcile anchor. The client replays creations with its OWN
+  // key via POST + Idempotency-Key, so neither value ever needs to ship back.
+  const { source_url, idempotency_key, ...rest } = source;
   return { ...rest, source_url_masked: maskSourceUrl(source_url) };
 }
 
@@ -23,8 +26,12 @@ router.get('/:id', (req, res) => {
 
 router.post('/', (req, res) => {
   try {
-    const source = forwardService.createSource(req.body);
-    res.status(201).json(publicSource(source));
+    const source = forwardService.createSource({
+      ...req.body,
+      idempotency_key: String(req.get('Idempotency-Key') || '').trim() || null
+    });
+    // Replay of a previously successful creation answers 200, not 201.
+    res.status(source.idempotent_replay ? 200 : 201).json(publicSource(source));
   } catch (err) {
     res.status(400).json({ code: 'INTERNAL_GENERAL', error: err.message });
   }

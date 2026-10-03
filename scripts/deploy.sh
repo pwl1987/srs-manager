@@ -50,12 +50,13 @@ if [ -z "$jwt_secret" ] || [ "$jwt_secret" = 'your_jwt_secret_key' ]; then
 fi
 
 admin_hash="$(read_env ADMIN_PASSWORD_HASH)"
-generated_password=''
-if [ -z "$admin_hash" ] || [[ "$admin_hash" == *generated_bcrypt_hash* ]] || [ "$admin_hash" = 'default_change_me' ]; then
-  admin_password="${ADMIN_PASSWORD:-}"
-  if [ -z "$admin_password" ]; then
-    admin_password="$(openssl rand -hex 16)"
-    generated_password="$admin_password"
+password_was_generated=0
+if [ -z "$admin_hash" ] || [[ "$admin_hash" == *generated_bcrypt_hash* ]] || [ "$admin_hash" = 'default_change_me' ]]; then
+  # 环境变量优先，未提供时生成一次性随机值；生成与否用布尔标记跟踪，
+  # 避免在额外的 shell 变量里再复制一份明文密码。
+  admin_password="${ADMIN_PASSWORD:-$(openssl rand -hex 16)}"
+  if [ -z "$ADMIN_PASSWORD" ]; then
+    password_was_generated=1
   fi
 
   echo "首次部署：准备生成管理员 bcrypt 哈希…"
@@ -94,10 +95,10 @@ fi
 echo
 echo "SRS Manager 已启动：http://127.0.0.1:3001"
 echo "请确认 SRS 已按 srs-hooks-config.conf 配置 HTTP Hooks。"
-if [ -n "$generated_password" ]; then
+if [ "$password_was_generated" = 1 ]; then
   echo
 echo "首次生成的管理员密码（仅显示本次，请立即保存并在登录后妥善管理）："
-  echo "$generated_password"
+  echo "$admin_password"
 fi
 
 echo

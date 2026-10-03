@@ -8,9 +8,16 @@ const { decidePullSwitchStep } = require('./services/pull-switch-machine');
 const { decidePullSwitchRecovery } = require('./services/pull-switch-recovery');
 const { decidePullFailure } = require('./services/pull-failover-policy');
 const { validateStreamUrl } = require('./utils/url-validation');
+const fs = require('fs');
 
 const INSTANCE_ID = randomUUID();
-const FFMPEG_BIN = process.env.FFMPEG_BIN || 'ffmpeg';
+// PHASE-09-FIX-02 (Mimosa: 不可信程序选择): fail-closed binary selection.
+// Same-file absolute-path literal chain (the security scanner verifies spawn
+// provenance within one module); terminal fallback is null — there is NO
+// bare-name fallback, so PATH can never decide which program runs. The
+// allowlist is canonically defined in backend/utils/media-bin.js and
+// backend/tests/media-bin-literal.test.js enforces this chain matches it.
+const FFMPEG_BIN = fs.existsSync('/usr/bin/ffmpeg') ? '/usr/bin/ffmpeg' : fs.existsSync('/usr/local/bin/ffmpeg') ? '/usr/local/bin/ffmpeg' : fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : null;
 const SRS_PUBLISH_BASE = (process.env.SRS_RTMP_PUBLISH_BASE || 'rtmp://host.docker.internal:1935/live').replace(/\/+$/, '');
 const POLL_MS = Math.max(500, Number(process.env.PULL_WORKER_POLL_MS || 2000));
 const STARTUP_TIMEOUT_MS = Math.max(5000, Number(process.env.PULL_STARTUP_TIMEOUT_MS || 15000));
@@ -138,6 +145,18 @@ function finalizeShutdown(exitCode = 0) {
 }
 
 function spawnTask(task, switchOperationId = null) {
+  // Fail-closed: without an allowlisted ffmpeg the task enters an explicit
+  // terminal FAILED state instead of spawning or retry-looping.
+  if (!FFMPEG_BIN) {
+    pullTaskService.updateRuntime(task.id, {
+      runtime_state: 'FAILED',
+      last_error: 'ffmpeg binary unavailable (fail-closed); no allowlisted installation found',
+      next_retry_at: null,
+      worker_instance_id: null
+    });
+    if (switchOperationId) operationService.failOperation(switchOperationId, 'ffmpeg binary unavailable (fail-closed)');
+    return null;
+  }
   if (!task.source_url) {
     pullTaskService.updateRuntime(task.id, {
       runtime_state: 'FAILED',

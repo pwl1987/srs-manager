@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS streams (
   last_online_at TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   bitrate INTEGER DEFAULT 0,
-  viewers INTEGER DEFAULT 0
+  viewers INTEGER DEFAULT 0,
+  remark TEXT,
+  business_unit TEXT
 );
 
 CREATE TABLE IF NOT EXISTS cdn_channels (
@@ -118,6 +120,7 @@ CREATE TABLE IF NOT EXISTS external_sources (
   protocol TEXT DEFAULT 'rtmp',
   pull_mode TEXT DEFAULT 'pull',
   status TEXT DEFAULT 'active',
+  idempotency_key TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -268,6 +271,22 @@ CREATE TABLE IF NOT EXISTS out_pull_policies (
   require_grant INTEGER NOT NULL DEFAULT 0,
   v3_metadata_json TEXT,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  generation INTEGER NOT NULL DEFAULT 1,
+  epoch INTEGER NOT NULL DEFAULT 1,
+  FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
+);
+
+-- PHASE-09-FIX-06: persistent per-Room SERVE revision authority. epoch and
+-- generation live OUTSIDE the deletable policy row: deleting the policy never
+-- resets them, so a recreated policy can never inherit an identity a previous
+-- instance exposed to an Idempotency-Key. epoch increments when a policy is
+-- created after absence (a new instance); generation increments on EVERY real
+-- control-plane write and is strictly monotonic across the room's whole
+-- history (never reset by deletion or recreation).
+CREATE TABLE IF NOT EXISTS serve_policy_revisions (
+  stream_id INTEGER PRIMARY KEY,
+  epoch INTEGER NOT NULL,
+  generation INTEGER NOT NULL,
   FOREIGN KEY (stream_id) REFERENCES streams(id) ON DELETE CASCADE
 );
 
@@ -504,6 +523,23 @@ CREATE TABLE IF NOT EXISTS ingest_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_ingest_sessions_stream_active ON ingest_sessions(stream_id, stopped_at);
 
+-- PHASE-09-FIX-04: server-side idempotency for Output creation. The row holds
+-- ONLY the key, the SHA-256 request fingerprint and the created subject —
+-- never the request payload itself (PUSH target URLs are credential-bearing).
+CREATE TABLE IF NOT EXISTS output_idempotency (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_id INTEGER NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  request_fingerprint TEXT NOT NULL,
+  output_type TEXT NOT NULL,
+  subject_id INTEGER,
+  output_id TEXT NOT NULL,
+  result_revision INTEGER,
+  result_epoch INTEGER,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_output_idempotency_room_key ON output_idempotency(room_id, idempotency_key);
+
 INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
   'admin',
   'default_change_me',
@@ -522,9 +558,36 @@ INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (
     if (!cols.includes(column)) conn.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
   };
   ensureColumn('streams', 'updated_at', 'updated_at TEXT');
+  // PHASE-09: identity fields for the room wizard (partial-update semantics
+  // live in stream-service; absent keeps value, null/empty clears).
+  ensureColumn('streams', 'remark', 'remark TEXT');
+  ensureColumn('streams', 'business_unit', 'business_unit TEXT');
   ensureColumn('out_pull_sessions', 'session_kind', "session_kind TEXT NOT NULL DEFAULT 'external'");
   ensureColumn('out_pull_policies', 'v3_metadata_json', 'v3_metadata_json TEXT');
+  // PHASE-09-FIX-05: monotonic SERVE policy generation. Every control-plane
+  // write (a new key's SERVE configure, serve start/stop, the V2 policy
+  // route) increments it atomically from the CURRENT row value. It is
+  // deliberately NOT derived from updated_at: SQLite's CURRENT_TIMESTAMP has
+  // one-second granularity, so two writes inside one second would compare
+  // equal and let a superseded Idempotency-Key replay. Legacy rows start at
+  // generation 1; legacy SERVE idempotency mappings keep result_revision
+  // NULL and replay fail-closed (see v3-output-service).
+  // PHASE-09-FIX-06: the authority now lives in serve_policy_revisions,
+  // OUTSIDE the deletable policy row — deleting the policy does not reset
+  // the counters, and a recreated policy (new epoch, higher generation) can
+  // never hand a tombstoned key its identity back. result_epoch pins the
+  // instance the key's first result belonged to; legacy mappings keep both
+  // NULL and replay fail-closed.
+  ensureColumn('out_pull_policies', 'generation', 'generation INTEGER NOT NULL DEFAULT 1');
+  ensureColumn('out_pull_policies', 'epoch', 'epoch INTEGER NOT NULL DEFAULT 1');
+  ensureColumn('output_idempotency', 'result_revision', 'result_revision INTEGER');
+  ensureColumn('output_idempotency', 'result_epoch', 'result_epoch INTEGER');
   ensureColumn('streams', 'transcode_template_id', 'transcode_template_id INTEGER');
+  // PHASE-09: idempotent external-source creation for journal recovery. The
+  // partial index (created after the column exists) keeps NULL keys — legacy
+  // rows — unrestricted while enforcing one row per key.
+  ensureColumn('external_sources', 'idempotency_key', 'idempotency_key TEXT');
+  conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_external_sources_idempotency ON external_sources(idempotency_key) WHERE idempotency_key IS NOT NULL');
   ensureColumn('transcode_templates', 'updated_at', 'updated_at TEXT');
   ensureColumn('cdn_channels', 'updated_at', 'updated_at TEXT');
   ensureColumn('distribution_requests', 'notes', 'notes TEXT');

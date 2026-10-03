@@ -7,6 +7,10 @@ const SIZES = {
   md: 'max-w-md',
   lg: 'max-w-lg',
   xl: 'max-w-xl',
+  // Dedicated wizard width (PHASE-09 frozen design: five-step creation flow
+  // with 3-column output scene cards and monospace credential facts). Does not
+  // touch the existing sm–xl semantics.
+  wizard: 'max-w-[min(1180px,96vw)]',
 };
 
 export default function Modal({ open, onClose, title, children, footer, size = 'md' }) {

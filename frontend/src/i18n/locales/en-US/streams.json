@@ -16,6 +16,427 @@
     "offline": "Idle",
     "streaming": "Streaming"
   },
+  "directions": {
+    "inPush": {
+      "label": "Pushed to us",
+      "hint": "External encoders publish into the system via ingest credentials"
+    },
+    "inPull": {
+      "label": "We pull from third parties",
+      "hint": "The system actively pulls from external source URLs"
+    },
+    "outPush": {
+      "label": "We push to third parties",
+      "hint": "The system pushes out to platforms or CDNs"
+    },
+    "outPull": {
+      "label": "Third parties pull our output",
+      "hint": "We advertise pull endpoints for third-party consumers"
+    },
+    "record": {
+      "label": "Local output",
+      "hint": "Local recording archive, no external delivery"
+    }
+  },
+  "roomState": {
+    "running": "Running",
+    "attention": "Needs attention",
+    "fault": "Fault",
+    "idle": "Off air"
+  },
+  "liveOps": {
+    "eyebrow": "Live Operations",
+    "title": "Live Resources",
+    "subtitle": "Find rooms by name, stream, direction or state; select one to confirm status and run high-frequency actions in the side panel.",
+    "searchPlaceholder": "Search rooms, streams, directions or states",
+    "refresh": "Refresh",
+    "create": "New Room",
+    "createAndConfigure": "Create & Configure",
+    "createSuccess": "Room created",
+    "createFailed": "Failed to create room",
+    "loadFailed": "Unable to load live operations",
+    "listLabel": "Room list",
+    "enterWorkspace": "Open Workspace",
+    "externalWarn": "{{count}} unregistered live push(es) detected. Register them first to enter the unified room list.",
+    "registerExternal": "Register External Streams",
+    "audienceAndBitrate": "{{count}} watching · {{bitrate}}",
+    "columns": {
+      "input": "Input",
+      "outputs": "Outputs",
+      "duration": "Uptime"
+    },
+    "input": {
+      "legacyOpen": "Open ingest",
+      "pushCredentials": "Push credentials {{count}}",
+      "pullTasks": "Pull tasks {{count}}",
+      "hint": "Configured only"
+    },
+    "outputs": {
+      "requiredHint": "Required healthy {{healthy}}/{{total}}",
+      "noneHint": "No outputs configured"
+    },
+    "stats": {
+      "recording": "Recording",
+      "incidents": "Open incidents"
+    },
+    "filter": {
+      "directionTitle": "Direction",
+      "directionAll": "All directions",
+      "statusTitle": "Status",
+      "statusAll": "All states",
+      "resultCount": "{{found}} of {{total}} rooms",
+      "resources": "{{count}} rooms"
+    },
+    "empty": {
+      "filtered": "No matching rooms",
+      "filteredDesc": "Try another name, direction or state, or clear the filters.",
+      "none": "No rooms yet",
+      "noneDesc": "Create a room to start using the live workspace.",
+      "clear": "Clear filters"
+    },
+    "form": {
+      "name": "Room name",
+      "namePlaceholder": "e.g. Evening News",
+      "nameHelp": "The name is used to find this room and stream later.",
+      "protocol": "Default ingest protocol",
+      "protocolHelp": "Inputs, program source and outputs are configured in the workspace after creation."
+    },
+    "sessionState": {
+      "PREP": "Preparing",
+      "READY": "Ready",
+      "ON_AIR": "On air",
+      "CLOSING": "Closing",
+      "ENDED": "Ended"
+    },
+    "programState": {
+      "LIVE": "Live",
+      "NO_PROGRAM": "No program",
+      "READY": "Ready",
+      "SWITCHING": "Switching",
+      "VERIFYING": "Verifying",
+      "UNKNOWN": "Unknown"
+    },
+    "roomPanel": {
+      "title": "Watch panel",
+      "close": "Close",
+      "loadFailed": "Failed to load room state",
+      "sessionNone": "None",
+      "viewers": "{{count}} watching",
+      "facts": {
+        "program": "Program",
+        "session": "Session",
+        "requiredOutputs": "Required",
+        "duration": "Uptime"
+      },
+      "noSessionHint": "No session for this broadcast yet. Create one from the full workspace.",
+      "incidents": "{{count}} open incident(s)",
+      "enterWorkspace": "Open Full Workspace",
+      "actions": {
+        "preflight": "Run preflight",
+        "start": "Start",
+        "close": "End Broadcast",
+        "continueClosing": "Finish Closing",
+        "ended": "Broadcast ended"
+      }
+    }
+  },
+  "sessionCommands": {
+    "preflightBlocked": "Preflight has blockers",
+    "preflightWarning": "Preflight passed with warnings",
+    "preflightPass": "Preflight passed; session READY",
+    "preflightFailed": "Preflight failed",
+    "started": "Broadcast started",
+    "startSubmitted": "Start submitted",
+    "startFailed": "Failed to start broadcast",
+    "closeSucceeded": "Broadcast ended",
+    "closeResidual": "Closing left residue; session stays CLOSING",
+    "closeInProgress": "Closing still in progress, check again shortly",
+    "closeFailed": "Failed to end broadcast"
+  },
+  "wizard": {
+    "title": "New Room Wizard",
+    "steps": {
+      "basics": "Basics",
+      "direction": "Input Direction",
+      "input": "Input Source",
+      "outputs": "Outputs",
+      "run": "Precheck & Run"
+    },
+    "prev": "Back",
+    "next": "Next",
+    "submit": "Create & Open Workspace",
+    "submitting": "Creating…",
+    "retryUnfinished": "Retry unfinished steps",
+    "abandon": "Abandon this creation and start anew",
+    "abandoned": {
+      "title": "Previous creation abandoned",
+      "body": "The creation of \"{{name}}\" was abandoned midway. The server resources below were already created and will NOT be deleted automatically:",
+      "handleHint": "A multi-step creation is not a database transaction and cannot be rolled back silently; review or handle these resources from the room list or their workspace.",
+      "resources": {
+        "stream": "Room",
+        "credential": "Ingest credential",
+        "source": "External source",
+        "pull-task": "Pull task",
+        "outputs": "Outputs",
+        "run-plan": "Run plan",
+        "session": "Live session"
+      }
+    },
+    "success": "Room created",
+    "failedAt": "Creation interrupted at step {{step}}",
+    "failedTitle": "Creation interrupted at \"{{step}}\"",
+    "recoverHint": "Completed steps are kept. \"Retry unfinished steps\" resumes from the interruption and never replays finished work.",
+    "fields": {
+      "remark": "Remark",
+      "remarkPlaceholder": "e.g. Evening news studio",
+      "businessUnit": "Business unit",
+      "businessUnitPlaceholder": "e.g. News Center"
+    },
+    "push": {
+      "title": "One-time ingest credential issued after creation",
+      "body": "The ingest credential (server URL + stream key) is shown exactly once after creation. Issue new credentials from the workspace input rack afterwards."
+    },
+    "pull": {
+      "name": "Source name",
+      "namePlaceholder": "e.g. Partner studio",
+      "protocol": "Pull protocol",
+      "url": "Pull URL",
+      "urlHelp": "The URL is only used by the system to pull; it is never sent to the browser."
+    },
+    "outputs": {
+      "zeroNotice": "No delivery or recording outputs; this will be an input-monitoring-only room",
+      "targetUrl": "Push target URL"
+    },
+    "run": {
+      "summaryTitle": "Precheck summary",
+      "outputsCount": "{{count}} output(s)",
+      "createPlan": "Create a run plan and run preflight (zero-output plan when none selected)"
+    },
+    "scenesUnavailable": "Output scene definitions unavailable; cannot build output payloads",
+    "scenesLoadFailed": "Failed to load output scene definitions.",
+    "scenesRetry": "Retry",
+    "done": {
+      "title": "Room \"{{name}}\" created",
+      "stay": "Back to list",
+      "enter": "Enter workspace"
+    },
+    "credential": {
+      "title": "One-time ingest credential",
+      "onceWarning": "Shown only once — copy and store it now; it cannot be viewed again after leaving this page.",
+      "publishUrl": "Publish URL",
+      "streamKey": "Stream key",
+      "serverUrl": "Server",
+      "token": "Token",
+      "copied": "Copied",
+      "recoveredTitle": "Credential issued, but the token was not delivered",
+      "recoveredBody": "The server already issued an active credential for this room. Tokens are returned only once at creation and cannot be re-displayed; revoke it in the workspace and issue a new one."
+    },
+    "preflight": {
+      "status": "Preflight status: {{status}}",
+      "states": {
+        "READY": "Ready",
+        "READY_WITH_WARNING": "Ready with warnings",
+        "BLOCKED": "Blocked"
+      },
+      "warnings": "{{warnings}} warnings / {{blockers}} blockers",
+      "blockers": "{{count}} blockers"
+    }
+  },
+  "inputRack": {
+    "groups": {
+      "PROGRAM": "Current Program",
+      "STANDBY": "Standby",
+      "CANDIDATE": "Candidates",
+      "OFFLINE": "Offline"
+    },
+    "meta": {
+      "program": "Program source",
+      "online": "Online",
+      "switchable": "Switchable",
+      "unknown": "Unverified",
+      "offline": "Offline"
+    },
+    "sourceKindFallback": "Input source",
+    "protocolUnknown": "Protocol unknown",
+    "previewing": "Previewing",
+    "preview": "Preview",
+    "rackTitle": "Input Sources",
+    "standbyVerified": "{{count}} verified standby source(s)",
+    "standbyNone": "No verified standby source",
+    "pendingSuffix": "· {{count}} unverified",
+    "manage": "Sources",
+    "empty": "No sources configured"
+  },
+  "sessionBar": {
+    "state": {
+      "PREP": "Preparing",
+      "READY": "Ready",
+      "ON_AIR": "On air",
+      "CLOSING": "Closing",
+      "ENDED": "Ended"
+    },
+    "next": {
+      "PREP": "Run preflight",
+      "READY": "Start broadcast",
+      "ON_AIR": "Keep monitoring",
+      "CLOSING": "Finish closing",
+      "default": "Review state"
+    },
+    "preflight": {
+      "pass": "Pass",
+      "warning": "Warning",
+      "blocked": "Blocked",
+      "none": "Not run"
+    },
+    "plansLoadFailed": "Failed to load run plans",
+    "planRequired": "Select a run plan",
+    "defaultPlanName": "Standard broadcast plan",
+    "quickPlan": {
+      "nameRequired": "Plan name is required",
+      "saved": "Run plan saved",
+      "failed": "Failed to create run plan",
+      "nameLabel": "Plan name",
+      "sourceLabel": "Program source",
+      "sourcePlaceholder": "Select a program source",
+      "help": "A plan records the program source and chosen outputs. Use it to create the session; the session can still be adjusted independently afterwards.",
+      "noSources": "No program sources yet. Configure third-party push or managed pull sources in Input Sources first.",
+      "noOutputs": "No outputs yet. Create push, serve or recording outputs in the Output rack first.",
+      "required": "Required",
+      "optional": "Optional",
+      "save": "Save plan"
+    },
+    "noSession": {
+      "planLabel": "Run plan",
+      "planPlaceholder": "Select a run plan",
+      "titleLabel": "Session title",
+      "titlePlaceholder": "e.g. Evening News Live",
+      "newPlan": "New Run Plan",
+      "firstPlan": "Create a run plan first",
+      "createSession": "Create Session",
+      "sessionCreated": "Session created",
+      "sessionFailed": "Failed to create session",
+      "emptyTitle": "No run plans yet",
+      "emptyBody": "A run plan records the program source, output channels and which outputs must succeed. Create a plan before creating the session."
+    },
+    "session": {
+      "title": "Session",
+      "metaLine": "Plan: {{plan}} · Source: {{source}} · Next: {{next}}",
+      "noSourceSelected": "none selected",
+      "requiredOutputs": "Required",
+      "preflight": "Preflight",
+      "blocked": "Blocked items"
+    },
+    "actions": {
+      "runPreflight": "Run preflight",
+      "start": "Start broadcast",
+      "onAir": "On air",
+      "end": "End Broadcast",
+      "continueClosing": "Finish closing"
+    },
+    "close": {
+      "title": "End Broadcast",
+      "description": "Network outputs stop first, then recordings finalize, then managed pull stops. External pushes are not disconnected automatically; if anything remains, the session stays CLOSING until confirmed.",
+      "confirm": "Confirm close"
+    }
+  },
+  "outputRack": {
+    "scenes": {
+      "LIVE_PLATFORM_PUSH": "Push to a live platform",
+      "CDN_PUSH": "Push to CDN",
+      "SRT_NODE": "SRT node",
+      "CDN_ORIGIN": "CDN origin",
+      "PARTNER_PULL": "Partner pull",
+      "PLAYBACK_ACCESS": "Playback access",
+      "LOCAL_RECORD": "Local recording",
+      "PROFESSIONAL": "Professional"
+    },
+    "statuses": {
+      "FAILED": "Failed",
+      "STALLED": "Stalled",
+      "RETRYING": "Retrying",
+      "STARTING": "Starting",
+      "STOPPING": "Stopping",
+      "WAITING_INPUT": "Waiting for input",
+      "FINALIZING": "Finalizing",
+      "RUNNING": "Running",
+      "AVAILABLE": "Available",
+      "ACTIVE": "Active",
+      "RECORDING": "Recording",
+      "COMPLETE": "Complete",
+      "STOPPED": "Stopped",
+      "UNKNOWN": "Unknown"
+    },
+    "failedIntentRetry": "Failed · retryable",
+    "passthrough": "Program passthrough",
+    "renditionPrefix": "Media profile ",
+    "sharedSpec": "Shared media profile",
+    "evidence": {
+      "local": "Local evidence",
+      "remote": "Remote evidence",
+      "unknown": "Unknown",
+      "noRemote": "No remote verification yet"
+    },
+    "actions": {
+      "retry": "Retry",
+      "stop": "Stop",
+      "start": "Start",
+      "processing": "Working"
+    },
+    "noFile": "No file yet",
+    "unadvertised": "not advertised",
+    "rack": {
+      "title": "Output Delivery",
+      "all": "All outputs",
+      "summary": "{{running}} running · {{incidents}} faulted · {{specs}} shared profiles",
+      "new": "New Output",
+      "empty": "No outputs configured. Start from a scene with “New Output”."
+    },
+    "builder": {
+      "header": "Output Configuration",
+      "create": "Create Output",
+      "sceneMode": "Scene mode",
+      "proMode": "Professional mode",
+      "whatScene": "What do you want to do",
+      "nameLabel": "Output name",
+      "namePlaceholder": "e.g. Video account / CDN / Partner A",
+      "direction": "Output direction",
+      "fileFormat": "File format",
+      "transport": "Transport",
+      "protection": "Access protection",
+      "capabilityValid": "This combination is supported",
+      "capabilityInvalid": "This combination is not supported",
+      "mediaProcessing": "Media processing",
+      "rendition": "Shared media profile",
+      "specLabel": "Media profile",
+      "specPlaceholder": "Select a media profile",
+      "specHelp": "Identical encoding parameters automatically reuse one shared media profile without re-encoding.",
+      "targetUrl": "Target URL",
+      "format": "Format",
+      "mp4Safe": "MP4 (safe segments, finalized)",
+      "segment": "Segment seconds",
+      "subdir": "Storage subdirectory (optional)",
+      "subdirPlaceholder": "e.g. news/2026-09",
+      "notice": "Creating only saves configuration; nothing auto-starts. After pressing Start, the page shows planned state, runtime state and observed results in order."
+    },
+    "nameRequired": "Output name is required",
+    "pushTargetRequired": "PUSH outputs require a target URL",
+    "saved": "Output saved; it does not auto-start",
+    "createFailed": "Failed to create output",
+    "audioFormat": "AAC audio",
+    "saving": "Saving…",
+    "saveButton": "Save Output",
+    "evidenceToggle": "Toggle runtime evidence",
+    "incidentsTitle": "{{count}} output(s) need attention",
+    "incidentsNote": "A fault only affects its own channel; other healthy outputs are unaffected.",
+    "toggle": {
+      "startSubmitted": "Start submitted",
+      "stopSubmitted": "Stop submitted",
+      "completed": "Output settled; view refreshed",
+      "operationFailed": "Output operation failed",
+      "inProgress": "Output still processing, check status shortly",
+      "syncFailed": "Failed to sync output state"
+    }
+  },
   "actions": {
     "copyPushUrl": "Copy Push URL",
     "copyPullUrl": "Copy Pull URL",

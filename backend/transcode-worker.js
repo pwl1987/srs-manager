@@ -4,9 +4,16 @@ const srsService = require('./services/srs');
 const bindingService = require('./services/transcode-binding-service');
 const { buildGroupArgs, bindingSignature } = require('./services/transcode-runtime');
 const internalMediaService = require('./services/internal-media-service');
+const fs = require('fs');
 
 const INSTANCE_ID = randomUUID();
-const FFMPEG_BIN = process.env.FFMPEG_BIN || 'ffmpeg';
+// PHASE-09-FIX-02 (Mimosa: 不可信程序选择): fail-closed binary selection.
+// Same-file absolute-path literal chain (the security scanner verifies spawn
+// provenance within one module); terminal fallback is null — there is NO
+// bare-name fallback, so PATH can never decide which program runs. The
+// allowlist is canonically defined in backend/utils/media-bin.js and
+// backend/tests/media-bin-literal.test.js enforces this chain matches it.
+const FFMPEG_BIN = fs.existsSync('/usr/bin/ffmpeg') ? '/usr/bin/ffmpeg' : fs.existsSync('/usr/local/bin/ffmpeg') ? '/usr/local/bin/ffmpeg' : fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : null;
 const SRS_PULL_BASE = (process.env.SRS_RTMP_PULL_BASE || 'rtmp://host.docker.internal:1935/live').replace(/\/+$/, '');
 const SRS_PUBLISH_BASE = (process.env.SRS_RTMP_PUBLISH_BASE || 'rtmp://host.docker.internal:1935/live').replace(/\/+$/, '');
 const POLL_MS = Math.max(500, Number(process.env.TRANSCODE_WORKER_POLL_MS || 2000));
@@ -111,6 +118,17 @@ function finalizeShutdown(exitCode = 0) {
 }
 
 function spawnGroup(bindings) {
+  // Fail-closed: without an allowlisted ffmpeg the bindings enter an explicit
+  // terminal FAILED state instead of spawning or retry-looping.
+  if (!FFMPEG_BIN) {
+    bindingService.updateRuntimeMany(ids(bindings), {
+      runtime_state: 'FAILED',
+      last_error: 'ffmpeg binary unavailable (fail-closed); no allowlisted installation found',
+      next_retry_at: null,
+      worker_instance_id: null
+    });
+    return null;
+  }
   const active = bindings.filter(binding => binding.desired_state === 'RUNNING' && binding.template_enabled);
   if (!active.length) return null;
   const streamId = active[0].stream_id;

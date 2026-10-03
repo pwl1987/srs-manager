@@ -93,3 +93,15 @@ test('Phase 00 acceptance fixtures cover truthfulness and compatibility boundari
   assert.equal(contract.capability.unsupported_override.product_or_runtime, false);
   assert.equal(contract.capability.unsupported_override.destination_unknown, true);
 });
+
+test('PHASE-09 room_summary contract section stays additive and configured-only', () => {
+  const summary = contract.room_summary;
+  assert.ok(summary, 'contract.json must carry a top-level room_summary section');
+  assert.equal(summary.endpoint, 'GET /api/v3/rooms');
+  assert.equal(summary.relation_to_aggregate.includes('additive'), true);
+  assert.equal(contract.contract_version, 'workspace-v3-phase00.1');
+  assert.ok(summary.fields.inputs.kinds.includes('IN_PUSH'));
+  assert.ok(summary.fields.inputs.legacy_rule.includes('legacy IN_PUSH'));
+  assert.equal(summary.fields.outputs.push_total.includes('srs_dynamic'), true);
+  assert.equal(summary.fields.outputs.serve_configured.includes('regardless of endpoint_enabled'), true);
+});

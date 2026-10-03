@@ -16,6 +16,427 @@
     "offline": "空闲",
     "streaming": "推流中"
   },
+  "directions": {
+    "inPush": {
+      "label": "第三方推给我们",
+      "hint": "外部编码器或第三方通过推流凭据接入本系统"
+    },
+    "inPull": {
+      "label": "我们主动拉第三方",
+      "hint": "本系统从外部源地址主动拉流"
+    },
+    "outPush": {
+      "label": "我们推给第三方",
+      "hint": "本系统主动推送到第三方平台或 CDN"
+    },
+    "outPull": {
+      "label": "第三方拉我们的输出",
+      "hint": "对外提供拉流地址，由第三方自行拉取"
+    },
+    "record": {
+      "label": "本地输出",
+      "hint": "本地录制存档，不对外分发"
+    }
+  },
+  "roomState": {
+    "running": "正常运行",
+    "attention": "需关注",
+    "fault": "故障",
+    "idle": "未运行"
+  },
+  "liveOps": {
+    "eyebrow": "直播运维",
+    "title": "直播资源",
+    "subtitle": "按直播间、直播流、方向和运行状态查找，选中后在右栏确认状态并完成高频操作。",
+    "searchPlaceholder": "搜索直播间、直播流、方向或状态",
+    "refresh": "刷新",
+    "create": "新建直播间",
+    "createAndConfigure": "创建并继续配置",
+    "createSuccess": "直播间已创建",
+    "createFailed": "创建直播间失败",
+    "loadFailed": "无法读取直播运行态势",
+    "listLabel": "直播间列表",
+    "enterWorkspace": "进入工作台",
+    "externalWarn": "检测到 {{count}} 路尚未登记的实时推流。需要先登记，之后才能进入统一直播资源列表。",
+    "registerExternal": "登记外部流",
+    "audienceAndBitrate": "{{count}} 人观看 · {{bitrate}}",
+    "columns": {
+      "input": "输入来源",
+      "outputs": "输出",
+      "duration": "时长"
+    },
+    "input": {
+      "legacyOpen": "开放接入",
+      "pushCredentials": "推流凭据 {{count}}",
+      "pullTasks": "拉流任务 {{count}}",
+      "hint": "仅统计已配置"
+    },
+    "outputs": {
+      "requiredHint": "必需输出正常 {{healthy}}/{{total}}",
+      "noneHint": "尚未配置输出"
+    },
+    "stats": {
+      "recording": "正在录制",
+      "incidents": "待处理异常"
+    },
+    "filter": {
+      "directionTitle": "方向",
+      "directionAll": "全部方向",
+      "statusTitle": "状态",
+      "statusAll": "全部状态",
+      "resultCount": "找到 {{found}} / {{total}} 个直播资源",
+      "resources": "{{count}} 个直播资源"
+    },
+    "empty": {
+      "filtered": "没有找到匹配的直播资源",
+      "filteredDesc": "可以换一个名称、方向或状态，或者清除筛选条件。",
+      "none": "尚未创建直播间",
+      "noneDesc": "创建直播间后，从这里进入值守工作台。",
+      "clear": "清除筛选"
+    },
+    "form": {
+      "name": "直播间名称",
+      "namePlaceholder": "例如：晚间新闻、任意社会学",
+      "nameHelp": "名称用于之后查找直播间和直播流。",
+      "protocol": "默认接入协议",
+      "protocolHelp": "创建后可在值守工作台继续配置输入来源、节目源和输出方式。"
+    },
+    "sessionState": {
+      "PREP": "准备中",
+      "READY": "待开播",
+      "ON_AIR": "正在播出",
+      "CLOSING": "收播中",
+      "ENDED": "已结束"
+    },
+    "programState": {
+      "LIVE": "正在播出",
+      "NO_PROGRAM": "尚无节目",
+      "READY": "就绪",
+      "SWITCHING": "切换中",
+      "VERIFYING": "验证中",
+      "UNKNOWN": "待确认"
+    },
+    "roomPanel": {
+      "title": "值守面板",
+      "close": "关闭",
+      "loadFailed": "无法读取房间状态",
+      "sessionNone": "未创建",
+      "viewers": "{{count}} 人观看",
+      "facts": {
+        "program": "节目",
+        "session": "会话",
+        "requiredOutputs": "必需输出",
+        "duration": "时长"
+      },
+      "noSessionHint": "本场直播尚未创建。创建会话、选择开播方案等完整操作请进入工作台完成。",
+      "incidents": "{{count}} 个待处理异常",
+      "enterWorkspace": "进入完整工作台",
+      "actions": {
+        "preflight": "运行预检",
+        "start": "开始播出",
+        "close": "结束本场直播",
+        "continueClosing": "继续完成收播",
+        "ended": "本场已结束"
+      }
+    }
+  },
+  "sessionCommands": {
+    "preflightBlocked": "Preflight 存在阻断项",
+    "preflightWarning": "Preflight 通过，但存在警告",
+    "preflightPass": "Preflight 通过，Session 已 READY",
+    "preflightFailed": "Preflight 失败",
+    "started": "本场直播已开始播出",
+    "startSubmitted": "已提交开播操作",
+    "startFailed": "启动本场直播失败",
+    "closeSucceeded": "本场直播已结束",
+    "closeResidual": "收播存在未清理残留，Session 保持 CLOSING",
+    "closeInProgress": "收播仍在进行，请稍后继续检查",
+    "closeFailed": "结束本场直播失败"
+  },
+  "wizard": {
+    "title": "新建直播间向导",
+    "steps": {
+      "basics": "基本信息",
+      "direction": "输入方向",
+      "input": "输入源配置",
+      "outputs": "输出配置",
+      "run": "预检与运行"
+    },
+    "prev": "上一步",
+    "next": "下一步",
+    "submit": "创建并进入工作台",
+    "submitting": "创建中…",
+    "retryUnfinished": "重试未完成步骤",
+    "abandon": "放弃本次创建并新建",
+    "abandoned": {
+      "title": "已放弃上次创建",
+      "body": "「{{name}}」的创建已中途放弃。以下服务器资源在放弃前已经创建，不会被自动删除：",
+      "handleHint": "多步创建不是一次数据库事务，无法静默回滚；这些资源可在直播间列表或对应工作台中查看和处理。",
+      "resources": {
+        "stream": "直播间",
+        "credential": "推流凭据",
+        "source": "外部节目源",
+        "pull-task": "拉流任务",
+        "outputs": "输出",
+        "run-plan": "运行方案",
+        "session": "直播会话"
+      }
+    },
+    "success": "直播间已创建",
+    "failedAt": "创建在 {{step}} 步骤中断",
+    "failedTitle": "创建在「{{step}}」步骤中断",
+    "recoverHint": "已完成的部分已保留；点击「重试未完成步骤」会从中断处继续，不会重复创建已完成内容。",
+    "fields": {
+      "remark": "备注",
+      "remarkPlaceholder": "例如：晚间新闻演播室",
+      "businessUnit": "业务归属",
+      "businessUnitPlaceholder": "例如：新闻中心"
+    },
+    "push": {
+      "title": "创建完成后发放一次性推流凭据",
+      "body": "推流凭据（服务器地址 + 流密钥）只会在创建完成后展示一次。之后需要新凭据，请在工作台的输入来源里重新发放。"
+    },
+    "pull": {
+      "name": "源名称",
+      "namePlaceholder": "例如：合作方演播室",
+      "protocol": "拉流协议",
+      "url": "拉流地址",
+      "urlHelp": "地址仅用于本系统主动拉流，不会发送给浏览器。"
+    },
+    "outputs": {
+      "zeroNotice": "本场无分发/录制输出，将创建纯输入监看型直播间",
+      "targetUrl": "推送目标地址"
+    },
+    "run": {
+      "summaryTitle": "预检清单",
+      "outputsCount": "输出 {{count}} 个",
+      "createPlan": "创建开播方案并运行预检（无输出时为零输出方案）"
+    },
+    "scenesUnavailable": "输出场景定义不可用，无法生成输出配置",
+    "scenesLoadFailed": "输出场景定义加载失败。",
+    "scenesRetry": "重试",
+    "done": {
+      "title": "直播间「{{name}}」创建完成",
+      "stay": "返回列表",
+      "enter": "进入工作台"
+    },
+    "credential": {
+      "title": "一次性推流凭据",
+      "onceWarning": "以下凭据仅此一次展示，离开后将无法再次查看，请立即复制保存。",
+      "publishUrl": "推流地址",
+      "streamKey": "推流密钥",
+      "serverUrl": "服务器",
+      "token": "令牌",
+      "copied": "已复制",
+      "recoveredTitle": "凭据已发放，但令牌未能送达",
+      "recoveredBody": "服务器已为该直播间发放有效凭据；令牌仅在创建时一次性返回，无法重新展示。请进入工作台吊销后重新发放一枚新凭据。"
+    },
+    "preflight": {
+      "status": "预检状态：{{status}}",
+      "states": {
+        "READY": "就绪",
+        "READY_WITH_WARNING": "就绪（有告警）",
+        "BLOCKED": "被阻断"
+      },
+      "warnings": "{{warnings}} 项告警 / {{blockers}} 项阻断",
+      "blockers": "{{count}} 项阻断"
+    }
+  },
+  "inputRack": {
+    "groups": {
+      "PROGRAM": "当前节目",
+      "STANDBY": "备用来源",
+      "CANDIDATE": "候选来源",
+      "OFFLINE": "已离线"
+    },
+    "meta": {
+      "program": "当前节目源",
+      "online": "在线",
+      "switchable": "可切换",
+      "unknown": "待确认",
+      "offline": "离线"
+    },
+    "sourceKindFallback": "输入来源",
+    "protocolUnknown": "协议待确认",
+    "previewing": "预监中",
+    "preview": "预监",
+    "rackTitle": "输入来源",
+    "standbyVerified": "{{count}} 个已验证备用源",
+    "standbyNone": "没有已验证备用源",
+    "pendingSuffix": "· {{count}} 个待确认",
+    "manage": "来源",
+    "empty": "尚未配置来源"
+  },
+  "sessionBar": {
+    "state": {
+      "PREP": "准备中",
+      "READY": "待开播",
+      "ON_AIR": "正在播出",
+      "CLOSING": "收播中",
+      "ENDED": "已结束"
+    },
+    "next": {
+      "PREP": "运行预检",
+      "READY": "开始播出",
+      "ON_AIR": "保持监控",
+      "CLOSING": "完成收播",
+      "default": "查看状态"
+    },
+    "preflight": {
+      "pass": "通过",
+      "warning": "有警告",
+      "blocked": "被阻断",
+      "none": "未运行"
+    },
+    "plansLoadFailed": "读取开播方案失败",
+    "planRequired": "请选择开播方案",
+    "defaultPlanName": "标准开播方案",
+    "quickPlan": {
+      "nameRequired": "请填写方案名称",
+      "saved": "开播方案已保存",
+      "failed": "创建开播方案失败",
+      "nameLabel": "方案名称",
+      "sourceLabel": "节目源",
+      "sourcePlaceholder": "选择节目源",
+      "help": "方案会记录指定节目源和所选输出。保存后，可以用它创建本场直播；本场创建后仍可独立调整。",
+      "noSources": "还没有可用节目源，请先在“输入来源”里配置第三方推送或本系统主动拉取的来源。",
+      "noOutputs": "还没有可用输出，请先在右侧“输出”区域创建推送、对外提供或本地录制。",
+      "required": "必需",
+      "optional": "可选",
+      "save": "保存方案"
+    },
+    "noSession": {
+      "planLabel": "开播方案",
+      "planPlaceholder": "选择一个开播方案",
+      "titleLabel": "本场标题",
+      "titlePlaceholder": "例如：晚间新闻直播",
+      "newPlan": "新建开播方案",
+      "firstPlan": "先创建开播方案",
+      "createSession": "创建本场直播",
+      "sessionCreated": "本场直播已创建",
+      "sessionFailed": "创建本场直播失败",
+      "emptyTitle": "还没有开播方案",
+      "emptyBody": "开播方案会记录本场使用的节目源、输出渠道，以及哪些输出是必须成功的。先创建方案，才能创建本场直播。"
+    },
+    "session": {
+      "title": "本场直播",
+      "metaLine": "开播方案：{{plan}} · 节目源：{{source}} · 下一步：{{next}}",
+      "noSourceSelected": "未选择",
+      "requiredOutputs": "必需输出",
+      "preflight": "预检",
+      "blocked": "存在阻断项"
+    },
+    "actions": {
+      "runPreflight": "运行预检",
+      "start": "开始播出",
+      "onAir": "正在播出",
+      "end": "结束本场直播",
+      "continueClosing": "继续完成收播"
+    },
+    "close": {
+      "title": "结束本场直播",
+      "description": "将依次停止本场网络输出，等待录像整理完成，再停止主动拉流。外部推流不会自动断开；如果仍有残留，页面会保留“收播中”状态，直到确认完成。",
+      "confirm": "确认收播"
+    }
+  },
+  "outputRack": {
+    "scenes": {
+      "LIVE_PLATFORM_PUSH": "推到直播平台",
+      "CDN_PUSH": "推到 CDN",
+      "SRT_NODE": "SRT 专线节点",
+      "CDN_ORIGIN": "作为 CDN 回源",
+      "PARTNER_PULL": "合作方拉流",
+      "PLAYBACK_ACCESS": "播放访问",
+      "LOCAL_RECORD": "本地录制",
+      "PROFESSIONAL": "专业自定义"
+    },
+    "statuses": {
+      "FAILED": "启动失败",
+      "STALLED": "已停滞",
+      "RETRYING": "重试中",
+      "STARTING": "启动中",
+      "STOPPING": "停止中",
+      "WAITING_INPUT": "等待输入",
+      "FINALIZING": "整理文件",
+      "RUNNING": "运行中",
+      "AVAILABLE": "可播放",
+      "ACTIVE": "进行中",
+      "RECORDING": "录制中",
+      "COMPLETE": "已完成",
+      "STOPPED": "已停止",
+      "UNKNOWN": "待确认"
+    },
+    "failedIntentRetry": "启动失败 · 可重试",
+    "passthrough": "节目原始码流",
+    "renditionPrefix": "媒体规格 ",
+    "sharedSpec": "共享媒体规格",
+    "evidence": {
+      "local": "本地证据",
+      "remote": "远端证据",
+      "unknown": "待确认",
+      "noRemote": "尚未接入远端验证"
+    },
+    "actions": {
+      "retry": "重试",
+      "stop": "停止",
+      "start": "启动",
+      "processing": "处理中"
+    },
+    "noFile": "暂无文件",
+    "unadvertised": "未发布",
+    "rack": {
+      "title": "输出分发",
+      "all": "所有输出",
+      "summary": "{{running}} 路运行中 · {{incidents}} 路异常 · {{specs}} 个共享规格",
+      "new": "新建输出",
+      "empty": "还没有配置输出。使用“新建输出”从场景开始。"
+    },
+    "builder": {
+      "header": "输出配置",
+      "create": "创建输出",
+      "sceneMode": "场景模式",
+      "proMode": "专业模式",
+      "whatScene": "我要做什么",
+      "nameLabel": "输出名称",
+      "namePlaceholder": "例如：视频号 / 网宿 CDN / 合作方 A",
+      "direction": "输出方向",
+      "fileFormat": "文件格式",
+      "transport": "传输协议",
+      "protection": "访问保护",
+      "capabilityValid": "当前组合可执行",
+      "capabilityInvalid": "当前组合不可执行",
+      "mediaProcessing": "媒体处理",
+      "rendition": "共享媒体规格",
+      "specLabel": "媒体规格",
+      "specPlaceholder": "选择媒体规格",
+      "specHelp": "相同实际编码参数会自动复用同一条共享媒体规格，不重复编码。",
+      "targetUrl": "目标地址",
+      "format": "格式",
+      "mp4Safe": "MP4（安全分段后整理）",
+      "segment": "分段秒数",
+      "subdir": "存储子目录（可选）",
+      "subdirPlaceholder": "例如 news/2026-09",
+      "notice": "创建动作只保存配置，不会自动启动。点击“启动”后，页面会依次显示计划状态、运行状态和实际观测结果。"
+    },
+    "nameRequired": "请填写输出名称",
+    "pushTargetRequired": "PUSH 输出必须填写目标地址",
+    "saved": "输出已保存，默认不会自动启动",
+    "createFailed": "创建输出失败",
+    "audioFormat": "AAC 音频",
+    "saving": "保存中…",
+    "saveButton": "保存输出",
+    "evidenceToggle": "展开运行证据",
+    "incidentsTitle": "{{count}} 个输出需要处理",
+    "incidentsNote": "异常只提升对应通道，不影响其他健康输出。",
+    "toggle": {
+      "startSubmitted": "已提交启动操作",
+      "stopSubmitted": "已提交停止操作",
+      "completed": "输出状态已完成，界面已刷新",
+      "operationFailed": "输出操作失败",
+      "inProgress": "输出仍在处理中，请稍后查看状态",
+      "syncFailed": "输出状态同步失败"
+    }
+  },
   "actions": {
     "copyPushUrl": "复制推流地址",
     "copyPullUrl": "复制拉流地址",

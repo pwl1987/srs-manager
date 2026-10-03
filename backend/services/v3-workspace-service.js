@@ -329,6 +329,7 @@ async function getWorkspace(roomValue) {
     contract_version: CONTRACT_VERSION,
     room: {
       id: roomId(streamId), legacy_stream_id: streamId, name: legacy.stream.name,
+      remark: legacy.stream.remark ?? null, business_unit: legacy.stream.business_unit ?? null,
       routing: { app: 'live', stream_name: legacy.stream.name },
       created_at: legacy.stream.created_at || null, updated_at: legacy.stream.updated_at || null
     },
@@ -397,12 +398,19 @@ async function getWorkspace(roomValue) {
 }
 
 async function listRooms() {
-  const localStreams = db.prepare('SELECT id, name, status FROM streams ORDER BY created_at DESC').all();
+  const localStreams = db.prepare('SELECT id, name, status, remark, business_unit FROM streams ORDER BY created_at DESC').all();
   const pullRows = db.prepare('SELECT id, stream_id, desired_state, runtime_state FROM pull_tasks').all();
   const pushRows = db.prepare("SELECT id, stream_id, desired_state, runtime_state FROM forward_tasks WHERE execution_mode = 'managed_worker'").all();
   const transcodeRows = db.prepare(`SELECT b.id, b.stream_id, b.desired_state, b.runtime_state, b.output_suffix, s.name AS stream_name FROM stream_transcode_bindings b JOIN streams s ON s.id = b.stream_id`).all();
   const recordRows = db.prepare('SELECT id, stream_id, desired_state, runtime_state FROM record_tasks').all();
   const serveRows = db.prepare('SELECT stream_id, endpoint_enabled FROM out_pull_policies').all();
+  // PHASE-09 room_summary direction facts: configured-only, both push execution
+  // modes counted; active ingest credentials drive the IN_PUSH side.
+  const activeCredentialsByStream = new Map(db.prepare("SELECT stream_id, COUNT(*) AS total FROM ingest_credentials WHERE status = 'ACTIVE' GROUP BY stream_id").all().map(row => [Number(row.stream_id), Number(row.total)]));
+  const forwardConfiguredByStream = new Map(db.prepare('SELECT stream_id, COUNT(*) AS total FROM forward_tasks GROUP BY stream_id').all().map(row => [Number(row.stream_id), Number(row.total)]));
+  const countByStream = rows => rows.reduce((map, row) => map.set(Number(row.stream_id), (map.get(Number(row.stream_id)) || 0) + 1), new Map());
+  const pullConfiguredByStream = countByStream(pullRows);
+  const recordConfiguredByStream = countByStream(recordRows);
   const pushById = new Map(pushRows.map(row => [Number(row.id), row]));
   const recordById = new Map(recordRows.map(row => [Number(row.id), row]));
   const serveByStream = new Map(serveRows.map(row => [Number(row.stream_id), row]));
@@ -471,11 +479,26 @@ async function listRooms() {
     const incidentSummary = db.prepare(`SELECT COUNT(*) AS total,
       SUM(CASE WHEN severity = 'CRITICAL' THEN 1 ELSE 0 END) AS critical
       FROM incidents WHERE stream_id = ? AND status IN ('OPEN','ACKNOWLEDGED')`).get(Number(stream.id));
+    const activeCredentials = activeCredentialsByStream.get(Number(stream.id)) || 0;
+    const pullConfigured = pullConfiguredByStream.get(Number(stream.id)) || 0;
+    const inputKinds = [];
+    if (activeCredentials > 0) inputKinds.push('IN_PUSH');
+    if (pullConfigured > 0) inputKinds.push('IN_PULL');
+    if (inputKinds.length === 0) inputKinds.push('IN_PUSH'); // legacy open-ingest rooms
+    const pushTotal = forwardConfiguredByStream.get(Number(stream.id)) || 0;
+    const serveConfigured = Boolean(serveByStream.get(Number(stream.id)));
+    const recordTotal = recordConfiguredByStream.get(Number(stream.id)) || 0;
     return {
       contract_version: CONTRACT_VERSION,
       room: {
         id: roomId(stream.id), legacy_stream_id: stream.id, name: stream.name,
+        remark: stream.remark ?? null, business_unit: stream.business_unit ?? null,
         routing: { app: 'live', stream_name: stream.name }
+      },
+      inputs: {
+        kinds: inputKinds,
+        push_credentials: activeCredentials,
+        pull_tasks: pullConfigured
       },
       session: activeSession ? {
         id: `session:${activeSession.id}`, legacy_session_id: activeSession.id, title: activeSession.title,
@@ -492,7 +515,12 @@ async function listRooms() {
       outputs: {
         required_total: requiredOutputs.length,
         required_healthy: requiredOutputs.filter(item => outputHealthy(item.output_ref)).length,
-        record_state: recordRows.find(row => Number(row.stream_id) === Number(stream.id))?.runtime_state || null
+        record_state: recordRows.find(row => Number(row.stream_id) === Number(stream.id))?.runtime_state || null,
+        push_total: pushTotal,
+        serve_configured: serveConfigured,
+        serve_enabled: serveConfigured && serveByStream.get(Number(stream.id))?.endpoint_enabled === 1,
+        record_total: recordTotal,
+        configured_total: pushTotal + (serveConfigured ? 1 : 0) + recordTotal
       },
       health: roomHealth,
       active_incidents: Number(incidentSummary?.total || 0),

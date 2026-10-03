@@ -1,7 +1,14 @@
 const { spawn, spawnSync } = require('node:child_process');
+const fs = require('node:fs');
 const db = require('../database');
 
-const FFMPEG_BIN = process.env.FFMPEG_BIN || 'ffmpeg';
+// PHASE-09-FIX-02 (Mimosa: 不可信程序选择): fail-closed binary selection.
+// Same-file absolute-path literal chain (the security scanner verifies spawn
+// provenance within one module); terminal fallback is null — there is NO
+// bare-name fallback, so PATH can never decide which program runs. The
+// allowlist is canonically defined in backend/utils/media-bin.js and
+// backend/tests/media-bin-literal.test.js enforces this chain matches it.
+const FFMPEG_BIN = fs.existsSync('/usr/bin/ffmpeg') ? '/usr/bin/ffmpeg' : fs.existsSync('/usr/local/bin/ffmpeg') ? '/usr/local/bin/ffmpeg' : fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : null;
 const MAX_CONCURRENT = Math.max(1, Math.min(4, Number(process.env.SOURCE_PREVIEW_MAX_CONCURRENT || 2)));
 const MAX_DURATION_MS = Math.max(60000, Math.min(30 * 60 * 1000, Number(process.env.SOURCE_PREVIEW_MAX_DURATION_MS || 10 * 60 * 1000)));
 const active = new Set();
@@ -21,6 +28,9 @@ function resolvePullSource(streamId, sourceId) {
 }
 
 function ffmpegAvailable() {
+  // Fail-closed: no allowlisted installation means unavailable — the probe is
+  // never run against a PATH-resolved bare name.
+  if (!FFMPEG_BIN) return false;
   if (ffmpegCapability !== null) return ffmpegCapability;
   const result = spawnSync(FFMPEG_BIN, ['-version'], { stdio: 'ignore', timeout: 1500 });
   ffmpegCapability = !result.error && result.status === 0;
@@ -61,7 +71,7 @@ function start(streamId, sourceId) {
 }
 
 function capability() {
-  return { available: ffmpegAvailable(), transport: 'http-flv', max_concurrent: MAX_CONCURRENT, max_duration_seconds: Math.floor(MAX_DURATION_MS / 1000), codec_mode: 'copy-compatible' };
+  return { available: ffmpegAvailable(), binary: FFMPEG_BIN, transport: 'http-flv', max_concurrent: MAX_CONCURRENT, max_duration_seconds: Math.floor(MAX_DURATION_MS / 1000), codec_mode: 'copy-compatible' };
 }
 
 module.exports = { resolvePullSource, buildArgs, start, capability, ffmpegAvailable };

@@ -23,6 +23,20 @@ function isPublisher(client) {
   return String(client?.type || '').toLowerCase().includes('publish');
 }
 
+const STREAM_META_MAX_LENGTH = 200;
+
+// PHASE-09 partial-update semantics for optional identity fields: absent keeps
+// the stored value, null or empty (after trim) clears to NULL, anything else is
+// trimmed and validated against the shared length cap.
+function normalizeStreamMetaField(field, value) {
+  if (value === undefined) return { present: false, value: null };
+  if (value === null) return { present: true, value: null };
+  const text = String(value).trim();
+  if (text === '') return { present: true, value: null };
+  if (text.length > STREAM_META_MAX_LENGTH) throw new Error(`Stream field too long: ${field}`);
+  return { present: true, value: text };
+}
+
 function currentUptimeSeconds(streamName) {
   const row = db.prepare("SELECT processed_at FROM hook_events WHERE event_type = 'on_publish' AND stream_name = ?")
     .get(streamName);
@@ -92,18 +106,20 @@ async function getStream(id) {
   };
 }
 
-async function createStream(name, protocol, transcodeTemplateId) {
+async function createStream(name, protocol, transcodeTemplateId, meta = {}) {
   const validName = assertValidStreamName(name);
   const templateId = resolveTranscodeTemplateId(transcodeTemplateId);
+  const remark = normalizeStreamMetaField('remark', meta.remark);
+  const businessUnit = normalizeStreamMetaField('business_unit', meta.business_unit);
 
-  db.prepare('INSERT INTO streams (name, protocol, status, transcode_template_id) VALUES (?, ?, ?, ?)')
-    .run(validName, protocol || 'rtmp', 'offline', templateId);
+  db.prepare('INSERT INTO streams (name, protocol, status, transcode_template_id, remark, business_unit) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(validName, protocol || 'rtmp', 'offline', templateId, remark.value, businessUnit.value);
 
   const stream = db.prepare('SELECT * FROM streams WHERE name = ?').get(validName);
   return { ...stream, ...buildUrls(validName) };
 }
 
-async function updateStream(id, { name, protocol, transcode_template_id }) {
+async function updateStream(id, { name, protocol, transcode_template_id, remark, business_unit }) {
   const stream = db.prepare('SELECT * FROM streams WHERE id = ?').get(id);
   if (!stream) return null;
 
@@ -114,6 +130,10 @@ async function updateStream(id, { name, protocol, transcode_template_id }) {
   if (protocol) updates.protocol = protocol;
   if (transcode_template_id !== undefined) {
     updates.transcode_template_id = resolveTranscodeTemplateId(transcode_template_id);
+  }
+  for (const [field, raw] of [['remark', remark], ['business_unit', business_unit]]) {
+    const normalized = normalizeStreamMetaField(field, raw);
+    if (normalized.present) updates[field] = normalized.value;
   }
 
   if (Object.keys(updates).length > 0) {
